@@ -27,7 +27,7 @@ export default function GeneratePage() {
   const [user, setUser] = useState<User | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [stage, setStage] = useState<Stage>("setup");
   const [cards, setCards] = useState<PreviewCard[]>([]);
@@ -61,19 +61,24 @@ export default function GeneratePage() {
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const f = e.dataTransfer.files[0];
-    if (f && f.type === "application/pdf") setFile(f);
+    const dropped = Array.from(e.dataTransfer.files).filter(f => 
+       f.type === "application/pdf" || 
+       f.type === "text/plain" || 
+       f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+       f.name.endsWith(".txt") || f.name.endsWith(".docx") || f.name.endsWith(".pdf")
+    );
+    if (dropped.length > 0) setFiles(prev => [...prev, ...dropped]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (f) setFile(f);
+    const selected = Array.from(e.target.files || []);
+    if (selected.length > 0) setFiles(prev => [...prev, ...selected]);
   };
 
   // ── Generate (preview – does NOT save to DB) ──────────────────────────────
   const handleGenerate = async () => {
     if (!selectedDeckId) { setMessage("Hãy chọn một deck."); return; }
-    if (!file) { setMessage("Hãy chọn file PDF."); return; }
+    if (files.length === 0) { setMessage("Hãy chọn ít nhất 1 file hợp lệ (PDF, DOCX, TXT)."); return; }
 
     setStage("loading");
     setMessage(null);
@@ -85,7 +90,7 @@ export default function GeneratePage() {
     }, 600);
 
     try {
-      const generated = await previewCards(selectedDeckId, file, targetCount);
+      const generated = await previewCards(selectedDeckId, files, targetCount);
       clearInterval(ticker);
       setProgress(100);
       setCards(generated);
@@ -216,20 +221,29 @@ export default function GeneratePage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="application/pdf"
+                  multiple
+                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                   onChange={handleFileChange}
+                  style={{ display: "none" }}
                 />
-                {file ? (
+                {files.length > 0 ? (
                   <>
                     <div style={{ fontSize: "2rem" }}>📄</div>
-                    <p style={{ fontWeight: 700, marginBottom: 4 }}>{file.name}</p>
-                    <p className="helper-text">{(file.size / 1024 / 1024).toFixed(1)} MB — Nhấn để chọn file khác</p>
+                    <p style={{ fontWeight: 700, marginBottom: 4 }}>Đã tải lên {files.length} file</p>
+                    <div style={{ maxHeight: "80px", overflowY: "auto", width: "100%", textAlign: "left", padding: "0 10px" }}>
+                      {files.map(f => (
+                        <div key={f.name} className="helper-text" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          - {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
+                        </div>
+                      ))}
+                    </div>
+                    <p className="helper-text" style={{ marginTop: 8 }}>Nhấn để chọn thêm file khác</p>
                   </>
                 ) : (
                   <>
                     <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>📂</div>
-                    <p style={{ fontWeight: 700, marginBottom: 4 }}>Kéo thả hoặc nhấn để chọn PDF</p>
-                    <p className="helper-text">Hỗ trợ file PDF — AI sẽ đọc toàn bộ nội dung</p>
+                    <p style={{ fontWeight: 700, marginBottom: 4 }}>Kéo thả hoặc nhấn để chọn file</p>
+                    <p className="helper-text">Hỗ trợ PDF, DOCX, TXT. Có thể upload nhiều file.</p>
                   </>
                 )}
               </div>
@@ -242,7 +256,7 @@ export default function GeneratePage() {
                 <button
                   className="btn btn-primary"
                   onClick={handleGenerate}
-                  disabled={!file || !selectedDeckId}
+                  disabled={files.length === 0 || !selectedDeckId}
                   style={{ flex: 1 }}
                 >
                   ⚡ Sinh {targetCount} flashcards
@@ -449,7 +463,7 @@ export default function GeneratePage() {
               <button
                 className="btn btn-secondary"
                 style={{ width: "auto" }}
-                onClick={() => { setStage("setup"); setFile(null); setCards([]); setMessage(null); }}
+                onClick={() => { setStage("setup"); setFiles([]); setCards([]); setMessage(null); }}
               >
                 Upload tài liệu khác
               </button>

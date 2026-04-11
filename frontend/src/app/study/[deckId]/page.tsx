@@ -13,6 +13,7 @@ import {
   logStudySession,
   queueProgressUpdate,
   updateCardProgress,
+  explainCard,
   User,
 } from "../../../lib/app-client";
 
@@ -42,7 +43,14 @@ export default function StudyPage() {
   const [ratingQuality, setRatingQuality] = useState<number | null>(null); // for quick flash
   const [sessionRatings, setSessionRatings] = useState<number[]>([]);
 
+  // Explain mode states
+  const [isExplainMode, setIsExplainMode] = useState(false);
+  const [chatHistory, setChatHistory] = useState<{role: string, text: string}[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isChatting, setIsChatting] = useState(false);
+
   const pointerStart = useRef<{ x: number; t: number } | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // ── Auth & load cards ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -144,6 +152,54 @@ export default function StudyPage() {
     }
   };
 
+  // ── Explain mode handler ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (chatBottomRef.current) chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [chatHistory]);
+
+  const handleExplain = async () => {
+    if (!chatInput.trim() || !card) return;
+    const currentInput = chatInput;
+    setChatInput("");
+    setChatHistory(prev => [...prev, { role: "user", text: currentInput }]);
+    setIsChatting(true);
+    
+    try {
+      const resp = await explainCard(card.front, card.back, currentInput, chatHistory);
+      setChatHistory(prev => [...prev, { role: "assistant", text: resp }]);
+    } catch {
+      setChatHistory(prev => [...prev, { role: "assistant", text: "Xin lỗi, có lỗi khi gọi AI. Vui lòng thử lại!" }]);
+    }
+    setIsChatting(false);
+  };
+
+  // ── Keyboard Shortcuts ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input/textarea
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          setIsFlipped((f) => !f);
+          break;
+        case 'ArrowLeft':
+          if (idx > 0) { setIdx((i) => i - 1); setIsFlipped(false); setMsg(null); }
+          break;
+        case 'ArrowRight':
+          if (idx < cards.length - 1) { setIdx((i) => i + 1); setIsFlipped(false); setMsg(null); }
+          break;
+        case '1': if (isFlipped) void handleRate(0); break;
+        case '2': if (isFlipped) void handleRate(1); break;
+        case '3': if (isFlipped) void handleRate(2); break;
+        case '4': if (isFlipped) void handleRate(3); break;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [idx, cards.length, isFlipped]);
+
   const progress = useMemo(
     () => (cards.length === 0 ? 0 : ((idx + 1) / cards.length) * 100),
     [cards.length, idx]
@@ -193,18 +249,64 @@ export default function StudyPage() {
         <div>
           <div className="eyebrow">SM-2 Spaced Repetition</div>
           <h1 className="study-title">Deck #{deckId}</h1>
-          <p className="study-copy">Swipe phải = Easy &nbsp;·&nbsp; Swipe trái = Again</p>
+          <p className="study-copy">Học & Tương tác thông minh</p>
         </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <button 
+            className={`btn ${isExplainMode ? "btn-primary" : "btn-ghost"}`} 
+            style={{ width: "auto" }} 
+            onClick={() => setIsExplainMode(!isExplainMode)}
+          >
+            🤖 {isExplainMode ? "Đóng Explain" : "Explain"}
+          </button>
           <button className="btn btn-secondary" style={{ width: "auto" }} onClick={() => router.push("/workspace")}>
             ← Workspace
           </button>
         </div>
       </header>
 
-      {/* ── Study card ── */}
-      {card && (
-        <section className="study-card">
+      <div className={`study-layout ${isExplainMode ? "explain-active" : ""}`}>
+        {/* ── Explain Sidebar ── */}
+        {isExplainMode && (
+          <aside className="explain-sidebar snippet-panel">
+            <div className="explain-header">
+              <h3>🤖 AI Tutor</h3>
+              <p className="helper-text">Hỏi thêm về flashcard này</p>
+            </div>
+            <div className="chat-messages">
+              {chatHistory.length === 0 ? (
+                <div className="empty-chat helper-text">Bắt đầu trò chuyện để hiểu sâu hơn về kiến thức trong thẻ này.</div>
+              ) : (
+                chatHistory.map((msg, i) => (
+                  <div key={i} className={`chat-bubble ${msg.role}`}>
+                    {msg.text}
+                  </div>
+                ))
+              )}
+              {isChatting && <div className="chat-bubble assistant typing">AI đang viết...</div>}
+              <div ref={chatBottomRef} />
+            </div>
+            <div className="chat-input-area">
+              <input 
+                className="input-field" 
+                placeholder="Nhập câu hỏi của bạn..." 
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleExplain();
+                  e.stopPropagation();
+                }}
+              />
+              <button className="btn btn-primary btn-icon" onClick={handleExplain} disabled={!chatInput.trim() || isChatting}>
+                ➤
+              </button>
+            </div>
+          </aside>
+        )}
+
+        {/* ── Study card ── */}
+        {card && (
+          <section className="study-card">
           {/* Progress */}
           <div className="study-top">
             <div style={{ flex: 1 }}>
@@ -262,12 +364,24 @@ export default function StudyPage() {
                     <div className="card-kicker" style={{ color: "var(--secondary)" }}>Đáp án</div>
                     <div className="card-body">{card.back}</div>
                     <div className="card-footnote">
-                      Swipe phải (Easy) · Swipe trái (Again) · hoặc dùng nút bên dưới
+                      Đánh giá độ khó bên dưới để chia lịch ôn tập
                     </div>
                   </article>
                 </div>
               </div>
             </div>
+
+            {/* ── First Card Instructions ── */}
+            {idx === 0 && !isFlipped && (
+              <div className="instruction-box">
+                <p><strong>💡 Phím tắt (Keyboard Shortcuts)</strong></p>
+                <ul className="helper-text" style={{ paddingLeft: 20, marginBottom: 0 }}>
+                  <li><code>Space</code> : Lật thẻ</li>
+                  <li><code>←</code> / <code>→</code> : Chuyển qua lại giữa các thẻ</li>
+                  <li><code>1</code> <code>2</code> <code>3</code> <code>4</code> : Chấm điểm sau khi lật thẻ</li>
+                </ul>
+              </div>
+            )}
 
             {/* ── Before flip: hint ── */}
             {!isFlipped ? (
@@ -309,6 +423,7 @@ export default function StudyPage() {
           </div>
         </section>
       )}
+      </div>
     </main>
   );
 }

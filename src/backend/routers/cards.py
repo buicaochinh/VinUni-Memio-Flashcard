@@ -5,7 +5,7 @@ from pathlib import Path
 
 from aiofiles import open as aio_open
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
@@ -54,6 +54,13 @@ class StudySessionLog(BaseModel):
     avg_quality: float
 
 
+class ExplainRequest(BaseModel):
+    front: str
+    back: str
+    message: str
+    history: list[dict] = []
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -84,9 +91,18 @@ def _parse_llm_json(content: str) -> list[dict]:
         return []
 
 
-async def _load_pdf_context(temp_path: Path, max_chars: int = 6000) -> tuple[list, str]:
-    """Load PDF pages and return (pages, combined_context)."""
-    loader = PyPDFLoader(str(temp_path))
+async def _load_document_context(temp_path: Path, max_chars: int = 6000) -> tuple[list, str]:
+    """Load Document pages and return (pages, combined_context)."""
+    suffix = temp_path.suffix.lower()
+    if suffix == '.pdf':
+        loader = PyPDFLoader(str(temp_path))
+    elif suffix == '.docx':
+        loader = Docx2txtLoader(str(temp_path))
+    elif suffix in ['.txt', '.md']:
+        loader = TextLoader(str(temp_path), encoding='utf-8')
+    else:
+        return [], ""
+
     pages = loader.load_and_split()
     context = "\n\n".join(p.page_content for p in pages)[:max_chars]
     return pages, context
@@ -150,29 +166,37 @@ def log_session(payload: StudySessionLog):
 @router.post("/{deck_id}/preview")
 async def preview_cards(
     deck_id: int,
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     count: int = Form(default=100),
 ):
     data_dir = Path(__file__).resolve().parents[3] / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    temp_path = data_dir / f"preview_{deck_id}_{file.filename}"
+    
+    all_pages = []
 
-    async with aio_open(temp_path, "wb") as out:
-        await out.write(await file.read())
+    for file in files:
+        temp_path = data_dir / f"preview_{deck_id}_{file.filename}"
+        async with aio_open(temp_path, "wb") as out:
+            await out.write(await file.read())
+
+        try:
+            pages, _ = await _load_document_context(temp_path)
+            all_pages.extend(pages)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    if not all_pages:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Không trích xuất được text từ các file đã tải lên. "
+                "Có thể file chứa ảnh scan hoặc định dạng không đúng."
+            ),
+        )
 
     try:
-        pages, _ = await _load_pdf_context(temp_path)
-
-        if not pages:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "PDF không trích xuất được text. "
-                    "File có thể là ảnh scan — hãy dùng PDF có text thật."
-                ),
-            )
-
-        cards = await _generate_cards_chunked(pages, count)
+        cards = await _generate_cards_chunked(all_pages, count)
 
         if not cards:
             raise HTTPException(
@@ -189,9 +213,6 @@ async def preview_cards(
         raise  # re-raise without wrapping
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
 
 
 # Bulk create: save reviewed/edited cards from preview to DB
@@ -205,21 +226,31 @@ def bulk_create_cards(deck_id: int, payload: BulkCreatePayload):
 @router.post("/{deck_id}/generate")
 async def generate_cards(
     deck_id: int,
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     count: int = Form(default=100),
 ):
     data_dir = Path(__file__).resolve().parents[3] / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    temp_path = data_dir / f"temp_{file.filename}"
+    
+    all_pages = []
 
-    async with aio_open(temp_path, "wb") as out:
-        await out.write(await file.read())
+    for file in files:
+        temp_path = data_dir / f"temp_{deck_id}_{file.filename}"
+        async with aio_open(temp_path, "wb") as out:
+            await out.write(await file.read())
+
+        try:
+            pages, _ = await _load_document_context(temp_path)
+            all_pages.extend(pages)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    if not all_pages:
+        raise HTTPException(status_code=422, detail="Không trích xuất được text từ các file đã tải lên.")
 
     try:
-        pages, _ = await _load_pdf_context(temp_path)
-        if not pages:
-            raise HTTPException(status_code=422, detail="PDF không trích xuất được text.")
-        cards_data = await _generate_cards_chunked(pages, count)
+        cards_data = await _generate_cards_chunked(all_pages, count)
         if not cards_data:
             raise HTTPException(status_code=422, detail="AI không tạo được flashcards.")
         db.bulk_add_flashcards(deck_id, cards_data)
@@ -228,9 +259,6 @@ async def generate_cards(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
 
 
 # Update a single card  (PUT /api/cards/{card_id})
@@ -264,3 +292,29 @@ def get_deck_analytics(deck_id: int, user_id: int):
         "total_reviewed": total,
         "total_cards": len(cards),
     }
+
+
+EXPLAIN_PROMPT = PromptTemplate.from_template(
+    """Bạn là một gia sư AI thân thiện, giúp học sinh hiểu rõ hơn về flashcard này.
+Flashcard:
+- Câu hỏi: {front}
+- Đáp án: {back}
+
+Lịch sử trò chuyện:
+{history}
+
+Câu hỏi của học sinh: {message}"""
+)
+
+@router.post("/explain")
+def get_explain(payload: ExplainRequest):
+    llm = get_llm()
+    history_text = "\n".join([f"{msg.get('role', 'user')}: {msg.get('text', '')}" for msg in payload.history])
+    chain = EXPLAIN_PROMPT | llm
+    response = chain.invoke({
+        "front": payload.front, 
+        "back": payload.back, 
+        "history": history_text,
+        "message": payload.message
+    })
+    return {"response": response.content}

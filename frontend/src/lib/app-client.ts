@@ -169,9 +169,9 @@ export async function fetchDeckCards(deckId: number, userId: number): Promise<Ca
 }
 
 /** Preview generation: returns cards WITHOUT saving to DB */
-export async function previewCards(deckId: number, file: File, count = 100): Promise<PreviewCard[]> {
+export async function previewCards(deckId: number, files: File[], count = 100): Promise<PreviewCard[]> {
   const form = new FormData();
-  form.append("file", file);
+  files.forEach(f => form.append("files", f));
   form.append("count", String(count));
   const res = await fetch(apiUrl(`/api/cards/${deckId}/preview`), {
     method: "POST",
@@ -250,6 +250,17 @@ export async function logStudySession(
   }).catch(() => {
     /* non-critical, ignore errors */
   });
+}
+
+export async function explainCard(front: string, back: string, message: string, history: any[] = []) {
+  const res = await fetch(apiUrl("/api/cards/explain"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ front, back, message, history }),
+  });
+  if (!res.ok) throw new Error("EXPLAIN_FAILED");
+  const data = await res.json();
+  return data.response as string;
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
