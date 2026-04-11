@@ -13,7 +13,10 @@ app = FastAPI(title="AI Flashcard API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "https://friction-protozoan-sanctuary.ngrok-free.dev",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
