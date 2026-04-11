@@ -84,7 +84,7 @@ docker-compose up --build -d
 ├── docker-compose.yml  # Cấu hình chạy container
 ├── .env                # Biến môi trường (API Keys)
 ├── requirements.txt    # Danh sách thư viện Python
-└── temp_study.pdf      # File PDF lưu tạm thời để xử lý
+└── data/temp_study.pdf      # File PDF lưu tạm thời để xử lý
 ```
 
 ---

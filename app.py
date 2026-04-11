@@ -7,6 +7,7 @@ import os
 import datetime
 from dotenv import load_dotenv
 import database as db
+import re
 
 # --- TẢI BIẾN MÔI TRƯỜNG ---
 load_dotenv()
@@ -108,11 +109,11 @@ if "show_answer" not in st.session_state:
 def get_updated_sm2_values(card, quality):
     q_map = {0: 0, 1: 2, 2: 4, 3: 5}
     q = q_map[quality]
-    
+
     ef = card.get('ease_factor', 2.5) or 2.5
     n = card.get('repetition', 0) or 0
     interval = card.get('interval', 0) or 0
-    
+
     if q >= 3:
         if n == 0:
             interval = 1
@@ -124,18 +125,18 @@ def get_updated_sm2_values(card, quality):
     else:
         n = 0
         interval = 1
-        
+
     ef = ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
     if ef < 1.3:
         ef = 1.3
-        
+
     return interval, n, ef
 
 # --- GIAO DIỆN ĐĂNG NHẬP ---
 if st.session_state.user is None:
     st.title("🔐 Đăng nhập AI Flashcard")
     st.write("Chào mừng bạn! Vui lòng sử dụng tài khoản Google để tiếp tục học tập.")
-    
+
     col_login, _ = st.columns([1, 2])
     with col_login:
         if st.button("🔵 Sign in with Google", use_container_width=True):
@@ -143,7 +144,7 @@ if st.session_state.user is None:
             mock_user = db.get_or_create_user("mock_123", "Người dùng VinUni", "user@vinuni.edu.vn")
             st.session_state.user = dict(mock_user)
             st.rerun()
-    
+
     st.image("https://img.freepik.com/free-vector/user-verification-unauthorized-access-prevention-private-account-authentication-cyber-security-identity-confirmation-concept_335657-2358.jpg", width=500)
     st.stop()
 
@@ -155,14 +156,14 @@ st.sidebar.write(f"👋 Chào, **{user['name']}**")
 with st.sidebar:
     st.markdown("---")
     st.header("📚 Bộ thẻ của bạn")
-    
+
     decks = db.get_user_decks(user['id'])
     deck_names = [d['name'] for d in decks]
-    
+
     if decks:
         selected_deck_name = st.selectbox("Chọn bộ thẻ để học:", deck_names)
         selected_deck = next(d for d in decks if d['name'] == selected_deck_name)
-        
+
         if st.session_state.current_deck_id != selected_deck['id']:
             st.session_state.current_deck_id = selected_deck['id']
             st.session_state.flashcards = db.get_deck_cards(selected_deck['id'], user['id'])
@@ -191,29 +192,40 @@ if st.session_state.current_deck_id:
         st.markdown("---")
         st.header("📄 Thêm nội dung")
         uploaded_file = st.file_uploader("Upload PDF để tạo thẻ tự động", type="pdf")
-        
+
         if uploaded_file and st.button("✨ Phân tích & Tạo thẻ", use_container_width=True):
             with st.spinner("AI đang xử lý..."):
                 try:
-                    with open("temp_study.pdf", "wb") as f:
+                    with open("data/temp_study.pdf", "wb") as f:
                         f.write(uploaded_file.getbuffer())
-                    
-                    loader = PyPDFLoader("temp_study.pdf")
+
+                    loader = PyPDFLoader("data/temp_study.pdf")
                     pages = loader.load_and_split()
                     context = "\n".join([p.page_content for p in pages[:3]])
 
                     llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
-                    template = """Hãy tạo 5 flashcards từ nội dung sau (JSON format: [{"front": "...", "back": "..."}]). Ngôn ngữ: Tiếng Việt. Nội dung: {context}"""
+                    template = """Hãy tạo 5 flashcards từ nội dung sau.
+CHỈ TRẢ VỀ DUY NHẤT 1 MẢNG JSON BẮT ĐẦU BẰNG [ NGAY DÒNG ĐẦU TIÊN VÀ KHÔNG KÈM TEXT.
+(JSON format: [{{"front": "...", "back": "..."}}]).
+Ngôn ngữ: Tiếng Việt. Nội dung: {context}"""
                     prompt = PromptTemplate.from_template(template)
                     chain = prompt | llm
-                    
+
                     response = chain.invoke({"context": context})
-                    clean_content = response.content.replace("```json", "").replace("```", "").strip()
+
+                    # Extract JSON array using fallback Regex if LLM outputs extra text
+                    content = response.content
+                    match = re.search(r'\[.*\]', content, re.DOTALL)
+                    if match:
+                        clean_content = match.group(0)
+                    else:
+                        clean_content = content.replace("```json", "").replace("```", "").strip()
+
                     cards_data = json.loads(clean_content)
-                    
+
                     for c in cards_data:
                         db.add_flashcard(st.session_state.current_deck_id, c['front'], c['back'])
-                    
+
                     st.success("Đã thêm thẻ mới!")
                     st.session_state.flashcards = db.get_deck_cards(st.session_state.current_deck_id, user['id'])
                     st.rerun()
@@ -232,7 +244,7 @@ if st.session_state.flashcards:
     progress = (idx + 1) / len(cards)
     st.progress(progress)
     st.write(f"Bộ thẻ: **{selected_deck_name}** | Thẻ: **{idx + 1}/{len(cards)}**")
-    
+
     # Front Card
     st.markdown(f"""
     <div class="main-card">
@@ -251,20 +263,20 @@ if st.session_state.flashcards:
             <p style="margin:0; color:#a7f3d0; font-size:1.1em;"><b>Đáp án:</b> {card['back']}</p>
         </div>
         """, unsafe_allow_html=True)
-        
+
         st.markdown("<br>", unsafe_allow_html=True)
         st.write("Đánh giá độ khó:")
-        
+
         cols = st.columns(4)
         ratings = [("🔁 Lại", 0), ("😫 Khó", 1), ("🙂 Tốt", 2), ("🤩 Dễ", 3)]
-        
+
         for i, (label, val) in enumerate(ratings):
             with cols[i]:
                 if st.button(label, key=f"rate_{val}"):
                     # Update SM-2 logic & DB
                     interval, n, ef = get_updated_sm2_values(card, val)
                     db.update_card_progress(user['id'], card['id'], interval, n, ef)
-                    
+
                     # Next card
                     if st.session_state.current_index < len(cards) - 1:
                         st.session_state.current_index += 1

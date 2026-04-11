@@ -1,7 +1,7 @@
 import sqlite3
 import datetime
 
-DB_NAME = "flashcards.db"
+DB_NAME = "data/flashcards.db"
 
 def get_connection():
     conn = sqlite3.connect(DB_NAME)
@@ -11,7 +11,7 @@ def get_connection():
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     # Users table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
@@ -21,7 +21,7 @@ def init_db():
         email TEXT
     )
     """)
-    
+
     # Decks table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS decks (
@@ -32,7 +32,7 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users (id)
     )
     """)
-    
+
     # Flashcards table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS flashcards (
@@ -44,7 +44,7 @@ def init_db():
         FOREIGN KEY (deck_id) REFERENCES decks (id)
     )
     """)
-    
+
     # Progress table (SM-2)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS progress (
@@ -61,7 +61,7 @@ def init_db():
         UNIQUE(user_id, card_id)
     )
     """)
-    
+
     conn.commit()
     conn.close()
 
@@ -126,7 +126,7 @@ def update_card_progress(user_id, card_id, interval, repetition, ease_factor):
     cursor = conn.cursor()
     last_reviewed = datetime.datetime.now().strftime("%Y-%m-%d")
     next_review = (datetime.datetime.now() + datetime.timedelta(days=interval)).strftime("%Y-%m-%d")
-    
+
     cursor.execute("""
     INSERT INTO progress (user_id, card_id, interval, repetition, ease_factor, last_reviewed, next_review)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -137,6 +137,6 @@ def update_card_progress(user_id, card_id, interval, repetition, ease_factor):
         last_reviewed = excluded.last_reviewed,
         next_review = excluded.next_review
     """, (user_id, card_id, interval, repetition, ease_factor, last_reviewed, next_review))
-    
+
     conn.commit()
     conn.close()
