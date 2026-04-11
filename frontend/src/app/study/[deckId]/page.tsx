@@ -1,109 +1,313 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  cacheCards,
+  Card,
+  fetchDeckCards,
+  flushProgressQueue,
+  getCachedCards,
+  getStoredUser,
+  isOnline,
+  logStudySession,
+  queueProgressUpdate,
+  updateCardProgress,
+  User,
+} from "../../../lib/app-client";
+
+const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; cls: string }> = {
+  0: { label: "Again", hint: "Ôn lại sớm",       cls: "rating-again" },
+  1: { label: "Hard",  hint: "Giãn cách ngắn",    cls: "rating-hard"  },
+  2: { label: "Good",  hint: "Đúng nhịp",         cls: "rating-good"  },
+  3: { label: "Easy",  hint: "Nắm chắc rồi",      cls: "rating-easy"  },
+};
+
+const SWIPE_THRESHOLD = 80;  // px
+const SWIPE_VELOCITY  = 0.3; // px/ms
 
 export default function StudyPage() {
-  const params = useParams();
-  const router = useRouter();
-  const [cards, setCards] = useState<any[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const params     = useParams<{ deckId: string }>();
+  const deckId     = Number(params.deckId);
+  const router     = useRouter();
 
+  const [user,         setUser]         = useState<User | null>(null);
+  const [cards,        setCards]        = useState<Card[]>([]);
+  const [idx,          setIdx]          = useState(0);
+  const [isFlipped,    setIsFlipped]    = useState(false);
+  const [dragX,        setDragX]        = useState(0);
+  const [isDragging,   setIsDragging]   = useState(false);
+  const [offline,      setOffline]      = useState(false);
+  const [msg,          setMsg]          = useState<string | null>(null);
+  const [ratingQuality, setRatingQuality] = useState<number | null>(null); // for quick flash
+  const [sessionRatings, setSessionRatings] = useState<number[]>([]);
+
+  const pointerStart = useRef<{ x: number; t: number } | null>(null);
+
+  // ── Auth & load cards ──────────────────────────────────────────────────────
   useEffect(() => {
-    const storedUser = localStorage.getItem('flashcard_user');
-    if (storedUser) {
-      const u = JSON.parse(storedUser);
-      setUser(u);
-      fetchCards(u.id);
-    } else {
-      router.push("/");
-    }
-  }, []);
+    const storedUser = getStoredUser();
+    if (!storedUser) { router.replace("/"); return; }
+    setUser(storedUser);
+    void loadCards(storedUser.id);
 
-  const fetchCards = async (userId: number) => {
-    const res = await fetch(`http://localhost:8000/api/cards/${params.deckId}?user_id=${userId}`);
-    if (res.ok) {
-      const data = await res.json();
-      setCards(data.cards);
+    const handleOnline  = () => { setOffline(false); void flushProgressQueue(); };
+    const handleOffline = () => setOffline(true);
+    window.addEventListener("online",  handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setOffline(!navigator.onLine);
+    return () => {
+      window.removeEventListener("online",  handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [router]);
+
+  const loadCards = async (userId: number) => {
+    try {
+      let loaded: Card[];
+      if (isOnline()) {
+        loaded = await fetchDeckCards(deckId, userId);
+        cacheCards(deckId, loaded);
+      } else {
+        loaded = getCachedCards(deckId) ?? [];
+        if (loaded.length === 0) setMsg("Offline — không có cache cho deck này.");
+      }
+      setCards(loaded);
+    } catch {
+      const cached = getCachedCards(deckId);
+      if (cached) { setCards(cached); setMsg("Offline — đang dùng dữ liệu cache."); }
+      else         setMsg("Không tải được flashcards.");
     }
   };
 
-  const handleRate = async (quality: number) => {
+  // ── Progress & session ─────────────────────────────────────────────────────
+  const handleRate = async (quality: 0 | 1 | 2 | 3) => {
     if (!user || cards.length === 0) return;
-    const currentCard = cards[currentIndex];
+    const card = cards[idx];
 
-    await fetch('http://localhost:8000/api/cards/progress', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: user.id,
-        card_id: currentCard.id,
-        quality: quality,
-        ease_factor: currentCard.ease_factor || 2.5,
-        repetition: currentCard.repetition || 0,
-        interval: currentCard.interval || 0
-      })
-    });
+    setRatingQuality(quality);
+    setTimeout(() => setRatingQuality(null), 400);
 
-    if (currentIndex < cards.length - 1) {
-      setIsFlipped(false);
-      setTimeout(() => setCurrentIndex(currentIndex + 1), 300); // Wait for unflip animation
+    const newRatings = [...sessionRatings, quality];
+    setSessionRatings(newRatings);
+
+    if (isOnline()) {
+      await updateCardProgress(user.id, card, quality).catch(() => {
+        queueProgressUpdate({ userId: user.id, card, quality, deckId });
+      });
     } else {
-      alert("You have finished this deck for now!");
-      router.push("/");
+      queueProgressUpdate({ userId: user.id, card, quality, deckId });
+    }
+
+    if (idx < cards.length - 1) {
+      setIsFlipped(false);
+      setDragX(0);
+      setMsg(null);
+      setTimeout(() => setIdx((i) => i + 1), 220);
+    } else {
+      // Session complete — log it
+      const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
+      if (isOnline()) {
+        void logStudySession(user.id, deckId, newRatings.length, avg);
+      }
+      setMsg("🎉 Hoàn thành phiên học!");
+      setTimeout(() => router.push("/workspace"), 1400);
     }
   };
 
-  if (!user) return <div style={{ padding: '60px', textAlign: 'center' }}>Loading...</div>;
-  if (cards.length === 0) return (
-    <div style={{ padding: '60px', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>No cards found!</h1>
-      <p>Go back to the dashboard and generate some flashcards from a PDF.</p>
-      <button className="btn" style={{ marginTop: '20px' }} onClick={() => router.push("/")}>Back to Dashboard</button>
-    </div>
+  // ── Swipe (pointer events) ─────────────────────────────────────────────────
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!isFlipped) return;
+    pointerStart.current = { x: e.clientX, t: Date.now() };
+    setIsDragging(true);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!isDragging || !pointerStart.current) return;
+    setDragX(e.clientX - pointerStart.current.x);
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (!isDragging || !pointerStart.current) return;
+    const dx  = e.clientX - pointerStart.current.x;
+    const dt  = Date.now() - pointerStart.current.t;
+    const vel = Math.abs(dx) / Math.max(dt, 1);
+
+    setIsDragging(false);
+    pointerStart.current = null;
+
+    if (Math.abs(dx) > SWIPE_THRESHOLD || vel > SWIPE_VELOCITY) {
+      void handleRate(dx > 0 ? 3 : 0);  // right = Easy, left = Again
+    } else {
+      setDragX(0);
+    }
+  };
+
+  const progress = useMemo(
+    () => (cards.length === 0 ? 0 : ((idx + 1) / cards.length) * 100),
+    [cards.length, idx]
   );
 
-  const currentCard = cards[currentIndex];
-  const progress = ((currentIndex) / cards.length) * 100;
+  const card = cards[idx];
+
+  if (!user) return null;
+
+  // ── Empty deck ─────────────────────────────────────────────────────────────
+  if (cards.length === 0 && !msg) {
+    return (
+      <main className="study-shell">
+        <section className="panel empty-state">
+          <span className="empty-icon">🃏</span>
+          <h2 style={{ letterSpacing: "-0.04em" }}>Deck này chưa có flashcards</h2>
+          <p className="muted">Hãy sang Generator để tạo nội dung trước.</p>
+          <div className="cta-row" style={{ justifyContent: "center" }}>
+            <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => router.push(`/generate?deckId=${deckId}`)}>
+              ⚡ Sang Generator
+            </button>
+            <button className="btn btn-secondary" style={{ width: "auto" }} onClick={() => router.push("/workspace")}>
+              Về Workspace
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  const leftHintOpacity  = Math.max(0, Math.min(1, -dragX / SWIPE_THRESHOLD));
+  const rightHintOpacity = Math.max(0, Math.min(1,  dragX / SWIPE_THRESHOLD));
+  const cardRotate       = (dragX / 400) * 12;  // max ~12° tilt
+  const cardScale        = isDragging ? 1.02 : 1;
 
   return (
-    <main style={{ padding: '60px', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <button className="btn" style={{ width: 'auto', alignSelf: 'flex-start', background: 'transparent' }} onClick={() => router.push("/")}>⬅️ Back</button>
-      
-      <div style={{ width: '100%', marginTop: '40px', marginBottom: '40px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <span>Card {currentIndex + 1} / {cards.length}</span>
-          <span>{Math.round(progress)}% Progress</span>
+    <main className="study-shell">
+      {/* ── Offline banner ── */}
+      {offline && (
+        <div className="offline-banner">
+          📵 Đang offline — tiến độ sẽ được đồng bộ khi có mạng
         </div>
-        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(to right, var(--primary), var(--secondary))', transition: 'width 0.3s' }}></div>
-        </div>
-      </div>
+      )}
 
-      <div className={`flip-card-wrapper ${isFlipped ? 'flipped' : ''}`} onClick={() => setIsFlipped(true)}>
-        <div className="flip-card-inner">
-          <div className="flip-card-front">
-            <h2>{currentCard.front}</h2>
-            {!isFlipped && <p style={{ position: 'absolute', bottom: '20px', opacity: 0.5, fontSize: '0.9rem' }}>Click to flip 🔄</p>}
-          </div>
-          <div className="flip-card-back">
-            <h2>{currentCard.back}</h2>
-          </div>
+      {/* ── Header ── */}
+      <header className="study-header">
+        <div>
+          <div className="eyebrow">SM-2 Spaced Repetition</div>
+          <h1 className="study-title">Deck #{deckId}</h1>
+          <p className="study-copy">Swipe phải = Easy &nbsp;·&nbsp; Swipe trái = Again</p>
         </div>
-      </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button className="btn btn-secondary" style={{ width: "auto" }} onClick={() => router.push("/workspace")}>
+            ← Workspace
+          </button>
+        </div>
+      </header>
 
-      {isFlipped && (
-        <div style={{ width: '100%', marginTop: '40px' }}>
-          <h3 style={{ textAlign: 'center', marginBottom: '20px' }}>How hard was it?</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px' }}>
-            <button className="btn" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }} onClick={() => handleRate(0)}>🔁 Again (0)</button>
-            <button className="btn" style={{ background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.3)', color: '#fcd34d' }} onClick={() => handleRate(1)}>😫 Hard (1)</button>
-            <button className="btn" style={{ background: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.3)', color: '#93c5fd' }} onClick={() => handleRate(2)}>🙂 Good (2)</button>
-            <button className="btn" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#a7f3d0' }} onClick={() => handleRate(3)}>🤩 Easy (3)</button>
+      {/* ── Study card ── */}
+      {card && (
+        <section className="study-card">
+          {/* Progress */}
+          <div className="study-top">
+            <div style={{ flex: 1 }}>
+              <div className="progress-row">
+                <span>Thẻ {idx + 1} / {cards.length}</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <div className="progress-track" style={{ marginTop: 6 }}>
+                <div className="progress-bar" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
+            <span className="pill">
+              {cards.length < 5 ? "Starter" : cards.length < 15 ? "Active" : "Deep"}
+            </span>
           </div>
-        </div>
+
+          <div className="study-stage">
+            {/* ── Swipeable flip card ── */}
+            <div className="swipe-wrapper">
+              {/* Swipe hints */}
+              <div className="swipe-hint swipe-hint-right" style={{ opacity: rightHintOpacity }}>
+                ✓ Easy
+              </div>
+              <div className="swipe-hint swipe-hint-left" style={{ opacity: leftHintOpacity }}>
+                ✕ Again
+              </div>
+
+              <div
+                className={`flip-card-wrapper swipe-card ${isFlipped ? "flipped" : ""} ${isDragging ? "is-dragging" : ""}`}
+                style={{
+                  transform: `translateX(${dragX}px) rotate(${cardRotate}deg) scale(${cardScale})`,
+                  cursor: isFlipped ? "grab" : "pointer",
+                }}
+                onClick={() => { if (!isDragging && Math.abs(dragX) < 5) setIsFlipped((f) => !f); }}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={() => { setIsDragging(false); setDragX(0); }}
+              >
+                <div className="flip-card-inner">
+                  <article className="flip-card-front">
+                    <div className="card-kicker">
+                      {card.difficulty && (
+                        <span className={`difficulty-badge ${card.difficulty}`} style={{ marginRight: 8 }}>
+                          {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "TB" : "Khó"}
+                        </span>
+                      )}
+                      Câu hỏi
+                    </div>
+                    <div className="card-body">{card.front}</div>
+                    <div className="card-footnote">Nhấn để lật xem đáp án</div>
+                  </article>
+
+                  <article className="flip-card-back">
+                    <div className="card-kicker" style={{ color: "var(--secondary)" }}>Đáp án</div>
+                    <div className="card-body">{card.back}</div>
+                    <div className="card-footnote">
+                      Swipe phải (Easy) · Swipe trái (Again) · hoặc dùng nút bên dưới
+                    </div>
+                  </article>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Before flip: hint ── */}
+            {!isFlipped ? (
+              <div className="panel" style={{ padding: 16 }}>
+                <p style={{ fontWeight: 600, marginBottom: 4 }}>Tự kiểm tra trước</p>
+                <p className="helper-text" style={{ marginBottom: 0 }}>
+                  Hãy nghĩ câu trả lời trong đầu rồi nhấn thẻ để lật và so sánh.
+                </p>
+              </div>
+            ) : (
+              /* ── After flip: rating buttons ── */
+              <div className="panel" style={{ padding: 18 }}>
+                <p style={{ fontWeight: 600, marginBottom: 12 }}>Mức độ khó của thẻ này?</p>
+                <div className="rating-grid">
+                  {([0, 1, 2, 3] as const).map((q) => {
+                    const r = RATING[q];
+                    const isActive = ratingQuality === q;
+                    return (
+                      <button
+                        key={q}
+                        className={`rating-btn ${r.cls}`}
+                        onClick={() => handleRate(q)}
+                        style={{ opacity: isActive ? 0.5 : 1, transform: isActive ? "scale(0.95)" : undefined }}
+                      >
+                        {r.label}
+                        <span>{r.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {msg && (
+              <div className="panel" style={{ padding: 16, textAlign: "center" }}>
+                <p style={{ fontWeight: 700, marginBottom: 0 }}>{msg}</p>
+              </div>
+            )}
+          </div>
+        </section>
       )}
     </main>
   );

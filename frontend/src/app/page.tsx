@@ -1,148 +1,197 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  decodeGoogleJwt,
+  getStoredUser,
+  loginWithGoogle,
+  saveStoredUser,
+} from "../lib/app-client";
+
+// Extend Window to include google GIS object
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (cfg: object) => void;
+          renderButton: (el: HTMLElement, cfg: object) => void;
+        };
+      };
+    };
+  }
+}
+
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 export default function Home() {
   const router = useRouter();
-  const [user, setUser] = useState<{id: number, name: string} | null>(null);
-  const [decks, setDecks] = useState<any[]>([]);
-  const [newDeckName, setNewDeckName] = useState("");
-  const [uploadDeckId, setUploadDeckId] = useState<number | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Redirect if already logged in
   useEffect(() => {
-    const storedUser = localStorage.getItem('flashcard_user');
-    if (storedUser) {
-      const u = JSON.parse(storedUser);
-      setUser(u);
-      fetchDecks(u.id);
+    if (getStoredUser()) router.replace("/workspace");
+  }, [router]);
+
+  // Initialise Google Identity Services after the GIS script loads
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+
+    const init = () => {
+      if (!window.google || !googleBtnRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: "standard",
+        shape: "rectangular",
+        theme: "outline",
+        size: "large",
+        text: "signin_with",
+        locale: "vi",
+        width: 280,
+      });
+    };
+
+    // GIS script may already be loaded or still loading
+    if (window.google) {
+      init();
+    } else {
+      const el = document.querySelector<HTMLScriptElement>(
+        'script[src="https://accounts.google.com/gsi/client"]'
+      );
+      if (el) el.addEventListener("load", init);
     }
   }, []);
 
-  const fetchDecks = async (userId: number) => {
-    const res = await fetch(`http://localhost:8000/api/decks/?user_id=${userId}`);
-    if (res.ok) {
-      const data = await res.json();
-      setDecks(data.decks);
-    }
-  };
-
-  const handleLogin = async () => {
-    const payload = {
-      google_id: "mock_" + Math.floor(Math.random() * 10000),
-      name: "Người dùng VinUni (NextJS)",
-      email: "user@vinuni.edu.vn"
-    };
-
-    const res = await fetch('http://localhost:8000/api/auth/login', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      localStorage.setItem('flashcard_user', JSON.stringify(data.user));
-      setUser(data.user);
-      fetchDecks(data.user.id);
-    }
-  };
-
-  const handleCreateDeck = async () => {
-    if (!newDeckName.trim() || !user) return;
-    const res = await fetch('http://localhost:8000/api/decks/', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user.id, name: newDeckName })
-    });
-    if (res.ok) {
-      setNewDeckName("");
-      fetchDecks(user.id);
-    }
-  };
-
-  const handleUpload = async (deckId: number) => {
-    if (!file) return;
+  const handleGoogleCredential = async (response: { credential: string }) => {
     setLoading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch(`http://localhost:8000/api/cards/${deckId}/generate`, {
-      method: "POST",
-      body: formData
-    });
-
-    if (res.ok) {
-      alert("Flashcards created successfully!");
-    } else {
-      alert("Failed to generate flashcards.");
+    setStatus(null);
+    try {
+      const payload = decodeGoogleJwt(response.credential);
+      const user = await loginWithGoogle(
+        payload.sub,
+        payload.name,
+        payload.email,
+        payload.picture
+      );
+      saveStoredUser(user);
+      router.push("/workspace");
+    } catch {
+      setStatus("Đăng nhập thất bại. Hãy kiểm tra kết nối và thử lại.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    setUploadDeckId(null);
-    setFile(null);
   };
-
-  if (!user) {
-    return (
-      <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-        <h1 className="gradient-text" style={{ fontSize: '3rem', marginBottom: '1rem' }}>AI Flashcards</h1>
-        <p style={{ opacity: 0.8, marginBottom: '2rem' }}>Learn faster with AI-generated Smart Flashcards.</p>
-        <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>🔐 Welcome back</h2>
-          <button className="btn" onClick={handleLogin}>🔵 Sign in with Google (Mock)</button>
-        </div>
-      </main>
-    );
-  }
 
   return (
-    <main style={{ padding: '60px', maxWidth: '1200px', margin: '0 auto' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '60px' }}>
-        <h1 className="gradient-text">👋 Hello, {user.name}</h1>
-        <button className="btn" style={{ width: 'auto' }} onClick={() => { localStorage.removeItem('flashcard_user'); setUser(null); }}>Logout</button>
-      </header>
+    <main className="login-shell">
+      <div className="login-card">
+        {/* ── Hero / left column ── */}
+        <section className="hero-card login-hero">
+          <div className="eyebrow">✦ AI Flashcard + Spaced Repetition</div>
+          <h1 className="gradient-text">
+            Học sâu hơn.
+            <br />
+            Nhớ lâu hơn.
+          </h1>
+          <p>
+            Tải lên tài liệu — AI sẽ tự động tạo ra đến <strong>100 flashcards</strong> chất
+            lượng cao, rồi lên lịch ôn tập thông minh bằng thuật toán SM-2 để bạn ghi nhớ bền
+            vững hơn bao giờ hết.
+          </p>
 
-      <div style={{ marginBottom: '40px', maxWidth: '400px' }}>
-        <h2>Create a new deck</h2>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <input 
-            className="input-field" 
-            style={{ marginBottom: 0 }}
-            value={newDeckName} 
-            onChange={(e) => setNewDeckName(e.target.value)} 
-            placeholder="Deck name..." 
-          />
-          <button className="btn" style={{ width: '120px' }} onClick={handleCreateDeck}>Create</button>
-        </div>
-      </div>
+          <div className="tag-row">
+            <span className="tag">PDF · Text · Markdown</span>
+            <span className="tag">SM-2 Spaced Repetition</span>
+            <span className="tag">Swipe Review</span>
+            <span className="tag">Share Decks</span>
+          </div>
 
-      <h2>Your Decks</h2>
-      <div className="grid">
-        {decks.map(deck => (
-          <div key={deck.id} className="card">
-            <h3>{deck.name}</h3>
-            <p style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '20px' }}>Deck ID: {deck.id}</p>
-            
-            <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
-              <button className="btn" onClick={() => router.push(`/study/${deck.id}`)}>🧠 Study Now</button>
-              
-              {uploadDeckId === deck.id ? (
-                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '12px', marginTop: '10px' }}>
-                  <input type="file" accept="application/pdf" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ marginBottom: '10px', width: '100%' }} />
-                  <button className="btn" onClick={() => handleUpload(deck.id)} disabled={!file || loading}>
-                    {loading ? "Generating..." : "Generate AI Cards"}
-                  </button>
-                  <button className="btn" style={{ marginTop: '10px', background: 'transparent' }} onClick={() => setUploadDeckId(null)}>Cancel</button>
-                </div>
-              ) : (
-                <button className="btn" style={{ background: 'transparent', borderColor: 'rgba(255,255,255,0.2)' }} onClick={() => setUploadDeckId(deck.id)}>📄 Add from PDF</button>
-              )}
+          <div className="hero-grid" style={{ marginTop: 28 }}>
+            <div className="metric-card">
+              <div className="metric-label">Tạo flashcards</div>
+              <div className="metric-value" style={{ fontSize: "1.5rem" }}>≤ 100</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Thuật toán</div>
+              <div className="metric-value" style={{ fontSize: "1.5rem" }}>SM-2</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Offline</div>
+              <div className="metric-value" style={{ fontSize: "1.5rem" }}>✓</div>
             </div>
           </div>
-        ))}
-        {decks.length === 0 && <p>No decks found. Start by creating one!</p>}
+        </section>
+
+        {/* ── Auth panel / right column ── */}
+        <section className="panel auth-panel">
+          <div>
+            <h2 style={{ fontSize: "1.5rem", letterSpacing: "-0.04em", marginBottom: 6 }}>
+              Bắt đầu học ngay
+            </h2>
+            <p className="muted" style={{ fontSize: "0.92rem", marginBottom: 0 }}>
+              Đăng nhập bằng tài khoản Google để lưu tiến độ và truy cập mọi lúc.
+            </p>
+          </div>
+
+          <div className="feature-list">
+            {[
+              { icon: "📄", title: "Upload tài liệu", desc: "PDF, Text hoặc Markdown — AI trích xuất khái niệm, tạo Q&A." },
+              { icon: "🧠", title: "Xem lại & chỉnh sửa", desc: "Duyệt và sửa từng thẻ trước khi lưu vào deck." },
+              { icon: "🔁", title: "Smart Review", desc: "Swipe trái/phải. SM-2 tự lên lịch ôn tập tối ưu." },
+            ].map((f) => (
+              <div key={f.title} className="feature-item">
+                <div className="feature-icon" style={{ fontSize: "1.1rem" }}>{f.icon}</div>
+                <div>
+                  <strong>{f.title}</strong>
+                  <p className="helper-text" style={{ marginBottom: 0 }}>{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Google Sign-In button rendered by GIS */}
+          {GOOGLE_CLIENT_ID ? (
+            <div>
+              <div
+                ref={googleBtnRef}
+                className="google-btn-wrap"
+                style={{ minHeight: 44 }}
+              />
+              {loading && (
+                <p className="helper-text" style={{ marginTop: 10, textAlign: "center" }}>
+                  Đang xác thực…
+                </p>
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "14px 16px",
+                background: "#fff8e7",
+                borderRadius: "var(--radius)",
+                border: "1px solid #fde68a",
+              }}
+            >
+              <p className="helper-text" style={{ marginBottom: 0 }}>
+                <strong>Cần cấu hình Google Client ID.</strong>
+                <br />
+                Thêm <code>NEXT_PUBLIC_GOOGLE_CLIENT_ID</code> vào file <code>.env.local</code>.
+              </p>
+            </div>
+          )}
+
+          {status && (
+            <p className="helper-text" style={{ color: "var(--danger)", marginTop: 4 }}>
+              {status}
+            </p>
+          )}
+        </section>
       </div>
     </main>
   );

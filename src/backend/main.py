@@ -1,3 +1,8 @@
+from dotenv import load_dotenv
+
+# Load .env before any module that reads env vars (OpenAI, Anthropic, etc.)
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
