@@ -28,11 +28,24 @@ ANTHROPIC_API_KEY=your_optional_key_here
 
 ### Python
 
+**macOS / Linux:**
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+**Windows (PowerShell):**
+
+```powershell
+python -m venv .venv
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+> **Lưu ý Windows:** Lệnh `source` không hoạt động trên PowerShell. Dùng `.\.venv\Scripts\activate` thay thế. Lệnh `Set-ExecutionPolicy` chỉ cần chạy một lần duy nhất.
 
 ### Frontend
 
@@ -47,8 +60,17 @@ npm install
 
 Phù hợp nếu bạn chỉ muốn dùng bản Python UI.
 
+**macOS / Linux:**
+
 ```bash
 source .venv/bin/activate
+streamlit run src/streamlit_app.py
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\.venv\Scripts\activate
 streamlit run src/streamlit_app.py
 ```
 
@@ -58,8 +80,17 @@ Mở `http://localhost:8501`
 
 Phù hợp khi dùng frontend Next.js.
 
+**macOS / Linux:**
+
 ```bash
 source .venv/bin/activate
+uvicorn src.backend.main:app --reload
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\.venv\Scripts\activate
 uvicorn src.backend.main:app --reload
 ```
 
@@ -80,14 +111,21 @@ Mở `http://localhost:3000`
 
 Mở 2 terminal:
 
-Terminal 1:
+**Terminal 1 — macOS / Linux:**
 
 ```bash
 source .venv/bin/activate
 uvicorn src.backend.main:app --reload
 ```
 
-Terminal 2:
+**Terminal 1 — Windows (PowerShell):**
+
+```powershell
+.\.venv\Scripts\activate
+uvicorn src.backend.main:app --reload
+```
+
+**Terminal 2 (tất cả hệ điều hành):**
 
 ```bash
 cd frontend
@@ -144,16 +182,12 @@ A20-App-001/
 
 ## Lệnh hay dùng
 
-```bash
-# Streamlit
-streamlit run src/streamlit_app.py
+| Lệnh | macOS / Linux | Windows (PowerShell) |
+|------|--------------|----------------------|
+| Activate venv | `source .venv/bin/activate` | `.\.venv\Scripts\activate` |
+| Chạy Streamlit | `streamlit run src/streamlit_app.py` | `streamlit run src/streamlit_app.py` |
+| Chạy backend | `uvicorn src.backend.main:app --reload` | `uvicorn src.backend.main:app --reload` |
+| Chạy frontend | `cd frontend && npm run dev` | `cd frontend; npm run dev` |
+| Build frontend | `cd frontend && npm run build` | `cd frontend; npm run build` |
 
-# Backend API
-uvicorn src.backend.main:app --reload
-
-# Frontend
-cd frontend && npm run dev
-
-# Frontend production build
-cd frontend && npm run build
-```
+> **Lưu ý Windows:** PowerShell dùng `;` để nối lệnh thay vì `&&`.
