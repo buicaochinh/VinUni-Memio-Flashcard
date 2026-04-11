@@ -49,9 +49,13 @@
    ```env
    OPENAI_API_KEY=your_api_key_here
    ```
-4. Chạy ứng dụng:
+4. Chạy ứng dụng Streamlit:
    ```bash
-   streamlit run app.py
+   streamlit run src/streamlit_app.py
+   ```
+5. Nếu muốn chạy API backend riêng:
+   ```bash
+   uvicorn src.backend.main:app --reload
    ```
 
 ### 3. Chạy bằng Docker
@@ -78,8 +82,9 @@ docker-compose up --build -d
 ## 📂 Thu mục dự án
 
 ```text
-├── app.py              # File chạy chính (UI & Logic)
-├── database.py         # Xử lý truy vấn SQLlite & SM-2 Persistence
+├── src/streamlit_app.py     # File chạy Streamlit chính
+├── src/database.py          # Xử lý SQLite & SM-2 persistence
+├── src/backend/             # FastAPI backend
 ├── Dockerfile          # Cấu hình build Docker image
 ├── docker-compose.yml  # Cấu hình chạy container
 ├── .env                # Biến môi trường (API Keys)

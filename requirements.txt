@@ -8,3 +8,7 @@ langchain
 pypdf
 streamlit
 langchain-openai
+fastapi
+uvicorn
+python-multipart
+aiofiles

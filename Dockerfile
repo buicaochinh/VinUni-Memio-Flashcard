@@ -23,4 +23,4 @@ RUN pip install --no-cache-dir streamlit langchain-openai langchain-community py
 EXPOSE 8501
 
 # Run streamlit when the container launches
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "src/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
