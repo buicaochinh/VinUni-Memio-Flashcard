@@ -134,15 +134,110 @@ npm run dev
 
 Sau đó truy cập `http://localhost:3000`
 
-## Docker
+## Deploy trên Docker (AlmaLinux)
 
-Repo hiện có `Dockerfile` và `docker-compose.yml` để chạy bản Streamlit:
+### Cấu trúc file deploy
 
-```bash
-docker-compose up --build -d
+```text
+A20-App-001/
+├── Dockerfile.backend          # Image Python/FastAPI
+├── Dockerfile.frontend         # Image Next.js
+├── docker-compose.yml          # Deploy backend + frontend cùng lúc
+├── scripts/
+│   ├── deploy-backend.sh       # Deploy backend độc lập
+│   └── deploy-frontend.sh      # Deploy frontend độc lập
+└── db_deploy/                  # PostgreSQL — có thể copy sang server riêng
+    ├── docker-compose.yml
+    ├── .env.example
+    └── deploy.sh
 ```
 
-Mở `http://localhost:8501`
+---
+
+### Bước 1 — Chuẩn bị `.env`
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Các biến bắt buộc:
+
+```env
+OPENAI_API_KEY=sk-...
+NEXT_PUBLIC_API_URL=http://<IP_SERVER>:8000   # IP hoặc domain của server backend
+```
+
+> `NEXT_PUBLIC_API_URL` được bake in lúc build frontend. Phải đặt đúng IP/domain trước khi chạy script.
+
+---
+
+### Bước 2 — Deploy
+
+#### Option A: Deploy cả backend + frontend cùng lúc
+
+```bash
+sudo bash scripts/deploy.sh
+```
+
+| Service  | Cổng |
+|----------|------|
+| Backend (FastAPI) | `8000` |
+| Frontend (Next.js) | `3000` |
+
+---
+
+#### Option B: Deploy từng service riêng
+
+**Backend:**
+
+```bash
+sudo bash scripts/deploy-backend.sh
+```
+
+**Frontend** (chạy sau khi backend đã sẵn sàng):
+
+```bash
+sudo bash scripts/deploy-frontend.sh
+```
+
+---
+
+#### Option C: Deploy PostgreSQL độc lập (server riêng)
+
+Copy thư mục `db_deploy/` sang server PostgreSQL, sau đó:
+
+```bash
+cd db_deploy
+cp .env.example .env
+nano .env          # đổi POSTGRES_PASSWORD
+sudo bash deploy.sh
+```
+
+Connection string để backend kết nối:
+
+```
+postgresql://flashcard_user:<password>@<IP_POSTGRES>:5432/flashcard
+```
+
+---
+
+### Quản lý containers
+
+```bash
+# Xem trạng thái
+docker compose ps
+
+# Xem log realtime
+docker logs -f flashcard-backend
+docker logs -f flashcard-frontend
+
+# Dừng tất cả
+docker compose down
+
+# Restart một service
+docker compose restart backend
+```
 
 ## Quy trình sử dụng nhanh
 
@@ -174,8 +269,11 @@ A20-App-001/
 │   ├── sm2.py              # SM-2 scheduling logic
 │   └── streamlit_app.py    # Streamlit app
 ├── data/                   # SQLite DB và file PDF tạm
+├── db_deploy/              # PostgreSQL standalone deploy
+├── scripts/                # Deploy scripts cho AlmaLinux
 ├── requirements.txt        # Python dependencies
-├── Dockerfile
+├── Dockerfile.backend      # Docker image cho FastAPI
+├── Dockerfile.frontend     # Docker image cho Next.js
 ├── docker-compose.yml
 └── .env
 ```
