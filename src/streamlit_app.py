@@ -185,7 +185,11 @@ if st.session_state.current_deck_id:
                     pages = loader.load_and_split()
                     context = "\n".join([p.page_content for p in pages[:3]])
 
-                    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.7)
+                    llm = ChatOpenAI(
+                        model="openai/gpt-oss-120b", 
+                        temperature=0.7,
+                        openai_api_base="https://openrouter.ai/api/v1"
+                    )
                     template = """Hãy tạo 5 flashcards từ nội dung sau.
 CHỈ TRẢ VỀ DUY NHẤT 1 MẢNG JSON BẮT ĐẦU BẰNG [ NGAY DÒNG ĐẦU TIÊN VÀ KHÔNG KÈM TEXT.
 (JSON format: [{{"front": "...", "back": "..."}}]).

@@ -16,11 +16,16 @@ from src.sm2 import get_updated_sm2_values
 router = APIRouter()
 
 # Model configurable via env var; default to gpt-3.5-turbo (proven to work)
-_OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+_OPENAI_MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-oss-120b")
+_OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://openrouter.ai/api/v1")
 
 
 def get_llm():
-    return ChatOpenAI(model=_OPENAI_MODEL, temperature=0.7)
+    return ChatOpenAI(
+        model=_OPENAI_MODEL, 
+        temperature=0.7,
+        openai_api_base=_OPENAI_API_BASE
+    )
 
 
 # ---------------------------------------------------------------------------
