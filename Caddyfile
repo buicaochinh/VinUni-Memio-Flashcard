@@ -1,8 +1,7 @@
-# TODO: Thay thế "tenmien.com" bằng domain thực tế của bạn
-flashcard.tenmien.com {
+mem.io.vn {
     reverse_proxy frontend:3000
 }
 
-api.flashcard.tenmien.com {
+api.mem.io.vn {
     reverse_proxy backend:8000
 }
