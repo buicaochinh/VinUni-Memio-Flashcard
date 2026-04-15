@@ -1,22 +1,23 @@
-FROM node:20-slim AS builder
+# ── Builder ───────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Tận dụng cache khi cài đặp dependencies
 COPY frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --no-fund \
-    --registry https://registry.npmmirror.com
+    npm ci --prefer-offline --no-audit --no-fund
 
 COPY frontend/ .
 
-# Baked in at build time — set via deploy script or .env
+# Biến môi trường được inject vào lúc build
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
 
 # ── Runner ────────────────────────────────────────────────────────────────────
-FROM node:20-slim AS runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production

@@ -1,20 +1,20 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Sử dụng base image siêu nhẹ Alpine
+FROM python:3.11-alpine
 
-# Set the working directory in the container
+# Thư mục làm việc
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Cài đặt các công cụ cần thiết để build các package có C-extensions
+# apk là package manager của Alpine
+RUN apk add --no-cache \
+    build-base \
+    curl
 
-# Install Python dependencies first (layer caching)
+# Cài đặt dependency (layer này được cache nếu requirements.txt không đổi)
 COPY requirements.txt .
-RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application
+# Copy toàn bộ code
 COPY . .
 
 EXPOSE 8000
