@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy PostgreSQL — AlmaLinux
+# Deploy PostgreSQL — Debian 12
 # Usage: sudo bash deploy.sh
 # Có thể copy toàn bộ folder db_deploy ra server riêng và chạy độc lập.
 set -euo pipefail
@@ -9,18 +9,26 @@ info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
-[[ $EUID -eq 0 ]] || error "Run with sudo: sudo bash deploy.sh"
+[[ $EUID -eq 0 ]] || error "Cần quyền sudo: sudo bash deploy.sh"
 
-# ── Install Docker ─────────────────────────────────────────────────────────────
+# ── 1. Cài đặt Docker (Debian 12) ─────────────────────────────────────────────
 install_docker() {
-    info "Installing Docker on AlmaLinux..."
-    dnf config-manager --add-repo \
-        https://download.docker.com/linux/centos/docker-ce.repo
-    dnf install -y \
-        docker-ce docker-ce-cli containerd.io \
-        docker-buildx-plugin docker-compose-plugin
+    info "Đang cài đặt Docker cho Debian 12..."
+    apt-get update
+    apt-get install -y ca-certificates curl gnupg
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+
+    echo \
+      "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+      "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+      tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
-    info "Docker installed: $(docker --version)"
+    info "Cài đặt Docker thành công: $(docker --version)"
 }
 
 if ! command -v docker &>/dev/null; then
@@ -33,37 +41,37 @@ fi
 REAL_USER="${SUDO_USER:-$USER}"
 if ! id -nG "$REAL_USER" | grep -qw docker; then
     usermod -aG docker "$REAL_USER"
-    warn "User '$REAL_USER' added to docker group. Log out and back in to apply."
+    warn "Đã thêm chủ thể '$REAL_USER' vào nhóm docker. Đăng xuất và đăng nhập lại để áp dụng."
 fi
 
 # ── Locate this folder ─────────────────────────────────────────────────────────
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
-info "Working directory: $DIR"
+info "Thư mục làm việc: $DIR"
 
 # ── .env ───────────────────────────────────────────────────────────────────────
 if [ ! -f .env ]; then
     cp .env.example .env
-    warn ".env created from .env.example"
-    warn "Edit the password before continuing:"
+    warn "Đã tạo file .env từ .env.example"
+    warn "Hãy đổi mật khẩu mặc định trước khi tiếp tục chạy:"
     warn "  nano $DIR/.env"
-    warn "Then re-run:  sudo bash deploy.sh"
+    warn "Sau khi đổi xong chạy lại lệnh:  sudo bash deploy.sh"
     exit 1
 fi
 
 # ── Firewall ───────────────────────────────────────────────────────────────────
-if systemctl is-active --quiet firewalld; then
-    firewall-cmd --permanent --add-port=5432/tcp &>/dev/null || true
-    firewall-cmd --reload
-    info "Firewall: port 5432 opened"
+if command -v ufw &>/dev/null; then
+    info "Cấu hình UFW firewall cho DB..."
+    ufw allow 5432/tcp
+    info "Đã mở port 5432 trên UFW"
 fi
 
 # ── Start ──────────────────────────────────────────────────────────────────────
-info "Starting PostgreSQL..."
+info "Khởi động PostgreSQL..."
 docker compose down --remove-orphans 2>/dev/null || true
 docker compose up -d
 
-info "Waiting for PostgreSQL to be healthy..."
+info "Chờ PostgreSQL sẵn sàng..."
 for i in {1..15}; do
     if docker compose exec -T postgres pg_isready &>/dev/null; then
         break
@@ -78,7 +86,7 @@ POSTGRES_USER=$(grep "^POSTGRES_USER" .env | cut -d= -f2-)
 POSTGRES_DB=$(grep "^POSTGRES_DB"   .env | cut -d= -f2-)
 
 echo ""
-info "PostgreSQL is running!"
+info "PostgreSQL đang chạy!"
 info "Host:             ${SERVER_IP}:5432"
 info "Connection string: postgresql://${POSTGRES_USER}:<password>@${SERVER_IP}:5432/${POSTGRES_DB}"
 echo ""

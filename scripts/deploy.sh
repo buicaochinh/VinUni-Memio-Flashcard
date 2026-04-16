@@ -62,11 +62,10 @@ if [ ! -f .env ]; then
     fi
 fi
 
-# Đảm bảo frontend có đường dẫn host 
+# Đảm bảo frontend có đường dẫn API backend (dùng tên miền)
 if ! grep -q "^NEXT_PUBLIC_API_URL" .env; then
-    echo "NEXT_PUBLIC_API_URL=https://api.flashcard.tenmien.com" >> .env
-    warn "Đã thêm NEXT_PUBLIC_API_URL=https://api.flashcard.tenmien.com vào .env"
-    warn "Hãy đổi 'tenmien.com' thành domain thật của bạn trong file .env trước khi deploy!"
+    echo "NEXT_PUBLIC_API_URL=https://api.mem.io.vn" >> .env
+    info "Đã thêm NEXT_PUBLIC_API_URL=https://api.mem.io.vn vào .env"
 fi
 
 mkdir -p data
@@ -85,10 +84,9 @@ docker compose ps
 # ── Kết thúc ──────────────────────────────────────────────────────────────────
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo ""
-info "Deploy thành công!"
-info "Lưu ý: Mở file Caddyfile để đổi 'tenmien.com' thành domain thật của bạn!"
-info "Đồng thời trỏ 2 bản ghi A trên cấu hình DNS về IP: ${SERVER_IP}"
-echo -e "  ${GREEN}Frontend  (Next.js)  ${NC}→  https://flashcard.tenmien.com"
-echo -e "  ${GREEN}Backend API (FastAPI)${NC}→  https://api.flashcard.tenmien.com"
+info "Deploy thành công ứng dụng memio!"
+info "Đồng thời đảm bảo bạn đã trỏ 2 bản ghi A (mem.io.vn và api.mem.io.vn) trên cấu hình DNS về IP: ${SERVER_IP}"
+echo -e "  ${GREEN}Frontend  (Next.js)  ${NC}→  https://mem.io.vn"
+echo -e "  ${GREEN}Backend API (FastAPI)${NC}→  https://api.mem.io.vn"
 echo ""
 info "Kiểm tra log: docker compose logs -f"
