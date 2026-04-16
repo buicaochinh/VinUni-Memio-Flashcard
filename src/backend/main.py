@@ -14,7 +14,8 @@ app = FastAPI(title="AI Flashcard API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://friction-protozoan-sanctuary.ngrok-free.dev",
+        "https://mem.io.vn",
+        "https://api.mem.io.vn",
         "http://localhost:3000",
     ],
     allow_credentials=True,
