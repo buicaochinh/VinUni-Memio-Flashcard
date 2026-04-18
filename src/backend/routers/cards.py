@@ -21,10 +21,17 @@ _OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://openrouter.ai/api/v1")
 
 
 def get_llm():
+    # Explicitly fetch API key to avoid 401 Missing Authentication header in production
+    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        # Fallback to empty string might trigger 401, but better than None for some clients
+        api_key = ""
+        
     return ChatOpenAI(
         model=_OPENAI_MODEL, 
         temperature=0.7,
-        openai_api_base=_OPENAI_API_BASE
+        openai_api_base=_OPENAI_API_BASE,
+        api_key=api_key
     )
 
 
