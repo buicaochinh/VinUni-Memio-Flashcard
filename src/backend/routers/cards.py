@@ -2,6 +2,15 @@ import json
 import os
 import re
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load env immediately at module import
+load_dotenv()
+
+# Diagnostic prints (visible in docker logs)
+print(f"DEBUG: OPENAI_API_KEY found: {bool(os.getenv('OPENAI_API_KEY'))}")
+print(f"DEBUG: OPENROUTER_API_KEY found: {bool(os.getenv('OPENROUTER_API_KEY'))}")
+print(f"DEBUG: OPENAI_API_BASE: {os.getenv('OPENAI_API_BASE', 'https://openrouter.ai/api/v1')}")
 
 from aiofiles import open as aio_open
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -22,16 +31,18 @@ _OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://openrouter.ai/api/v1")
 
 def get_llm():
     # Explicitly fetch API key to avoid 401 Missing Authentication header in production
-    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        # Fallback to empty string might trigger 401, but better than None for some clients
-        api_key = ""
-        
+    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
+    
+    # Modern ChatOpenAI (langchain-openai >= 0.1.0) uses base_url instead of openai_api_base
     return ChatOpenAI(
         model=_OPENAI_MODEL, 
         temperature=0.7,
-        openai_api_base=_OPENAI_API_BASE,
-        api_key=api_key
+        base_url=_OPENAI_API_BASE,
+        api_key=api_key,
+        default_headers={
+            "HTTP-Referer": "https://mem.io.vn", # Site URL for OpenRouter
+            "X-Title": "Memio Flashcards",
+        }
     )
 
 
