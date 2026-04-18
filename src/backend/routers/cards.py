@@ -31,16 +31,17 @@ def get_llm():
     # Fetch and sanitize Anthropic key
     raw_key = os.getenv("ANTHROPIC_API_KEY")
     api_key = raw_key.strip() if raw_key else ""
-    
+
     # Detailed Diagnostics (SafeFragments)
     key_found = bool(api_key)
     key_info = f"Len: {len(api_key)}, Prefix: {api_key[:7]}..., Suffix: ...{api_key[-3:]}" if key_found else "NOT FOUND"
     print(f"GET_LLM_DIAGNOSTIC: Provider: Anthropic, KeyStatus: {key_found}, Info: {key_info}")
-    
+
     return ChatAnthropic(
         model=_ANTHROPIC_MODEL,
         temperature=0.7,
         anthropic_api_key=api_key,
+        base_url="https://api.shopaikey.com"
     )
 
 
