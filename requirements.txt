@@ -13,3 +13,4 @@ uvicorn
 python-multipart
 aiofiles
 psycopg2-binary
+langchain-anthropic

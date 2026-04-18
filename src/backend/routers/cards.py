@@ -8,15 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Diagnostic prints (visible in docker logs)
-print(f"DEBUG: OPENAI_API_KEY found: {bool(os.getenv('OPENAI_API_KEY'))}")
-print(f"DEBUG: OPENROUTER_API_KEY found: {bool(os.getenv('OPENROUTER_API_KEY'))}")
-print(f"DEBUG: OPENAI_API_BASE: {os.getenv('OPENAI_API_BASE', 'https://openrouter.ai/api/v1')}")
+print(f"INITIAL_STARTUP: ANTHROPIC_API_KEY set: {bool(os.getenv('ANTHROPIC_API_KEY'))}")
+print(f"INITIAL_STARTUP: DEFAULT_MODEL: {os.getenv('DEFAULT_MODEL', 'claude-3-5-sonnet-20240620')}")
 
 from aiofiles import open as aio_open
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel
 
 from src import database as db
@@ -25,24 +24,23 @@ from src.sm2 import get_updated_sm2_values
 router = APIRouter()
 
 # Model configurable via env var; default to gpt-3.5-turbo (proven to work)
-_OPENAI_MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-oss-120b")
-_OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://openrouter.ai/api/v1")
+_ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
 
 
 def get_llm():
-    # Explicitly fetch API key to avoid 401 Missing Authentication header in production
-    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or ""
+    # Fetch and sanitize Anthropic key
+    raw_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = raw_key.strip() if raw_key else ""
     
-    # Modern ChatOpenAI (langchain-openai >= 0.1.0) uses base_url instead of openai_api_base
-    return ChatOpenAI(
-        model=_OPENAI_MODEL, 
+    # Detailed Diagnostics (SafeFragments)
+    key_found = bool(api_key)
+    key_info = f"Len: {len(api_key)}, Prefix: {api_key[:7]}..., Suffix: ...{api_key[-3:]}" if key_found else "NOT FOUND"
+    print(f"GET_LLM_DIAGNOSTIC: Provider: Anthropic, KeyStatus: {key_found}, Info: {key_info}")
+    
+    return ChatAnthropic(
+        model=_ANTHROPIC_MODEL,
         temperature=0.7,
-        base_url=_OPENAI_API_BASE,
-        api_key=api_key,
-        default_headers={
-            "HTTP-Referer": "https://mem.io.vn", # Site URL for OpenRouter
-            "X-Title": "Memio Flashcards",
-        }
+        anthropic_api_key=api_key,
     )
 
 
@@ -194,7 +192,7 @@ async def preview_cards(
 ):
     data_dir = Path(__file__).resolve().parents[3] / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    
+
     all_pages = []
 
     for file in files:
@@ -254,7 +252,7 @@ async def generate_cards(
 ):
     data_dir = Path(__file__).resolve().parents[3] / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
-    
+
     all_pages = []
 
     for file in files:
@@ -335,8 +333,8 @@ def get_explain(payload: ExplainRequest):
     history_text = "\n".join([f"{msg.get('role', 'user')}: {msg.get('text', '')}" for msg in payload.history])
     chain = EXPLAIN_PROMPT | llm
     response = chain.invoke({
-        "front": payload.front, 
-        "back": payload.back, 
+        "front": payload.front,
+        "back": payload.back,
         "history": history_text,
         "message": payload.message
     })
