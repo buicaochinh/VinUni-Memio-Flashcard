@@ -89,14 +89,24 @@ class ExplainRequest(BaseModel):
 
 CARD_PROMPT = PromptTemplate.from_template(
     """Hãy tạo {count} flashcards học thuật chất lượng cao từ nội dung sau.
-Trích xuất các khái niệm quan trọng, định nghĩa, thực thể và quy trình.
+Trích xuất các khái niệm quan trọng, định nghĩa, thực thể và quy trình từ NỘI DUNG HỌC THUẬT.
+
+BỎ QUA các thông tin sau với những tài liệu là sách/ tài liệu học thuật (không tạo flashcard từ chúng):
+- Tên tác giả, dịch giả, biên tập viên
+- Nhà xuất bản (NXB), năm xuất bản, địa chỉ xuất bản
+- ISBN, mã số sách, bản quyền, lời cảm ơn
+- Mục lục, lời tựa, lời giới thiệu mang tính hành chính
+- Header, footer, số trang, watermark
+
 Mỗi thẻ cần câu hỏi rõ ràng và câu trả lời chính xác, ngắn gọn.
 Phân loại độ khó: "easy" (dễ nhớ), "medium" (cần luyện tập), "hard" (phức tạp).
+
+NGÔN NGỮ: Xác định ngôn ngữ chính của tài liệu và dùng NHẤT QUÁN ngôn ngữ đó cho toàn bộ flashcards.
+Không trộn lẫn ngôn ngữ trong cùng một thẻ hoặc giữa các thẻ.
 
 CHỈ TRẢ VỀ DUY NHẤT 1 MẢNG JSON BẮT ĐẦU BẰNG [ NGAY DÒNG ĐẦU TIÊN, KHÔNG KÈM TEXT.
 Format: [{{"front": "câu hỏi", "back": "câu trả lời", "difficulty": "medium"}}]
 
-Ngôn ngữ: Tiếng Việt (hoặc theo ngôn ngữ tài liệu gốc nếu khác tiếng Việt).
 Nội dung: {context}"""
 )
 
