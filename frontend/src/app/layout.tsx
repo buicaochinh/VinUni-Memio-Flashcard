@@ -1,9 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin", "vietnamese"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
 export const metadata: Metadata = {
-  title: "FlashAI — Học thông minh hơn",
-  description: "Nền tảng tạo flashcards bằng AI và ôn tập thông minh với Spaced Repetition.",
+  title: "Memio — Học thông minh hơn",
+  description: "Nền tảng học tập tối giản, tạo flashcards bằng AI và ôn tập thông minh.",
   manifest: "/manifest.json",
 };
 
@@ -17,19 +25,15 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="vi" suppressHydrationWarning>
+    <html lang="vi" className={inter.variable} suppressHydrationWarning>
       <head>
-        {/* Inter font – modern, highly legible */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet"
+        {/* Google Identity Services (GIS) for Google Sign-In loaded with lazyOnload for performance */}
+        <Script 
+          src="https://accounts.google.com/gsi/client" 
+          strategy="afterInteractive"
         />
-        {/* Google Identity Services (GIS) for Google Sign-In */}
-        <script src="https://accounts.google.com/gsi/client" async defer />
       </head>
-      <body>{children}</body>
+      <body className="antialiased font-sans">{children}</body>
     </html>
   );
 }

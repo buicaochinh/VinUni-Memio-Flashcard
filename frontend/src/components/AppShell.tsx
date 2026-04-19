@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { clearStoredUser, User } from "../lib/app-client";
+import { LibraryBig, Sparkles, BarChart3, LogOut, User as UserIcon } from "lucide-react";
+import { cn } from "../lib/utils";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -10,9 +13,9 @@ type AppShellProps = {
 };
 
 const NAV_ITEMS = [
-  { href: "/workspace",  label: "Decks",     icon: "🗂️" },
-  { href: "/generate",   label: "Generate",  icon: "⚡" },
-  { href: "/analytics",  label: "Analytics", icon: "📊" },
+  { href: "/workspace",  label: "Decks",     icon: LibraryBig },
+  { href: "/generate",   label: "Generate",  icon: Sparkles },
+  { href: "/analytics",  label: "Analytics", icon: BarChart3 },
 ];
 
 export default function AppShell({ children, user }: AppShellProps) {
@@ -25,72 +28,101 @@ export default function AppShell({ children, user }: AppShellProps) {
   };
 
   return (
-    <>
-      <main className="page-shell">
-        {/* ── Top bar ── */}
-        <header className="topbar">
-          <div className="brand-lockup">
-            <div className="brand-mark">AI</div>
-            <div>
-              <span style={{ fontSize: "1.1rem", fontWeight: 800, letterSpacing: "-0.04em" }}>
-                FlashAI
-              </span>
+    <div className="flex flex-col md:flex-row min-h-screen bg-transparent">
+      {/* ── Sidebar (Desktop) ── */}
+      <aside className="hidden md:flex flex-col w-[260px] sticky top-0 h-screen border-r border-border bg-surface-raised/90 backdrop-blur-xl p-6 gap-8 z-50">
+        <div className="px-2">
+          <Link href="/workspace" className="flex items-center gap-3 overflow-hidden outline-none">
+            <div className="relative h-[42px] w-[42px]">
+              <Image 
+                src="/icon.png" 
+                alt="Memio Logo" 
+                fill
+                className="object-contain mix-blend-multiply flex-shrink-0" 
+                priority
+              />
             </div>
-          </div>
+            <span className="text-2xl font-extrabold tracking-tight">
+              <span className="text-primary">Mem</span><span className="text-text">io</span>
+            </span>
+          </Link>
+        </div>
 
-          <div className="nav-actions">
-            {/* Desktop horizontal nav */}
-            <nav className="app-nav">
-              {NAV_ITEMS.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`nav-link ${pathname === item.href ? "active" : ""}`}
-                >
-                  {item.icon} {item.label}
-                </Link>
-              ))}
-            </nav>
+        <nav className="flex flex-col gap-2 flex-1">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold transition-all duration-200 outline-none",
+                  isActive
+                    ? "bg-surface text-primary shadow-sm border border-border"
+                    : "text-muted hover:bg-surface-muted hover:text-text hover:translate-x-1"
+                )}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-            {/* User greeting + logout */}
-            <span className="pill" style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {user.photo_url ? (
-                <img
-                  src={user.photo_url}
-                  alt={user.name}
-                  width={20} height={20}
-                  style={{ borderRadius: "50%", flexShrink: 0 }}
-                />
-              ) : null}
+        <div className="pt-5 border-t border-border flex flex-col gap-4">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-surface-muted truncate">
+            {user.photo_url ? (
+              <Image
+                src={user.photo_url}
+                alt={user.name}
+                width={32}
+                height={32}
+                className="rounded-full flex-shrink-0"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-border flex items-center justify-center flex-shrink-0">
+                <UserIcon className="w-4 h-4 text-muted" />
+              </div>
+            )}
+            <span className="text-[14px] font-semibold text-text truncate">
               {user.name.split(" ").pop()}
             </span>
-
-            <button
-              className="btn btn-secondary"
-              style={{ width: "auto", padding: "8px 14px", fontSize: "0.85rem" }}
-              onClick={handleLogout}
-            >
-              Đăng xuất
-            </button>
           </div>
-        </header>
+          <button
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-border-strong bg-surface text-text font-bold text-sm hover:-translate-y-[1px] active:translate-y-0 transition-transform shadow-xs cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            <LogOut className="w-4 h-4" /> Đăng xuất
+          </button>
+        </div>
+      </aside>
 
+      {/* ── Main Content Area ── */}
+      <main className="flex-1 w-full max-w-[1200px] mx-auto px-5 pt-8 pb-24 md:pt-10 md:pb-20">
         {children}
       </main>
 
       {/* ── Mobile bottom navigation ── */}
-      <nav className="bottom-nav">
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`bottom-nav-item ${pathname === item.href ? "active" : ""}`}
-          >
-            <span className="bottom-nav-icon">{item.icon}</span>
-            {item.label}
-          </Link>
-        ))}
+      <nav className="md:hidden flex fixed bottom-0 left-0 right-0 h-[68px] bg-surface/95 border-t border-border backdrop-blur-xl z-[100] pb-[env(safe-area-inset-bottom)] items-stretch shadow-[0_-4px_24px_rgba(0,0,0,0.04)]">
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors outline-none",
+                isActive ? "text-primary" : "text-subtle"
+              )}
+            >
+              <Icon className="w-[22px] h-[22px]" strokeWidth={isActive ? 2.5 : 2} />
+              <span className="text-[11px] font-bold">{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
-    </>
+    </div>
   );
 }
