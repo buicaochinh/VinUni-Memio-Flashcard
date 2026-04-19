@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Submit .ai-log/session.jsonl to grading server.
-Called by git pre-push hook or manually.
+Submit .ai-log/session.jsonl to grading/logging server.
+Called automatically by git pre-push hook. Can also be run manually.
+
+Usage:
+  python scripts/submit_log.py
 """
 import json
 import os

@@ -1,4 +1,4 @@
-# AI Smart Flashcards
+# AI Smart Flashcards ver1
 
 Nền tảng học tập thông minh kết hợp AI tạo flashcard tự động từ tài liệu và thuật toán SM-2 lên lịch ôn tập theo phương pháp spaced repetition.
 
@@ -6,6 +6,16 @@ Nền tảng học tập thông minh kết hợp AI tạo flashcard tự động
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)](https://nextjs.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docker.com)
+
+---
+
+## Thành viên tham gia dự án
+
+| Họ và tên | Vai trò |
+|-----------|---------|
+| Bùi Đức Tiến | AI Engineer, PM |
+| Bùi Đức Thắng | DevOps |
+| Bùi Cao Chinh | Fullstack Developer |
 
 ---
 

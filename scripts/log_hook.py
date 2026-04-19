@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-from __future__ import annotations
 """
 Shared AI hook logger — works with Claude Code, Gemini CLI, Codex, Cursor, Copilot.
-Reads JSON from stdin, normalizes to common format, appends to .ai-log/session.jsonl
+Reads JSON from stdin (sent by AI tool), normalizes to common format,
+appends to .ai-log/session.jsonl.
+
+You don't call this directly — it's called by tool configs (.claude/, .cursor/, etc.)
 """
 import json
 import os
@@ -16,7 +18,7 @@ VN_TZ = timezone(timedelta(hours=7))
 
 def git(cmd):
     try:
-        return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL).strip()
+        return subprocess.check_output(cmd.split(), shell=False, text=True, stderr=subprocess.DEVNULL).strip()
     except Exception:
         return ""
 
@@ -32,7 +34,6 @@ def detect_tool(data: dict) -> str:
     if data.get("hook_event_name", "").startswith(("Before", "After", "Session", "Pre", "Notification")):
         return "gemini"
     if data.get("hook_event_name", "")[0:1].islower():
-        # camelCase event names → Cursor or Copilot
         if "workspace_roots" in data:
             return "cursor"
         if "toolName" in data:
@@ -47,6 +48,10 @@ def normalize(data: dict, tool: str) -> dict | None:
     event = data.get("hook_event_name") or data.get("event", "")
     ts = datetime.now(VN_TZ).isoformat()
 
+    student = git("git config user.email")
+    if not student:
+        student = os.environ.get("USERNAME", os.environ.get("USER", "unknown"))
+
     base = {
         "ts": ts,
         "tool": tool,
@@ -60,15 +65,13 @@ def normalize(data: dict, tool: str) -> dict | None:
         "repo": git("git remote get-url origin").split("/")[-1].replace(".git", ""),
         "branch": git("git rev-parse --abbrev-ref HEAD"),
         "commit": git("git rev-parse --short HEAD"),
-        "student": git("git config user.email"),
+        "student": student,
     }
 
     if tool == "claude":
         prompt = ""
-        # UserPromptSubmit: prompt is at top level
         if event == "UserPromptSubmit":
             prompt = data.get("prompt", "")[:1000]
-        # PostToolUse: extract from tool_input
         elif isinstance(data.get("tool_input"), dict):
             prompt = data["tool_input"].get("prompt") or data["tool_input"].get("content") or ""
         base.update({
@@ -119,12 +122,6 @@ def normalize(data: dict, tool: str) -> dict | None:
             "prompt": data.get("prompt", "")[:1000],
             "tool_name": data.get("toolName", ""),
             "tool_args": data.get("toolArgs"),
-        })
-
-    elif tool == "antigravity":
-        base.update({
-            "prompt": data.get("prompt", "")[:1000],
-            "response_summary": str(data.get("response", ""))[:500]
         })
 
     # Skip empty/noise events
