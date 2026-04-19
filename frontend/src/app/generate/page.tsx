@@ -12,6 +12,24 @@ import {
   PreviewCard,
   User,
 } from "../../lib/app-client";
+import { 
+  Sparkles, 
+  Upload, 
+  FileText, 
+  X, 
+  Settings2, 
+  Plus, 
+  Trash2, 
+  Check, 
+  RotateCcw, 
+  Save, 
+  CheckCircle2,
+  FileUp,
+  BrainCircuit,
+  Pencil,
+  Repeat
+} from "lucide-react";
+import { cn } from "../../lib/utils";
 
 type EditState = {
   front: string;
@@ -57,7 +75,6 @@ export default function GeneratePage() {
     }
   };
 
-  // ── File drop / pick ──────────────────────────────────────────────────────
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
@@ -75,7 +92,6 @@ export default function GeneratePage() {
     if (selected.length > 0) setFiles(prev => [...prev, ...selected]);
   };
 
-  // ── Generate (preview – does NOT save to DB) ──────────────────────────────
   const handleGenerate = async () => {
     if (!selectedDeckId) { setMessage("Hãy chọn một deck."); return; }
     if (files.length === 0) { setMessage("Hãy chọn ít nhất 1 file hợp lệ (PDF, DOCX, TXT)."); return; }
@@ -84,7 +100,6 @@ export default function GeneratePage() {
     setMessage(null);
     setProgress(0);
 
-    // Fake progress ticker while waiting for LLM
     const ticker = setInterval(() => {
       setProgress((p) => Math.min(p + Math.random() * 8, 90));
     }, 600);
@@ -103,7 +118,6 @@ export default function GeneratePage() {
     }
   };
 
-  // ── Card editing ──────────────────────────────────────────────────────────
   const startEdit = (idx: number) => {
     setEditingIdx(idx);
     setEditState({ ...cards[idx] } as EditState);
@@ -134,7 +148,6 @@ export default function GeneratePage() {
     setEditState({ front: "", back: "", difficulty: "medium" });
   };
 
-  // ── Save to DB ────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!selectedDeckId) return;
     const validCards = cards.filter((c) => c.front.trim() && c.back.trim());
@@ -151,7 +164,6 @@ export default function GeneratePage() {
 
   if (!user) return null;
 
-  // ── Difficulty distribution ───────────────────────────────────────────────
   const diffCount = cards.reduce(
     (acc, c) => { acc[c.difficulty] = (acc[c.difficulty] ?? 0) + 1; return acc; },
     {} as Record<string, number>
@@ -159,315 +171,387 @@ export default function GeneratePage() {
 
   return (
     <AppShell user={user}>
-      {/* ── Setup stage ── */}
       {stage === "setup" && (
-        <>
-          <div style={{ marginBottom: 24 }}>
-            <div className="eyebrow">⚡ AI Flashcard Generator</div>
-            <h1 style={{ fontSize: "clamp(1.8rem,4vw,3rem)", letterSpacing: "-0.05em", margin: "10px 0 8px" }}>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+              <Sparkles className="w-4 h-4 text-primary" /> AI Flashcard Generator
+            </div>
+            <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-extrabold tracking-[-0.05em] mb-2.5 leading-tight">
               Tải lên tài liệu,{" "}
-              <span className="gradient-text">AI làm phần còn lại</span>
+              <span className="bg-gradient-to-r from-primary to-amber-500 bg-clip-text text-transparent">AI làm phần còn lại</span>
             </h1>
-            <p className="muted">
-              Upload PDF → AI tạo đến {targetCount} flashcards → Bạn xem lại và chỉnh sửa → Lưu vào deck.
+            <p className="text-muted text-base max-w-[64ch] leading-relaxed">
+              Upload PDF → AI tạo đến <strong className="text-text">{targetCount}</strong> flashcards → Bạn xem lại và chỉnh sửa → Lưu vào deck.
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(280px,0.55fr)", gap: 20 }}>
-            <section className="panel">
-              <h3 style={{ marginBottom: 16 }}>Cấu hình</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+            <section className="p-8 bg-surface-raised border border-border rounded-[32px] shadow-sm backdrop-blur-xl">
+              <h3 className="mb-6 font-bold text-xl flex items-center gap-2">
+                <Settings2 className="w-5 h-5 text-subtle" /> Cấu hình
+              </h3>
 
-              {/* Deck selector */}
-              <label style={{ display: "block", marginBottom: 16 }}>
-                <span className="helper-text" style={{ display: "block", marginBottom: 6 }}>Chọn deck đích</span>
-                <select
-                  className="select-field"
-                  value={selectedDeckId ?? ""}
-                  onChange={(e) => setSelectedDeckId(Number(e.target.value))}
-                >
-                  {decks.length === 0 && <option value="">— Chưa có deck —</option>}
-                  {decks.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              {/* Card count target */}
-              <label style={{ display: "block", marginBottom: 20 }}>
-                <span className="helper-text" style={{ display: "block", marginBottom: 6 }}>
-                  Số flashcards mục tiêu: <strong>{targetCount}</strong>
-                </span>
-                <input
-                  type="range"
-                  min={10} max={150} step={10}
-                  value={targetCount}
-                  onChange={(e) => setTargetCount(Number(e.target.value))}
-                  style={{ width: "100%", accentColor: "var(--primary)" }}
-                />
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span className="helper-text">10</span>
-                  <span className="helper-text">150</span>
-                </div>
-              </label>
-
-              {/* Upload zone */}
-              <div
-                className={`upload-zone ${dragOver ? "drag-over" : ""}`}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleFileDrop}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                  onChange={handleFileChange}
-                  style={{ display: "none" }}
-                />
-                {files.length > 0 ? (
-                  <>
-                    <div style={{ fontSize: "2rem" }}>📄</div>
-                    <p style={{ fontWeight: 700, marginBottom: 4 }}>Đã tải lên {files.length} file</p>
-                    <div style={{ maxHeight: "80px", overflowY: "auto", width: "100%", textAlign: "left", padding: "0 10px" }}>
-                      {files.map(f => (
-                        <div key={f.name} className="helper-text" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          - {f.name} ({(f.size / 1024 / 1024).toFixed(2)} MB)
-                        </div>
-                      ))}
-                    </div>
-                    <p className="helper-text" style={{ marginTop: 8 }}>Nhấn để chọn thêm file khác</p>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: "2.5rem", marginBottom: 12 }}>📂</div>
-                    <p style={{ fontWeight: 700, marginBottom: 4 }}>Kéo thả hoặc nhấn để chọn file</p>
-                    <p className="helper-text">Hỗ trợ PDF, DOCX, TXT. Có thể upload nhiều file.</p>
-                  </>
-                )}
-              </div>
-
-              {message && (
-                <p className="helper-text" style={{ color: "var(--danger)", marginTop: 10 }}>{message}</p>
-              )}
-
-              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleGenerate}
-                  disabled={files.length === 0 || !selectedDeckId}
-                  style={{ flex: 1 }}
-                >
-                  ⚡ Sinh {targetCount} flashcards
-                </button>
-                {decks.length === 0 && (
-                  <button
-                    className="btn btn-secondary"
-                    style={{ width: "auto" }}
-                    onClick={() => router.push("/workspace")}
+              <div className="grid gap-6">
+                <div>
+                  <label className="block text-[0.82rem] font-bold text-muted uppercase tracking-wider mb-2">Chọn deck đích</label>
+                  <select
+                    className="w-full rounded-2xl border border-border-strong bg-surface text-text px-4 py-3.5 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] appearance-none cursor-pointer"
+                    value={selectedDeckId ?? ""}
+                    onChange={(e) => setSelectedDeckId(Number(e.target.value))}
                   >
-                    Tạo deck trước
-                  </button>
+                    {decks.length === 0 && <option value="">— Chưa có deck —</option>}
+                    {decks.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-[0.82rem] font-bold text-muted uppercase tracking-wider">Số flashcards mục tiêu</label>
+                    <span className="text-primary font-extrabold text-lg">{targetCount}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={10} max={150} step={10}
+                    value={targetCount}
+                    onChange={(e) => setTargetCount(Number(e.target.value))}
+                    className="w-full h-2 bg-surface-muted rounded-full appearance-none cursor-pointer accent-primary"
+                  />
+                  <div className="flex justify-between mt-2 text-[0.75rem] font-bold text-subtle">
+                    <span>10</span>
+                    <span>150</span>
+                  </div>
+                </div>
+
+                <div
+                  className={cn(
+                    "relative border-2 border-dashed rounded-[28px] p-10 flex flex-col items-center justify-center gap-4 transition-all duration-200 cursor-pointer group overflow-hidden",
+                    dragOver ? "border-primary bg-primary/5" : "border-border-strong bg-surface hover:border-primary/50 hover:bg-surface-muted",
+                    files.length > 0 ? "border-secondary/30 bg-secondary/5" : ""
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleFileDrop}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  
+                  {files.length > 0 ? (
+                    <>
+                      <div className="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
+                        <FileUp className="w-8 h-8" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-bold text-lg mb-1">Đã tải lên {files.length} file</p>
+                        <div className="max-h-[120px] overflow-y-auto px-4 custom-scrollbar">
+                          {files.map(f => (
+                            <div key={f.name} className="text-[0.82rem] text-muted truncate max-w-[200px] flex items-center gap-1.5 justify-center">
+                              <FileText className="w-3.5 h-3.5 opacity-60" /> {f.name}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-[0.82rem] font-bold text-secondary uppercase tracking-widest mt-2">Nhấn để thêm file mới</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-20 h-20 rounded-3xl bg-surface-muted flex items-center justify-center text-subtle group-hover:scale-110 transition-transform">
+                        <Upload className="w-10 h-10" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-bold text-lg mb-1">Kéo thả hoặc nhấn để chọn file</p>
+                        <p className="text-muted text-[0.88rem]">Hỗ trợ PDF, DOCX, TXT. Dung lượng tối đa 10MB/file.</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {message && (
+                  <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl flex items-center gap-3">
+                    <X className="w-5 h-5 text-danger flex-shrink-0" />
+                    <p className="text-danger text-[0.88rem] font-medium leading-[1.5]">{message}</p>
+                  </div>
                 )}
+
+                <div className="flex gap-4 mt-2">
+                  <button
+                    className="flex-1 flex items-center justify-center gap-2 appearance-none border-0 rounded-2xl px-6 py-4 cursor-pointer font-extrabold text-[1rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:shadow-[0_10px_28px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    onClick={handleGenerate}
+                    disabled={files.length === 0 || !selectedDeckId}
+                  >
+                    <Sparkles className="w-5 h-5" /> Sinh {targetCount} flashcards
+                  </button>
+                </div>
               </div>
             </section>
 
-            <aside style={{ display: "grid", gap: 16, alignContent: "start" }}>
-              <section className="panel">
-                <h3 style={{ marginBottom: 12 }}>Luồng hoạt động</h3>
-                <div className="step-list">
+            <aside className="grid gap-6 content-start">
+              <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
+                <h3 className="mb-4 font-bold text-lg">Luồng hoạt động</h3>
+                <div className="grid gap-4">
                   {[
                     { n: "1", t: "Chọn deck & upload PDF" },
                     { n: "2", t: "AI trích xuất & tạo thẻ" },
                     { n: "3", t: "Xem lại, sửa hoặc xóa thẻ" },
                     { n: "4", t: "Lưu vào deck → Bắt đầu học" },
                   ].map((s) => (
-                    <div key={s.n} className="step-item">
-                      <div className="step-index">{s.n}</div>
-                      <div style={{ paddingTop: 6 }}><strong>{s.t}</strong></div>
+                    <div key={s.n} className="flex gap-3 items-start">
+                      <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-surface-muted text-secondary">
+                        {s.n}
+                      </div>
+                      <div className="pt-1.5"><strong className="text-sm font-semibold leading-tight block">{s.t}</strong></div>
                     </div>
                   ))}
                 </div>
               </section>
 
-              <section className="panel">
-                <h3 style={{ marginBottom: 8 }}>AI tạo gì?</h3>
-                <div className="feature-list">
+              <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
+                <h3 className="mb-4 font-bold text-lg">AI tạo gì?</h3>
+                <div className="grid gap-4">
                   {[
-                    { icon: "❓", t: "Câu hỏi từ khái niệm chính" },
-                    { icon: "✅", t: "Câu trả lời chính xác" },
-                    { icon: "🎯", t: "Phân loại: Easy / Medium / Hard" },
-                  ].map((f) => (
-                    <div key={f.t} className="feature-item">
-                      <div className="feature-icon" style={{ fontSize: "1rem" }}>{f.icon}</div>
-                      <div style={{ paddingTop: 4 }}><span>{f.t}</span></div>
-                    </div>
-                  ))}
+                    { icon: Sparkles, t: "Câu hỏi từ khái niệm chính", c: "text-amber-500 bg-amber-50" },
+                    { icon: Check, t: "Câu trả lời chính xác", c: "text-secondary bg-secondary/5" },
+                    { icon: BrainCircuit, t: "Phân loại độ khó thông minh", c: "text-rose-500 bg-rose-50" },
+                  ].map((f) => {
+                    const Icon = f.icon;
+                    return (
+                      <div key={f.t} className="flex gap-3 items-center">
+                        <div className={cn("flex-none w-8 h-8 rounded-lg grid place-items-center", f.c)}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <p className="text-[0.88rem] font-bold text-text leading-snug m-0">{f.t}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             </aside>
           </div>
-        </>
+        </div>
       )}
 
-      {/* ── Loading stage ── */}
       {stage === "loading" && (
-        <div style={{ display: "grid", placeItems: "center", minHeight: "50vh", gap: 24, textAlign: "center" }}>
-          <div>
-            <div style={{ fontSize: "3rem", marginBottom: 16 }}>🤖</div>
-            <h2 style={{ letterSpacing: "-0.04em", marginBottom: 8 }}>AI đang đọc tài liệu…</h2>
-            <p className="muted" style={{ marginBottom: 24 }}>
-              Đang trích xuất khái niệm và tạo {targetCount} flashcards. Có thể mất 30–60 giây.
-            </p>
-            <div className="progress-track" style={{ width: 300, maxWidth: "100%", margin: "0 auto" }}>
-              <div className="progress-bar" style={{ width: `${progress}%`, background: "linear-gradient(90deg,var(--primary),#f59e0b)" }} />
+        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
+          <div className="relative mb-10">
+            <div className="w-24 h-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Sparkles className="w-10 h-10 text-primary animate-pulse" />
             </div>
-            <p className="helper-text" style={{ marginTop: 8 }}>{Math.round(progress)}%</p>
+          </div>
+          <h2 className="text-3xl font-extrabold tracking-tight mb-3">AI đang đọc tài liệu…</h2>
+          <p className="text-muted text-lg max-w-[50ch] mb-10 leading-relaxed">
+            Đang trích xuất khái niệm và tạo <strong className="text-text">{targetCount} flashcards</strong>.<br />Quá trình này có thể mất 30–60 giây.
+          </p>
+          
+          <div className="w-full max-w-[400px]">
+            <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300" 
+                style={{ width: `${progress}%` }} 
+              />
+            </div>
+            <div className="flex justify-between mt-3 px-1">
+              <span className="text-[0.82rem] font-bold text-subtle uppercase tracking-widest">Đang xử lý</span>
+              <span className="text-[0.82rem] font-extrabold text-primary">{Math.round(progress)}%</span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ── Preview stage ── */}
       {stage === "preview" && (
-        <>
-          {/* Preview header */}
-          <div className="preview-header">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sticky top-[-32px] md:top-[-40px] z-40 bg-background/80 backdrop-blur-xl py-6 border-b border-border/50">
             <div>
-              <div className="eyebrow">✏️ Xem lại trước khi lưu</div>
-              <h2 style={{ margin: "8px 0 4px", letterSpacing: "-0.04em" }}>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-2">
+                <Pencil className="w-3.5 h-3.5" /> Xem lại trước khi lưu
+              </div>
+              <h2 className="text-3xl font-extrabold tracking-tight mb-2.5">
                 {cards.length} flashcards được tạo
               </h2>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div className="flex gap-2.5 flex-wrap">
                 {Object.entries(diffCount).map(([d, n]) => (
-                  <span key={d} className={`difficulty-badge ${d}`}>
-                    {d === "easy" ? "Dễ" : d === "medium" ? "Trung bình" : "Khó"}: {n}
+                  <span key={d} className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.75rem] font-bold tracking-tight",
+                    d === "easy" ? "bg-green-50 text-green-700" : 
+                    d === "medium" ? "bg-amber-50 text-amber-700" : 
+                    "bg-rose-50 text-rose-700"
+                  )}>
+                    {d === "easy" ? "Dễ" : d === "medium" ? "TB" : "Khó"}: {n}
                   </span>
                 ))}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button className="btn btn-ghost" style={{ width: "auto" }} onClick={addCard}>
-                + Thêm thẻ
+            <div className="flex gap-3 w-full md:w-auto">
+              <button 
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface text-text font-bold text-[0.92rem] hover:-translate-y-px transition-all shadow-xs"
+                onClick={addCard}
+              >
+                <Plus className="w-4 h-4" /> Thêm thẻ
               </button>
-              <button className="btn btn-secondary" style={{ width: "auto" }} onClick={() => setStage("setup")}>
-                Làm lại
+              <button 
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-white/70 text-muted font-bold text-[0.92rem] hover:bg-white hover:-translate-y-px transition-all"
+                onClick={() => setStage("setup")}
+              >
+                <RotateCcw className="w-4 h-4" /> Làm lại
               </button>
-              <button className="btn btn-primary" style={{ width: "auto" }} onClick={handleSave}>
-                💾 Lưu vào deck
+              <button 
+                className="flex-[1.5] md:flex-none flex items-center justify-center gap-2 px-7 py-3 border-0 rounded-2xl font-bold text-[0.95rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0"
+                onClick={handleSave}
+              >
+                <Save className="w-4 h-4" /> Lưu tất cả
               </button>
             </div>
           </div>
 
           {message && (
-            <p className="helper-text" style={{ color: "var(--danger)", marginBottom: 14 }}>{message}</p>
+            <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl flex items-center gap-3 mb-6">
+              <X className="w-5 h-5 text-danger flex-shrink-0" />
+              <p className="text-danger text-[0.88rem] font-medium leading-[1.5] m-0">{message}</p>
+            </div>
           )}
 
-          {/* Editable card grid */}
-          <div className="preview-grid">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {cards.map((card, idx) => (
-              <div key={idx} className={`preview-card ${editingIdx === idx ? "editing" : ""}`}>
+              <div 
+                key={idx} 
+                className={cn(
+                  "p-[22px] flex flex-col gap-4 bg-surface-raised border border-border rounded-2xl shadow-sm transition-all duration-300",
+                  editingIdx === idx ? "ring-2 ring-primary border-primary bg-white shadow-xl scale-[1.02] z-10" : "hover:border-primary/40"
+                )}
+              >
                 {editingIdx === idx && editState ? (
-                  // ── Edit mode ──
                   <>
-                    <div>
-                      <label className="helper-text" style={{ display: "block", marginBottom: 4 }}>Câu hỏi (Front)</label>
-                      <textarea
-                        className="textarea-field"
-                        style={{ minHeight: 80 }}
-                        value={editState.front}
-                        onChange={(e) => setEditState({ ...editState, front: e.target.value })}
-                        autoFocus
-                      />
-                    </div>
-                    <div>
-                      <label className="helper-text" style={{ display: "block", marginBottom: 4 }}>Câu trả lời (Back)</label>
-                      <textarea
-                        className="textarea-field"
-                        style={{ minHeight: 80 }}
-                        value={editState.back}
-                        onChange={(e) => setEditState({ ...editState, back: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <label className="helper-text" style={{ display: "block", marginBottom: 6 }}>Độ khó</label>
-                      <div className="tab-row">
-                        {(["easy", "medium", "hard"] as const).map((d) => (
-                          <button
-                            key={d}
-                            className={`tab-chip ${editState.difficulty === d ? "active" : ""}`}
-                            onClick={() => setEditState({ ...editState, difficulty: d })}
-                          >
-                            {d === "easy" ? "Dễ" : d === "medium" ? "TB" : "Khó"}
-                          </button>
-                        ))}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu hỏi (Front)</label>
+                        <textarea
+                          className="w-full rounded-xl border border-primary/30 bg-white text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          value={editState.front}
+                          onChange={(e) => setEditState({ ...editState, front: e.target.value })}
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu trả lời (Back)</label>
+                        <textarea
+                          className="w-full rounded-xl border border-primary/30 bg-white text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          value={editState.back}
+                          onChange={(e) => setEditState({ ...editState, back: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-2 block">Độ khó</label>
+                        <div className="flex gap-2">
+                          {(["easy", "medium", "hard"] as const).map((d) => (
+                            <button
+                              key={d}
+                              className={cn(
+                                "flex-1 py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-tighter transition-all",
+                                editState.difficulty === d 
+                                  ? "bg-primary text-white shadow-sm ring-2 ring-primary/20" 
+                                  : "bg-surface text-muted border border-border hover:bg-surface-muted"
+                              )}
+                              onClick={() => setEditState({ ...editState, difficulty: d })}
+                            >
+                              {d === "easy" ? "Dễ" : d === "medium" ? "TB" : "Khó"}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="preview-card-actions">
-                      <button className="btn btn-ghost btn-icon" onClick={cancelEdit}>✕</button>
-                      <button className="btn btn-primary btn-icon" onClick={saveEdit}>✓</button>
+                    <div className="flex gap-2 mt-2">
+                      <button 
+                        className="flex-1 flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-muted font-bold text-sm hover:bg-surface-muted transition-all"
+                        onClick={cancelEdit}
+                      >
+                        Hủy
+                      </button>
+                      <button 
+                        className="flex-[1.5] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-secondary text-white font-bold text-sm hover:opacity-90 shadow-sm transition-all"
+                        onClick={saveEdit}
+                      >
+                        <Check className="w-4 h-4" /> Hoàn tất
+                      </button>
                     </div>
                   </>
                 ) : (
-                  // ── Display mode ──
                   <>
-                    <div>
-                      <span className={`difficulty-badge ${card.difficulty}`} style={{ marginBottom: 8, display: "inline-block" }}>
+                    <div className="flex-1">
+                      <span className={cn(
+                        "inline-flex items-center rounded-full px-2.5 py-1 text-[0.75rem] font-bold tracking-tight mb-3",
+                        card.difficulty === "easy" ? "bg-green-100 text-green-700" : 
+                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700" : 
+                        "bg-red-100 text-red-700"
+                      )}>
                         {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
                       </span>
-                      <p style={{ fontWeight: 700, marginBottom: 6, fontSize: "0.92rem" }}>{card.front}</p>
-                      <p className="helper-text" style={{ marginBottom: 0 }}>{card.back}</p>
+                      <p className="font-extrabold text-[0.95rem] leading-snug mb-2 text-text line-clamp-3">{card.front}</p>
+                      <p className="text-muted text-[0.88rem] leading-relaxed m-0 line-clamp-4">{card.back}</p>
                     </div>
-                    <div className="preview-card-actions">
+                    <div className="flex justify-end gap-2.5 pt-4 border-t border-border/50">
                       <button
-                        className="btn btn-ghost btn-icon"
-                        style={{ color: "var(--danger)" }}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-danger bg-[#fff1f2] border border-danger/10 hover:shadow-sm hover:-translate-y-px active:translate-y-0 transition-all"
                         onClick={() => removeCard(idx)}
                         title="Xóa thẻ"
                       >
-                        🗑
+                        <Trash2 className="w-4 h-4" />
                       </button>
                       <button
-                        className="btn btn-secondary btn-icon"
+                        className="h-10 px-4 rounded-xl flex items-center justify-center gap-1.5 text-secondary border border-secondary/20 bg-secondary/5 font-bold text-[0.85rem] hover:bg-secondary/10 hover:-translate-y-px active:translate-y-0 transition-all"
                         onClick={() => startEdit(idx)}
                         title="Chỉnh sửa"
                       >
-                        ✏️
+                        <Pencil className="w-3.5 h-3.5" /> Sửa
                       </button>
                     </div>
                   </>
                 )}
               </div>
             ))}
+            <button 
+              onClick={addCard}
+              className="p-[22px] min-h-[220px] flex flex-col items-center justify-center gap-3 bg-transparent border-2 border-dashed border-border-strong rounded-2xl text-subtle hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+            >
+              <div className="w-12 h-12 rounded-full bg-surface-muted flex items-center justify-center">
+                <Plus className="w-6 h-6" />
+              </div>
+              <span className="font-bold text-sm tracking-wide uppercase">Thêm thẻ mới</span>
+            </button>
           </div>
-        </>
+        </div>
       )}
 
-      {/* ── Saved stage ── */}
       {stage === "saved" && (
-        <div style={{ display: "grid", placeItems: "center", minHeight: "50vh", gap: 20, textAlign: "center" }}>
-          <div>
-            <div style={{ fontSize: "3.5rem", marginBottom: 16 }}>🎉</div>
-            <h2 style={{ letterSpacing: "-0.04em", marginBottom: 8 }}>{message}</h2>
-            <p className="muted" style={{ marginBottom: 28 }}>
-              Deck đã sẵn sàng — hãy bắt đầu phiên học đầu tiên.
-            </p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <button
-                className="btn btn-primary"
-                style={{ width: "auto" }}
-                onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)}
-              >
-                🔁 Học ngay
-              </button>
-              <button
-                className="btn btn-secondary"
-                style={{ width: "auto" }}
-                onClick={() => { setStage("setup"); setFiles([]); setCards([]); setMessage(null); }}
-              >
-                Upload tài liệu khác
-              </button>
-            </div>
+        <div className="mt-10 p-10 bg-surface border border-border rounded-[40px] shadow-sm text-center animate-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Sparkles className="w-10 h-10 text-green-500" />
+          </div>
+          <h2 className="text-2xl font-extrabold mb-2">Đã lưu thành công!</h2>
+          <p className="text-muted mb-8 italic">Các thẻ flashcards mới đã sẵn sàng để bạn chinh phục.</p>
+          <div className="flex justify-center gap-3">
+            <button
+              className="btn btn-primary"
+              style={{ width: "auto" }}
+              onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)}
+            >
+              <Repeat className="w-4 h-4" /> Học ngay
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ width: "auto" }}
+              onClick={() => { setStage("setup"); setFiles([]); setCards([]); setMessage(null); }}
+            >
+              Upload tài liệu khác
+            </button>
           </div>
         </div>
       )}

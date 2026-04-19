@@ -16,12 +16,29 @@ import {
   explainCard,
   User,
 } from "../../../lib/app-client";
+import { 
+  ArrowLeft, 
+  Bot, 
+  Send, 
+  CheckCircle2, 
+  AlertCircle, 
+  HelpCircle, 
+  Zap, 
+  RotateCcw,
+  WifiOff,
+  Keyboard,
+  Sparkles,
+  ChevronRight,
+  ChevronLeft,
+  X
+} from "lucide-react";
+import { cn } from "../../../lib/utils";
 
-const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; cls: string }> = {
-  0: { label: "Again", hint: "Ôn lại sớm",       cls: "rating-again" },
-  1: { label: "Hard",  hint: "Giãn cách ngắn",    cls: "rating-hard"  },
-  2: { label: "Good",  hint: "Đúng nhịp",         cls: "rating-good"  },
-  3: { label: "Easy",  hint: "Nắm chắc rồi",      cls: "rating-easy"  },
+const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string; icon: any }> = {
+  0: { label: "Again", hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200", icon: RotateCcw },
+  1: { label: "Hard",  hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200", icon: HelpCircle },
+  2: { label: "Good",  hint: "Đúng nhịp",         color: "bg-secondary text-white shadow-teal-200", icon: CheckCircle2 },
+  3: { label: "Easy",  hint: "Nắm chắc rồi",      color: "bg-primary text-white shadow-amber-200", icon: Zap },
 };
 
 const SWIPE_THRESHOLD = 80;  // px
@@ -40,7 +57,7 @@ export default function StudyPage() {
   const [isDragging,   setIsDragging]   = useState(false);
   const [offline,      setOffline]      = useState(false);
   const [msg,          setMsg]          = useState<string | null>(null);
-  const [ratingQuality, setRatingQuality] = useState<number | null>(null); // for quick flash
+  const [ratingQuality, setRatingQuality] = useState<number | null>(null); 
   const [sessionRatings, setSessionRatings] = useState<number[]>([]);
 
   // Explain mode states
@@ -52,7 +69,6 @@ export default function StudyPage() {
   const pointerStart = useRef<{ x: number; t: number } | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  // ── Auth & load cards ──────────────────────────────────────────────────────
   useEffect(() => {
     const storedUser = getStoredUser();
     if (!storedUser) { router.replace("/"); return; }
@@ -88,7 +104,6 @@ export default function StudyPage() {
     }
   };
 
-  // ── Progress & session ─────────────────────────────────────────────────────
   const handleRate = async (quality: 0 | 1 | 2 | 3) => {
     if (!user || cards.length === 0) return;
     const card = cards[idx];
@@ -113,7 +128,6 @@ export default function StudyPage() {
       setMsg(null);
       setTimeout(() => setIdx((i) => i + 1), 220);
     } else {
-      // Session complete — log it
       const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
       if (isOnline()) {
         void logStudySession(user.id, deckId, newRatings.length, avg);
@@ -123,7 +137,6 @@ export default function StudyPage() {
     }
   };
 
-  // ── Swipe (pointer events) ─────────────────────────────────────────────────
   const onPointerDown = (e: React.PointerEvent) => {
     if (!isFlipped) return;
     pointerStart.current = { x: e.clientX, t: Date.now() };
@@ -146,13 +159,12 @@ export default function StudyPage() {
     pointerStart.current = null;
 
     if (Math.abs(dx) > SWIPE_THRESHOLD || vel > SWIPE_VELOCITY) {
-      void handleRate(dx > 0 ? 3 : 0);  // right = Easy, left = Again
+      void handleRate(dx > 0 ? 3 : 0);
     } else {
       setDragX(0);
     }
   };
 
-  // ── Explain mode handler ───────────────────────────────────────────────────
   useEffect(() => {
     if (chatBottomRef.current) chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
@@ -173,10 +185,8 @@ export default function StudyPage() {
     setIsChatting(false);
   };
 
-  // ── Keyboard Shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input/textarea
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
       
       switch (e.key) {
@@ -209,19 +219,26 @@ export default function StudyPage() {
 
   if (!user) return null;
 
-  // ── Empty deck ─────────────────────────────────────────────────────────────
   if (cards.length === 0 && !msg) {
     return (
-      <main className="study-shell">
-        <section className="panel empty-state">
-          <span className="empty-icon">🃏</span>
-          <h2 style={{ letterSpacing: "-0.04em" }}>Deck này chưa có flashcards</h2>
-          <p className="muted">Hãy sang Generator để tạo nội dung trước.</p>
-          <div className="cta-row" style={{ justifyContent: "center" }}>
-            <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => router.push(`/generate?deckId=${deckId}`)}>
-              ⚡ Sang Generator
+      <main className="min-h-screen grid place-items-center p-5 bg-background">
+        <section className="w-full max-w-[480px] p-10 bg-surface border border-border rounded-[32px] shadow-sm text-center">
+          <div className="w-20 h-20 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-6 text-muted">
+            <Sparkles className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-extrabold tracking-tight mb-3">Deck này chưa có flashcards</h2>
+          <p className="text-muted mb-10 leading-relaxed">Hãy sang Generator để tạo nội dung trước.</p>
+          <div className="grid gap-3">
+            <button 
+              className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-extrabold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
+              onClick={() => router.push(`/generate?deckId=${deckId}`)}
+            >
+              <Sparkles className="w-5 h-5" /> Sang Generator
             </button>
-            <button className="btn btn-secondary" style={{ width: "auto" }} onClick={() => router.push("/workspace")}>
+            <button 
+              className="w-full py-4 px-6 rounded-2xl font-bold text-muted border border-border-strong bg-white/50 hover:bg-white hover:-translate-y-px transition-all"
+              onClick={() => router.push("/workspace")}
+            >
               Về Workspace
             </button>
           </div>
@@ -232,197 +249,269 @@ export default function StudyPage() {
 
   const leftHintOpacity  = Math.max(0, Math.min(1, -dragX / SWIPE_THRESHOLD));
   const rightHintOpacity = Math.max(0, Math.min(1,  dragX / SWIPE_THRESHOLD));
-  const cardRotate       = (dragX / 400) * 12;  // max ~12° tilt
+  const cardRotate       = (dragX / 400) * 8; 
   const cardScale        = isDragging ? 1.02 : 1;
 
   return (
-    <main className="study-shell">
+    <main className="min-h-screen bg-background relative overflow-hidden flex flex-col">
       {/* ── Offline banner ── */}
       {offline && (
-        <div className="offline-banner">
-          📵 Đang offline — tiến độ sẽ được đồng bộ khi có mạng
+        <div className="bg-amber-500 text-white py-2 px-4 text-center font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 animate-in slide-in-from-top duration-300">
+          <WifiOff className="w-4 h-4" /> Đang offline — tiến độ sẽ được đồng bộ khi có mạng
         </div>
       )}
 
       {/* ── Header ── */}
-      <header className="study-header">
-        <div>
-          <div className="eyebrow">SM-2 Spaced Repetition</div>
-          <h1 className="study-title">Deck #{deckId}</h1>
-          <p className="study-copy">Học & Tương tác thông minh</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
+        <div className="flex items-center gap-4 overflow-hidden">
           <button 
-            className={`btn ${isExplainMode ? "btn-primary" : "btn-ghost"}`} 
-            style={{ width: "auto" }} 
+            onClick={() => router.push("/workspace")}
+            className="w-10 h-10 rounded-xl flex items-center justify-center border border-border-strong hover:bg-surface-muted transition-all"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <div>
+            <div className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold text-primary uppercase tracking-widest mb-0.5">
+              <Sparkles className="w-3 h-3" /> AI Spaced Repetition
+            </div>
+            <h1 className="text-xl font-bold tracking-tight truncate max-w-[200px] md:max-w-none">Deck #{deckId}</h1>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button 
+            className={cn(
+              "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[0.88rem] transition-all",
+              isExplainMode ? "bg-primary text-white shadow-md shadow-amber-200" : "bg-white border border-border-strong text-subtle hover:bg-surface-muted"
+            )}
             onClick={() => setIsExplainMode(!isExplainMode)}
           >
-            🤖 {isExplainMode ? "Đóng Explain" : "Explain"}
-          </button>
-          <button className="btn btn-secondary" style={{ width: "auto" }} onClick={() => router.push("/workspace")}>
-            ← Workspace
+            <Bot className="w-4 h-4" /> <span className="hidden sm:inline">{isExplainMode ? "Đóng Tutor" : "AI Tutor"}</span>
           </button>
         </div>
       </header>
 
-      <div className={`study-layout ${isExplainMode ? "explain-active" : ""}`}>
+      <div className={cn(
+        "flex-1 flex flex-col md:flex-row gap-6 p-4 md:p-8 max-w-[1400px] mx-auto w-full h-[calc(100vh-80px)]",
+        isExplainMode ? "overflow-hidden" : ""
+      )}>
         {/* ── Explain Sidebar ── */}
         {isExplainMode && (
-          <aside className="explain-sidebar snippet-panel">
-            <div className="explain-header">
-              <h3>🤖 AI Tutor</h3>
-              <p className="helper-text">Hỏi thêm về flashcard này</p>
+          <aside className="w-full md:w-[380px] flex flex-col bg-surface-raised border border-border rounded-[28px] shadow-sm backdrop-blur-xl animate-in slide-in-from-left-4 duration-500 overflow-hidden">
+            <div className="p-6 border-b border-border bg-white/50">
+              <div className="flex justify-between items-center mb-1">
+                <h3 className="font-extrabold text-lg flex items-center gap-2">
+                  <Bot className="w-6 h-6 text-primary" /> AI Learning Assistant
+                </h3>
+                <button onClick={() => setIsExplainMode(false)} className="md:hidden p-1 opacity-50"><X/></button>
+              </div>
+              <p className="text-muted text-[0.88rem] underline decoration-primary/30 decoration-2 underline-offset-4">Hỏi thêm về kiến thức trong thẻ này</p>
             </div>
-            <div className="chat-messages">
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
               {chatHistory.length === 0 ? (
-                <div className="empty-chat helper-text">Bắt đầu trò chuyện để hiểu sâu hơn về kiến thức trong thẻ này.</div>
+                <div className="h-full flex flex-col items-center justify-center opacity-40 text-center px-4">
+                  <Sparkles className="w-12 h-12 mb-4" />
+                  <p className="text-sm font-medium">Bắt đầu trò chuyện để hiểu sâu hơn về kiến thức trong thẻ này.</p>
+                </div>
               ) : (
-                chatHistory.map((msg, i) => (
-                  <div key={i} className={`chat-bubble ${msg.role}`}>
-                    {msg.text}
+                chatHistory.map((m, i) => (
+                  <div key={i} className={cn(
+                    "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%]",
+                    m.role === "user" 
+                      ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm" 
+                      : "mr-auto bg-white border border-border text-text font-medium rounded-tl-none shadow-sm"
+                  )}>
+                    {m.text}
                   </div>
                 ))
               )}
-              {isChatting && <div className="chat-bubble assistant typing">AI đang viết...</div>}
+              {isChatting && (
+                <div className="mr-auto bg-white border border-border p-4 rounded-[20px] rounded-tl-none shadow-sm flex items-center gap-2 text-muted italic text-sm">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+                  AI đang viết...
+                </div>
+              )}
               <div ref={chatBottomRef} />
             </div>
-            <div className="chat-input-area">
-              <input 
-                className="input-field" 
-                placeholder="Nhập câu hỏi của bạn..." 
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') handleExplain();
-                  e.stopPropagation();
-                }}
-              />
-              <button className="btn btn-primary btn-icon" onClick={handleExplain} disabled={!chatInput.trim() || isChatting}>
-                ➤
-              </button>
+
+            <div className="p-4 bg-white/50 border-t border-border mt-auto">
+              <div className="relative group">
+                <input 
+                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-white text-text font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm" 
+                  placeholder="Nhập câu hỏi của bạn..." 
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleExplain();
+                    e.stopPropagation();
+                  }}
+                />
+                <button 
+                  className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-amber-200"
+                  onClick={handleExplain} 
+                  disabled={!chatInput.trim() || isChatting}
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </aside>
         )}
 
-        {/* ── Study card ── */}
-        {card && (
-          <section className="study-card">
-          {/* Progress */}
-          <div className="study-top">
-            <div style={{ flex: 1 }}>
-              <div className="progress-row">
-                <span>Thẻ {idx + 1} / {cards.length}</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <div className="progress-track" style={{ marginTop: 6 }}>
-                <div className="progress-bar" style={{ width: `${progress}%` }} />
-              </div>
-            </div>
-            <span className="pill">
-              {cards.length < 5 ? "Starter" : cards.length < 15 ? "Active" : "Deep"}
-            </span>
-          </div>
-
-          <div className="study-stage">
-            {/* ── Swipeable flip card ── */}
-            <div className="swipe-wrapper">
-              {/* Swipe hints */}
-              <div className="swipe-hint swipe-hint-right" style={{ opacity: rightHintOpacity }}>
-                ✓ Easy
-              </div>
-              <div className="swipe-hint swipe-hint-left" style={{ opacity: leftHintOpacity }}>
-                ✕ Again
-              </div>
-
-              <div
-                className={`flip-card-wrapper swipe-card ${isFlipped ? "flipped" : ""} ${isDragging ? "is-dragging" : ""}`}
-                style={{
-                  transform: `translateX(${dragX}px) rotate(${cardRotate}deg) scale(${cardScale})`,
-                  cursor: isFlipped ? "grab" : "pointer",
-                }}
-                onClick={() => { if (!isDragging && Math.abs(dragX) < 5) setIsFlipped((f) => !f); }}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onPointerCancel={() => { setIsDragging(false); setDragX(0); }}
-              >
-                <div className="flip-card-inner">
-                  <article className="flip-card-front">
-                    <div className="card-kicker">
-                      {card.difficulty && (
-                        <span className={`difficulty-badge ${card.difficulty}`} style={{ marginRight: 8 }}>
-                          {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "TB" : "Khó"}
-                        </span>
-                      )}
-                      Câu hỏi
-                    </div>
-                    <div className="card-body">{card.front}</div>
-                    <div className="card-footnote">Nhấn để lật xem đáp án</div>
-                  </article>
-
-                  <article className="flip-card-back">
-                    <div className="card-kicker" style={{ color: "var(--secondary)" }}>Đáp án</div>
-                    <div className="card-body">{card.back}</div>
-                    <div className="card-footnote">
-                      Đánh giá độ khó bên dưới để chia lịch ôn tập
-                    </div>
-                  </article>
+        {/* ── Main content ── */}
+        <section className="flex-1 flex flex-col items-center justify-center max-w-[800px] mx-auto w-full relative">
+          {card && (
+            <div className="w-full flex flex-col gap-8">
+              {/* Progress and status */}
+              <div className="flex items-center gap-6">
+                <div className="flex-1">
+                  <div className="flex justify-between items-end mb-2.5">
+                    <span className="text-[0.75rem] font-extrabold uppercase tracking-widest text-muted">Thẻ {idx + 1} / {cards.length}</span>
+                    <span className="text-[1.2rem] font-black text-text">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="h-2.5 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300" 
+                      style={{ width: `${progress}%` }} 
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col items-end shrink-0">
+                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-border-strong text-primary text-[0.75rem] font-black shadow-sm tracking-wide">
+                    {cards.length < 5 ? "STARTER" : cards.length < 15 ? "ACTIVE" : "MASTERY"}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* ── First Card Instructions ── */}
-            {idx === 0 && !isFlipped && (
-              <div className="instruction-box">
-                <p><strong>💡 Phím tắt (Keyboard Shortcuts)</strong></p>
-                <ul className="helper-text" style={{ paddingLeft: 20, marginBottom: 0 }}>
-                  <li><code>Space</code> : Lật thẻ</li>
-                  <li><code>←</code> / <code>→</code> : Chuyển qua lại giữa các thẻ</li>
-                  <li><code>1</code> <code>2</code> <code>3</code> <code>4</code> : Chấm điểm sau khi lật thẻ</li>
-                </ul>
-              </div>
-            )}
+              {/* Card area */}
+              <div className="relative group w-full h-[400px] md:h-[460px]">
+                {/* Swipe hints */}
+                <div 
+                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary" 
+                  style={{ opacity: rightHintOpacity }}
+                >
+                  <Zap className="w-6 h-6" /> Easy
+                </div>
+                <div 
+                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500" 
+                  style={{ opacity: leftHintOpacity }}
+                >
+                  <RotateCcw className="w-6 h-6" /> Again
+                </div>
 
-            {/* ── Before flip: hint ── */}
-            {!isFlipped ? (
-              <div className="panel" style={{ padding: 16 }}>
-                <p style={{ fontWeight: 600, marginBottom: 4 }}>Tự kiểm tra trước</p>
-                <p className="helper-text" style={{ marginBottom: 0 }}>
-                  Hãy nghĩ câu trả lời trong đầu rồi nhấn thẻ để lật và so sánh.
-                </p>
-              </div>
-            ) : (
-              /* ── After flip: rating buttons ── */
-              <div className="panel" style={{ padding: 18 }}>
-                <p style={{ fontWeight: 600, marginBottom: 12 }}>Mức độ khó của thẻ này?</p>
-                <div className="rating-grid">
-                  {([0, 1, 2, 3] as const).map((q) => {
-                    const r = RATING[q];
-                    const isActive = ratingQuality === q;
-                    return (
-                      <button
-                        key={q}
-                        className={`rating-btn ${r.cls}`}
-                        onClick={() => handleRate(q)}
-                        style={{ opacity: isActive ? 0.5 : 1, transform: isActive ? "scale(0.95)" : undefined }}
-                      >
-                        {r.label}
-                        <span>{r.hint}</span>
-                      </button>
-                    );
-                  })}
+                {/* Flip card */}
+                <div
+                  className={cn(
+                    "h-full w-full relative transition-[transform,shadow,opacity] duration-300 touch-none [transform-style:preserve-3d]",
+                    isFlipped ? "[transform:rotateY(180deg)]" : "",
+                    isDragging ? "cursor-grabbing" : "cursor-pointer"
+                  )}
+                  style={{
+                    transform: `rotateY(${isFlipped ? 180 : 0}deg) translateX(${dragX}px) rotateZ(${cardRotate}deg) scale(${cardScale})`,
+                  }}
+                  onClick={() => { if (!isDragging && Math.abs(dragX) < 5) setIsFlipped((f) => !f); }}
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={() => { setIsDragging(false); setDragX(0); }}
+                >
+                  {/* Front */}
+                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-gradient-to-br from-white to-amber-50/20 border-2 border-border shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] flex flex-col">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="text-[0.82rem] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" /> Câu hỏi
+                      </div>
+                      <span className={cn(
+                        "px-3 py-1 rounded-full text-[0.7rem] font-black uppercase tracking-widest shadow-sm",
+                        card.difficulty === "easy" ? "bg-green-500 text-white" : 
+                        card.difficulty === "medium" ? "bg-amber-500 text-white" : 
+                        "bg-rose-500 text-white"
+                      )}>
+                        {card.difficulty === "easy" ? "DỄ" : card.difficulty === "medium" ? "TB" : "KHÓ"}
+                      </span>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center text-center text-xl md:text-2xl lg:text-3xl font-extrabold leading-tight tracking-tight text-text">
+                      {card.front}
+                    </div>
+                    <div className="pt-6 mt-auto border-t border-border-strong/40 flex items-center justify-center gap-2 text-subtle font-bold text-xs uppercase tracking-widest opacity-60">
+                      Nhấn để lật đáp án
+                    </div>
+                  </div>
+
+                  {/* Back */}
+                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-gradient-to-br from-[#f0fdf9] to-[#e0f2ef] border-2 border-secondary/30 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
+                    <div className="text-[0.82rem] font-bold text-secondary-dark uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5" /> Đáp án
+                    </div>
+                    <div className="flex-1 flex items-center justify-center text-center text-lg md:text-xl lg:text-2xl font-bold leading-relaxed text-secondary-dark overflow-y-auto custom-scrollbar px-2">
+                      {card.back}
+                    </div>
+                    <div className="pt-6 mt-auto border-t border-teal-200/40 flex items-center justify-center gap-2 text-secondary font-bold text-xs uppercase tracking-widest opacity-60">
+                      Chấm điểm bên dưới để tiếp tục
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {msg && (
-              <div className="panel" style={{ padding: 16, textAlign: "center" }}>
-                <p style={{ fontWeight: 700, marginBottom: 0 }}>{msg}</p>
+              {/* Bottom UI area */}
+              <div className="min-h-[140px] flex flex-col items-center">
+                {!isFlipped ? (
+                  <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    {idx === 0 && (
+                      <div className="flex gap-4 items-center px-5 py-3 rounded-2xl bg-surface-raised border border-border shadow-sm">
+                        <Keyboard className="w-5 h-5 text-muted" />
+                        <div className="flex gap-3 text-[0.75rem] font-bold text-subtle">
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-white shadow-xs">Space</kbd> Flip</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-white shadow-xs">←/→</kbd> Nav</span>
+                        </div>
+                      </div>
+                    )}
+                    <button 
+                      onClick={() => setIsFlipped(true)}
+                      className="group flex items-center gap-2 text-subtle hover:text-primary transition-colors py-2"
+                    >
+                      <HelpCircle className="w-5 h-5" />
+                      <span className="text-sm font-bold uppercase tracking-widest underline decoration-2 underline-offset-8">Kiểm tra kết quả</span>
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-3 animate-in fade-in zoom-in-95 duration-300">
+                    {([0, 1, 2, 3] as const).map((q) => {
+                      const r = RATING[q];
+                      const Icon = r.icon;
+                      const isActive = ratingQuality === q;
+                      return (
+                        <button
+                          key={q}
+                          onClick={() => handleRate(q)}
+                          className={cn(
+                            "flex flex-col items-center gap-1.5 p-4 rounded-3xl transition-all duration-200 active:scale-95 shadow-lg",
+                            r.color,
+                            isActive ? "scale-90 opacity-50 ring-4 ring-white" : "hover:-translate-y-1 hover:brightness-105"
+                          )}
+                        >
+                          <Icon className="w-6 h-6 mb-0.5" strokeWidth={3} />
+                          <span className="text-[0.9rem] font-black uppercase tracking-tighter">{r.label}</span>
+                          <span className="text-[0.65rem] font-bold opacity-80 uppercase tracking-widest">{r.hint}</span>
+                          <kbd className="mt-1 px-1.5 py-0.5 rounded-md bg-black/10 text-[0.65rem] font-bold border border-white/20">{q + 1}</kbd>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {msg && (
+            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-black/90 text-white rounded-[24px] font-bold text-lg shadow-2xl animate-in slide-in-from-bottom shadow-primary/20 flex items-center gap-3 z-50">
+              <Sparkles className="text-primary w-6 h-6" /> {msg}
+            </div>
+          )}
         </section>
-      )}
       </div>
     </main>
   );

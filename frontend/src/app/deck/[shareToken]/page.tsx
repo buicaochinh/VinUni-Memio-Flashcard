@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Card, Deck, fetchSharedDeck } from "../../../lib/app-client";
+import { Search, Lock, BookOpen, Layers, CheckCircle2, ArrowRight } from "lucide-react";
+import { cn } from "../../../lib/utils";
 
 export default function SharedDeckPage() {
   const params = useParams<{ shareToken: string }>();
@@ -34,10 +38,10 @@ export default function SharedDeckPage() {
 
   if (loading) {
     return (
-      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 20 }}>
-        <div style={{ textAlign: "center" }}>
-          <div className="spinner spinner-dark" style={{ margin: "0 auto 16px" }} />
-          <p className="muted">Đang tải bộ thẻ…</p>
+      <main className="min-h-screen grid place-items-center p-5 bg-background">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted">Đang tải bộ thẻ…</p>
         </div>
       </main>
     );
@@ -45,14 +49,19 @@ export default function SharedDeckPage() {
 
   if (error || !deck) {
     return (
-      <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 20 }}>
-        <div className="panel" style={{ maxWidth: 440, textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: "3rem", marginBottom: 12 }}>🔒</div>
-          <h2 style={{ letterSpacing: "-0.04em", marginBottom: 8 }}>Không tìm thấy bộ thẻ</h2>
-          <p className="muted" style={{ marginBottom: 24 }}>
+      <main className="min-h-screen grid place-items-center p-5 bg-background">
+        <div className="w-full max-w-[440px] p-10 bg-surface border border-border rounded-[28px] shadow-sm text-center">
+          <div className="text-5xl mb-4 text-primary">
+            <Lock className="w-16 h-16 mx-auto" />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight mb-2">Không tìm thấy bộ thẻ</h2>
+          <p className="text-muted mb-6">
             {error ?? "Link không hợp lệ hoặc bộ thẻ đã tắt chia sẻ."}
           </p>
-          <button className="btn btn-primary" onClick={() => router.push("/")}>
+          <button 
+            className="w-full py-3.5 px-6 rounded-xl font-bold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
+            onClick={() => router.push("/")}
+          >
             Về trang chủ
           </button>
         </div>
@@ -61,44 +70,55 @@ export default function SharedDeckPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", background: "var(--bg)" }}>
+    <main className="min-h-screen bg-background">
       {/* ── Header ── */}
-      <header style={{
-        background: "rgba(255,255,255,0.90)",
-        backdropFilter: "blur(12px)",
-        borderBottom: "1px solid var(--border)",
-        padding: "16px 20px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 16,
-        position: "sticky", top: 0, zIndex: 50,
-      }}>
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
         <div className="brand-lockup">
-          <div className="brand-mark">AI</div>
-          <span style={{ fontWeight: 800, fontSize: "1rem", letterSpacing: "-0.04em" }}>FlashAI</span>
+          <Link href="/" className="flex items-center gap-3 outline-none">
+            <div className="relative h-8 w-8">
+              <Image 
+                src="/icon.png" 
+                alt="Memio Logo" 
+                fill
+                className="object-contain mix-blend-multiply flex-shrink-0" 
+              />
+            </div>
+            <span className="text-xl font-extrabold tracking-tight">
+              <span className="text-primary">Mem</span><span className="text-text">io</span>
+            </span>
+          </Link>
         </div>
-        <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => router.push("/")}>
-          Tạo deck của bạn →
+        <button 
+          className="px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-primary shadow-md hover:-translate-y-px transition-all"
+          onClick={() => router.push("/")}
+        >
+          Tạo deck của bạn <ArrowRight className="inline-block w-4 h-4 ml-1" />
         </button>
       </header>
 
-      <div style={{ width: "min(1100px, calc(100% - 32px))", margin: "0 auto", padding: "28px 0 56px" }}>
+      <div className="w-full max-w-[1100px] mx-auto p-4 md:p-8 pb-14">
         {/* ── Deck info ── */}
-        <section className="hero-card" style={{ marginBottom: 24 }}>
-          <div className="eyebrow">🌐 Bộ thẻ được chia sẻ</div>
-          <h1 style={{ fontSize: "clamp(1.6rem,4vw,3rem)", letterSpacing: "-0.05em", margin: "10px 0 8px" }}>
+        <section className="p-8 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl relative overflow-hidden mb-6">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+            <BookOpen className="w-4 h-4 text-secondary" /> Bộ thẻ được chia sẻ
+          </div>
+          <h1 className="text-[clamp(1.6rem,4vw,3rem)] font-bold tracking-tight mb-2">
             {deck.name}
           </h1>
           {deck.description && (
-            <p className="muted" style={{ marginBottom: 16 }}>{deck.description}</p>
+            <p className="text-muted mb-4 max-w-[70ch] leading-relaxed">{deck.description}</p>
           )}
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <span className="pill" style={{ background: "#f0fdf9", color: "var(--secondary)" }}>
-              🃏 {cards.length} flashcards
+          <div className="flex gap-3 flex-wrap items-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-[#f0fdf9] text-secondary text-[0.82rem] font-semibold">
+              <Layers className="w-3.5 h-3.5" /> {cards.length} flashcards
             </span>
             {Object.entries(diffCount).map(([d, n]) => (
-              <span key={d} className={`difficulty-badge ${d}`}>
+              <span key={d} className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.82rem] font-semibold capitalize",
+                d === "easy" ? "bg-green-50 text-green-700" : 
+                d === "medium" ? "bg-amber-50 text-amber-700" : 
+                "bg-rose-50 text-rose-700"
+              )}>
                 {d === "easy" ? "Dễ" : d === "medium" ? "Trung bình" : "Khó"}: {n}
               </span>
             ))}
@@ -106,51 +126,61 @@ export default function SharedDeckPage() {
         </section>
 
         {/* ── Search ── */}
-        <div style={{ marginBottom: 20 }}>
+        <div className="relative max-w-md mb-6">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle" />
           <input
-            className="input-field"
+            className="w-full pl-10 pr-4 py-3 rounded-2xl border border-border-strong bg-surface text-text outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍 Tìm kiếm flashcard…"
-            style={{ maxWidth: 480 }}
+            placeholder="Tìm kiếm flashcard…"
           />
         </div>
 
         {/* ── Cards grid (flip on click) ── */}
-        <div className="preview-grid" style={{ maxHeight: "none" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((card, i) => {
             const isFlip = flipped[i] ?? false;
             return (
               <div
                 key={card.id ?? i}
-                className="flip-card-wrapper"
-                style={{ minHeight: 180, cursor: "pointer" }}
+                className="group [perspective:1000px] h-48 cursor-pointer"
                 onClick={() => setFlipped((f) => ({ ...f, [i]: !f[i] }))}
               >
-                <div className={`flip-card-inner ${isFlip ? "flipped" : ""}`} style={{ minHeight: 180 }}>
-                  <article
-                    className="flip-card-front"
-                    style={{ minHeight: 180, justifyContent: "center", gap: 12 }}
-                  >
+                <div className={cn(
+                  "relative h-full w-full transition-all duration-500 [transform-style:preserve-3d]",
+                  isFlip ? "[transform:rotateY(180deg)]" : ""
+                )}>
+                  {/* Front */}
+                  <article className="absolute inset-0 h-full w-full rounded-2xl p-6 border border-border bg-gradient-to-br from-white to-amber-50/30 flex flex-col justify-between [backface-visibility:hidden]">
                     {card.difficulty && (
-                      <span className={`difficulty-badge ${card.difficulty}`} style={{ alignSelf: "flex-start" }}>
+                      <span className={cn(
+                        "self-start px-2.5 py-1 rounded-full text-[0.7rem] font-bold uppercase tracking-wider",
+                        card.difficulty === "easy" ? "bg-green-100 text-green-700" : 
+                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700" : 
+                        "bg-red-100 text-red-700"
+                      )}>
                         {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
                       </span>
                     )}
-                    <div style={{ fontWeight: 700, fontSize: "1rem", lineHeight: 1.4, flex: 1, display: "flex", alignItems: "center" }}>
+                    <div className="flex-1 flex items-center text-sm font-bold leading-relaxed line-clamp-4">
                       {card.front}
                     </div>
-                    <div className="card-footnote">Nhấn để xem đáp án</div>
+                    <div className="text-[10px] font-bold text-subtle/60 uppercase tracking-widest text-center mt-2 group-hover:text-primary transition-colors">
+                      Nhấn để xem đáp án
+                    </div>
                   </article>
-                  <article
-                    className="flip-card-back"
-                    style={{ minHeight: 180, justifyContent: "center", gap: 12 }}
-                  >
-                    <div className="card-kicker">Đáp án</div>
-                    <div style={{ fontSize: "0.95rem", lineHeight: 1.5, flex: 1, display: "flex", alignItems: "center" }}>
+
+                  {/* Back */}
+                  <article className="absolute inset-0 h-full w-full rounded-2xl p-6 border border-border bg-gradient-to-br from-[#f0fdf9] to-[#e0f2ef] flex flex-col justify-between [backface-visibility:hidden] [transform:rotateY(180deg)] text-secondary-dark">
+                    <div className="self-start text-[0.7rem] font-bold uppercase tracking-wider text-secondary flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Đáp án
+                    </div>
+                    <div className="flex-1 flex items-center text-sm font-medium leading-relaxed overflow-y-auto mt-2">
                       {card.back}
                     </div>
-                    <div className="card-footnote">Nhấn để lật lại</div>
+                    <div className="text-[10px] font-bold text-secondary/60 uppercase tracking-widest text-center mt-2">
+                      Nhấn để lật lại
+                    </div>
                   </article>
                 </div>
               </div>
@@ -159,22 +189,27 @@ export default function SharedDeckPage() {
         </div>
 
         {filtered.length === 0 && (
-          <div className="empty-state">
-            <span className="empty-icon">🔍</span>
-            <p>Không tìm thấy thẻ phù hợp.</p>
+          <div className="py-20 text-center animate-in fade-in slide-in-from-top-4">
+            <div className="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-4 text-muted">
+              <Search className="w-8 h-8" />
+            </div>
+            <p className="text-muted font-medium">Không tìm thấy thẻ phù hợp.</p>
           </div>
         )}
 
         {/* ── CTA to sign up ── */}
-        <div className="panel" style={{ marginTop: 32, textAlign: "center", padding: 36 }}>
-          <h3 style={{ letterSpacing: "-0.04em", marginBottom: 8 }}>
+        <div className="mt-12 p-10 bg-surface border border-border rounded-[32px] shadow-sm text-center">
+          <h3 className="text-2xl font-bold tracking-tight mb-3">
             Muốn học với Spaced Repetition?
           </h3>
-          <p className="muted" style={{ marginBottom: 20 }}>
-            Đăng nhập để lưu deck này, ôn tập với thuật toán SM-2 và theo dõi tiến độ của bạn.
+          <p className="text-muted mb-8 max-w-[56ch] mx-auto">
+            Đăng nhập để lưu deck này, ôn tập với thuật toán <strong className="text-text">SM-2</strong> và theo dõi tiến độ của bạn.
           </p>
-          <button className="btn btn-primary" style={{ width: "auto" }} onClick={() => router.push("/")}>
-            Bắt đầu miễn phí →
+          <button 
+            className="py-3.5 px-8 rounded-xl font-bold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
+            onClick={() => router.push("/")}
+          >
+            Bắt đầu miễn phí
           </button>
         </div>
       </div>

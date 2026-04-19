@@ -84,7 +84,7 @@ docker compose ps
 # ── Kết thúc ──────────────────────────────────────────────────────────────────
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo ""
-info "Deploy thành công ứng dụng memio!"
+info "Deploy thành công ứng dụng Memio!"
 info "Đồng thời đảm bảo bạn đã trỏ 2 bản ghi A (mem.io.vn và api.mem.io.vn) trên cấu hình DNS về IP: ${SERVER_IP}"
 echo -e "  ${GREEN}Frontend  (Next.js)  ${NC}→  https://mem.io.vn"
 echo -e "  ${GREEN}Backend API (FastAPI)${NC}→  https://api.mem.io.vn"
