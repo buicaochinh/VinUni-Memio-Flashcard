@@ -1,11 +1,42 @@
-import os
-from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
-load_dotenv()
+class Settings(BaseSettings):
+    """
+    Application settings using Pydantic Settings.
+    Loads variables from environment variables or .env file.
+    """
+    
+    # API Keys
+    ANTHROPIC_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
+    
+    # App Config
+    DEFAULT_MODEL: str = "claude-3-5-sonnet-20240620"
+    LOG_LEVEL: str = "INFO"
+    
+    # Database
+    DATABASE_URL: str = ""
+    
+    # AI Logging (System)
+    AI_LOG_SERVER: Optional[str] = None
+    AI_LOG_API_KEY: Optional[str] = None
+    AI_LOG_DIR: str = ".ai-log"
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "claude-3-5-sonnet-20240620")
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/flashcards.db")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"  # Allow extra environment variables without error
+    )
+
+# Instantiate settings
+settings = Settings()
+
+# Backward compatibility exports
+ANTHROPIC_API_KEY = settings.ANTHROPIC_API_KEY
+OPENAI_API_KEY = settings.OPENAI_API_KEY
+OPENROUTER_API_KEY = settings.OPENROUTER_API_KEY
+DEFAULT_MODEL = settings.DEFAULT_MODEL
+LOG_LEVEL = settings.LOG_LEVEL
+DATABASE_URL = settings.DATABASE_URL

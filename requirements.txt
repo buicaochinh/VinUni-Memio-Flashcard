@@ -3,6 +3,7 @@ openai
 python-dotenv
 httpx
 pydantic
+pydantic-settings
 docx2txt>=0.8
 langchain-community
 langchain
