@@ -34,6 +34,48 @@ import {
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
+function mdToHtml(md: string): string {
+  if (!md) return "";
+  const escaped = md
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  const lines = escaped.split("\n");
+  const out: string[] = [];
+  let inList = false;
+
+  for (const raw of lines) {
+    const line = raw
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      .replace(/`(.+?)`/g, "<code class='bg-gray-100 px-1 rounded text-sm'>$1</code>")
+      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline text-blue-600">$1</a>');
+
+    const h3 = line.match(/^#{3}\s+(.+)$/);
+    const h2 = line.match(/^#{2}\s+(.+)$/);
+    const h1 = line.match(/^#{1}\s+(.+)$/);
+    const li = line.match(/^[-*]\s+(.+)$/) || line.match(/^\d+\.\s+(.+)$/);
+    const hr = line.match(/^-{3,}$/);
+
+    if (inList && !li) { out.push("</ul>"); inList = false; }
+
+    if (h3) { out.push(`<h3 class="font-bold text-base mt-3 mb-1">${h3[1]}</h3>`); }
+    else if (h2) { out.push(`<h2 class="font-bold text-lg mt-3 mb-1">${h2[1]}</h2>`); }
+    else if (h1) { out.push(`<h1 class="font-bold text-xl mt-3 mb-1">${h1[1]}</h1>`); }
+    else if (li) {
+      if (!inList) { out.push("<ul class='list-disc pl-5 my-1 space-y-0.5'>"); inList = true; }
+      out.push(`<li>${li[1]}</li>`);
+    }
+    else if (hr) { out.push("<hr class='my-2 border-border'/>"); }
+    else if (line.trim() === "") { out.push("<br/>"); }
+    else { out.push(`<p class="my-1">${line}</p>`); }
+  }
+
+  if (inList) out.push("</ul>");
+  return out.join("");
+}
+
 const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string; icon: any }> = {
   0: { label: "Again", hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200", icon: RotateCcw },
   1: { label: "Hard",  hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200", icon: HelpCircle },
@@ -321,7 +363,12 @@ export default function StudyPage() {
                       ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm" 
                       : "mr-auto bg-white border border-border text-text font-medium rounded-tl-none shadow-sm"
                   )}>
-                    {m.text}
+                    {m.role === "user" ? m.text : (
+                      <div
+                        className="text-[0.92rem] leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: mdToHtml(m.text) }}
+                      />
+                    )}
                   </div>
                 ))
               )}
