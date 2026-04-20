@@ -83,6 +83,27 @@ uvicorn src.main:app --reload
 
 ```powershell
 .\.venv\Scripts\activate
+.\.venv\Scripts\activate
+streamlit run src/streamlit_app.py
+```
+
+Mở `http://localhost:8501`
+
+### 2. Chạy backend API
+
+Phù hợp khi dùng frontend Next.js.
+
+**macOS / Linux:**
+
+```bash
+source .venv/bin/activate
+uvicorn src.main:app --reload
+```
+
+**Windows (PowerShell):**
+
+```powershell
+.\.venv\Scripts\activate
 uvicorn src.main:app --reload
 ```
 
