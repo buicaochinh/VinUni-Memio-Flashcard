@@ -23,7 +23,7 @@ services:
     volumes:
       - ./data:/app/data
     restart: always
-    command: ["uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s

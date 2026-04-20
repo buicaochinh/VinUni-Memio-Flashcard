@@ -1,73 +1,20 @@
-# AI Smart Flashcards ver1
+# Memio - AI Smart Flashcards
 
-Nền tảng học tập thông minh kết hợp AI tạo flashcard tự động từ tài liệu và thuật toán SM-2 lên lịch ôn tập theo phương pháp spaced repetition.
+Memio là ứng dụng học tập dùng AI để tạo flashcards từ tài liệu PDF và áp dụng thuật toán SM-2 để hỗ trợ ôn tập theo spaced repetition.
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)](https://nextjs.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docker.com)
 
----
-
-## Thành viên tham gia dự án
-
-| Họ và tên | Vai trò |
-|-----------|---------|
-| Bùi Đức Tiến | AI Engineer, PM |
-| Bùi Đức Thắng | DevOps |
-| Bùi Cao Chinh | Fullstack Developer |
-
----
-
-## Tính năng
-
-- **AI Card Generation** — Upload PDF/DOCX, Claude AI tự động trích xuất khái niệm và sinh Q&A flashcards
-- **Spaced Repetition (SM-2)** — Tính toán khoảng cách ôn tập dựa trên chất lượng trả lời (0–5)
-- **Study Sessions** — Giao diện ôn tập thẻ, đánh giá độ khó, cập nhật ease factor
-- **Analytics** — Tỷ lệ quên, streak học, thẻ khó nhất, thống kê theo deck
-- **Deck Sharing** — Tạo share token → link công khai không cần đăng nhập
-- **Dual Interface** — Next.js web app (production) + Streamlit (rapid prototype)
-
----
-
-## Kiến trúc
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  Caddy (Reverse Proxy)               │
-│   mem.io.vn → :3000   │   api.mem.io.vn → :8000    │
-└──────────────┬──────────────────┬───────────────────┘
-               │                  │
-    ┌──────────▼──────┐  ┌────────▼────────┐
-    │  Next.js 15      │  │  FastAPI         │
-    │  React 19        │  │  Python 3.11     │
-    │  TypeScript      │  │  Uvicorn         │
-    │  Tailwind CSS    │  └────────┬────────┘
-    └─────────────────┘           │
-                        ┌─────────▼─────────┐
-                        │  SQLite (dev)      │
-                        │  PostgreSQL (prod) │
-                        └───────────────────┘
-                                  │
-                        ┌─────────▼─────────┐
-                        │  Anthropic Claude  │
-                        │  (Card generation) │
-                        └───────────────────┘
-```
-
----
-
-## Tech Stack
-
-| Layer | Công nghệ |
-|-------|-----------|
-| Frontend | Next.js 15, React 19, TypeScript 5, Tailwind CSS, Radix UI |
-| Backend | FastAPI, Python 3.11, Uvicorn, Pydantic |
-| AI | Anthropic Claude (langchain-anthropic), OpenAI (optional) |
-| Database | SQLite (dev) / PostgreSQL 16 (prod) |
-| Deployment | Docker, Docker Compose, Caddy 2 |
-
----
+- `src/main.py`: Điểm khởi động chính của Backend FastAPI
+- `src/app/api/`: Chứa các API endpoints
+- `src/app/services/`: Chứa logic nghiệp vụ (Business Logic)
+- `src/app/models/`: Chứa định nghĩa database models (SQLModel)
+- `src/app/schemas/`: Chứa định nghĩa Pydantic models
+- `src/app/db/`: Cấu hình database và session
+- `src/app/core/`: Các cấu hình dùng chung và thuật toán (SM-2)
+- `src/streamlit_app.py`: Giao diện Streamlit chạy độc lập (nếu có)
 
 ## Yêu cầu
 
@@ -129,11 +76,22 @@ streamlit run src/streamlit_app.py
 Terminal 1:
 ```bash
 source .venv/bin/activate
-uvicorn src.backend.main:app --reload
-# → http://localhost:8000
+uvicorn src.main:app --reload
 ```
 
-Terminal 2:
+**Windows (PowerShell):**
+
+```powershell
+.\.venv\Scripts\activate
+uvicorn src.main:app --reload
+```
+
+Mở `http://localhost:8000`
+
+### 3. Chạy frontend Next.js
+
+Chạy cùng lúc với backend API ở trên.
+
 ```bash
 cd frontend && npm run dev
 # → http://localhost:3000
@@ -155,17 +113,16 @@ Sao chép `.env.example` thành `.env` và điền các giá trị:
 | `DATABASE_URL` | Không | SQLite `data/flashcards.db` | PostgreSQL connection string |
 | `LOG_LEVEL` | Không | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`) |
 
-**Ví dụ `.env` cho development:**
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-NEXT_PUBLIC_API_URL=http://localhost:8000
+```bash
+source .venv/bin/activate
+uvicorn src.main:app --reload
 ```
 
-**Ví dụ `.env` cho production:**
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-NEXT_PUBLIC_API_URL=https://api.mem.io.vn
-DATABASE_URL=postgresql://flashcard_user:password@db-host:5432/flashcard
+**Terminal 1 — Windows (PowerShell):**
+
+```powershell
+.\.venv\Scripts\activate
+uvicorn src.main:app --reload
 ```
 
 ---
@@ -294,33 +251,12 @@ A20-App-001/
 
 ---
 
-## Quy trình sử dụng
+| Lệnh | macOS / Linux | Windows (PowerShell) |
+|------|--------------|----------------------|
+| Activate venv | `source .venv/bin/activate` | `.\.venv\Scripts\activate` |
+| Chạy Streamlit | `streamlit run src/streamlit_app.py` | `streamlit run src/streamlit_app.py` |
+| Chạy backend | `uvicorn src.main:app --reload` | `uvicorn src.main:app --reload` |
+| Chạy frontend | `cd frontend && npm run dev` | `cd frontend; npm run dev` |
+| Build frontend | `cd frontend && npm run build` | `cd frontend; npm run build` |
 
-1. **Đăng nhập** — Mock login (hoặc Google Sign-In khi cấu hình)
-2. **Tạo deck** — Đặt tên và mô tả bộ thẻ
-3. **Upload tài liệu** — PDF hoặc DOCX → AI tự sinh flashcards
-4. **Xem trước & lưu** — Preview thẻ trước khi lưu vào deck
-5. **Ôn tập** — Vào Study Mode, đánh giá từng thẻ (Khó / Bình thường / Dễ)
-6. **Theo dõi tiến độ** — Xem analytics: streak, tỷ lệ nhớ, thẻ cần ôn hôm nay
-
----
-
-## Troubleshooting
-
-**Frontend không kết nối được backend:**
-- Kiểm tra `NEXT_PUBLIC_API_URL` trong `.env` khớp với địa chỉ backend đang chạy
-- `NEXT_PUBLIC_API_URL` được baked in lúc build — cần rebuild nếu thay đổi
-
-**AI không sinh được thẻ:**
-- Kiểm tra `ANTHROPIC_API_KEY` hợp lệ
-- Xem log backend: `docker logs -f flashcard-backend`
-
-**Database lỗi kết nối (PostgreSQL):**
-- Kiểm tra `DATABASE_URL` đúng format: `postgresql://user:pass@host:5432/db`
-- Đảm bảo PostgreSQL container đang chạy: `docker compose ps`
-
-**Port bị chiếm:**
-```bash
-lsof -i :8000   # Linux/macOS
-netstat -ano | findstr :8000   # Windows
-```
+> **Lưu ý Windows:** PowerShell dùng `;` để nối lệnh thay vì `&&`.

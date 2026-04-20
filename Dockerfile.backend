@@ -18,4 +18,4 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir -r req
 COPY . .
 
 EXPOSE 8000
-CMD ["uvicorn", "src.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

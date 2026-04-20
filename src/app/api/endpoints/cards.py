@@ -3,23 +3,26 @@ import os
 import re
 from pathlib import Path
 from dotenv import load_dotenv
-
-# Load env immediately at module import
-load_dotenv()
-
-# Diagnostic prints (visible in docker logs)
-print(f"INITIAL_STARTUP: ANTHROPIC_API_KEY set: {bool(os.getenv('ANTHROPIC_API_KEY'))}")
-print(f"INITIAL_STARTUP: DEFAULT_MODEL: {os.getenv('DEFAULT_MODEL', 'claude-3-5-sonnet-20240620')}")
-
 from aiofiles import open as aio_open
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
 from langchain_anthropic import ChatAnthropic
-from pydantic import BaseModel
+from sqlmodel import Session
 
-from src import database as db
-from src.sm2 import get_updated_sm2_values
+from src.app.db.session import get_session
+from src.app.services import card_service
+from src.app.core.sm2 import get_updated_sm2_values
+from src.app.schemas.card import (
+    ProgressUpdate, 
+    CardEdit, 
+    BulkCreatePayload, 
+    StudySessionLog, 
+    ExplainRequest
+)
+
+# Load env immediately at module import
+load_dotenv()
 
 router = APIRouter()
 
@@ -28,14 +31,8 @@ _ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
 
 
 def get_llm():
-    # Fetch and sanitize Anthropic key
     raw_key = os.getenv("ANTHROPIC_API_KEY")
     api_key = raw_key.strip() if raw_key else ""
-
-    # Detailed Diagnostics (SafeFragments)
-    key_found = bool(api_key)
-    key_info = f"Len: {len(api_key)}, Prefix: {api_key[:7]}..., Suffix: ...{api_key[-3:]}" if key_found else "NOT FOUND"
-    print(f"GET_LLM_DIAGNOSTIC: Provider: Anthropic, KeyStatus: {key_found}, Info: {key_info}")
 
     return ChatAnthropic(
         model=_ANTHROPIC_MODEL,
@@ -43,44 +40,6 @@ def get_llm():
         anthropic_api_key=api_key,
         base_url="https://api.shopaikey.com"
     )
-
-
-# ---------------------------------------------------------------------------
-# Schemas
-# ---------------------------------------------------------------------------
-
-class ProgressUpdate(BaseModel):
-    user_id: int
-    card_id: int
-    quality: int
-    ease_factor: float
-    repetition: int
-    interval: int
-    deck_id: int = 0
-
-
-class CardEdit(BaseModel):
-    front: str
-    back: str
-    difficulty: str = "medium"
-
-
-class BulkCreatePayload(BaseModel):
-    cards: list[dict]
-
-
-class StudySessionLog(BaseModel):
-    user_id: int
-    deck_id: int
-    cards_reviewed: int
-    avg_quality: float
-
-
-class ExplainRequest(BaseModel):
-    front: str
-    back: str
-    message: str
-    history: list[dict] = []
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +83,6 @@ def _parse_llm_json(content: str) -> list[dict]:
 
 
 async def _load_document_context(temp_path: Path, max_chars: int = 6000) -> tuple[list, str]:
-    """Load Document pages and return (pages, combined_context)."""
     suffix = temp_path.suffix.lower()
     if suffix == '.pdf':
         loader = PyPDFLoader(str(temp_path))
@@ -141,9 +99,8 @@ async def _load_document_context(temp_path: Path, max_chars: int = 6000) -> tupl
 
 
 async def _generate_cards_chunked(pages: list, target_count: int) -> list[dict]:
-    """Generate cards by chunking pages to approach target_count."""
     llm = get_llm()
-    chunk_size = 4  # pages per chunk
+    chunk_size = 4
     cards_per_chunk = max(8, min(30, target_count // max(1, len(pages) // chunk_size + 1)))
 
     all_cards: list[dict] = []
@@ -167,41 +124,40 @@ async def _generate_cards_chunked(pages: list, target_count: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 @router.get("/{deck_id}")
-def get_cards(deck_id: int, user_id: int):
-    cards = db.get_deck_cards(deck_id, user_id)
+def get_cards(deck_id: int, user_id: int, session: Session = Depends(get_session)):
+    cards = card_service.get_deck_cards(session, deck_id, user_id)
     return {"cards": cards}
 
 
 @router.post("/progress")
-def update_progress(payload: ProgressUpdate):
+def update_progress(payload: ProgressUpdate, session: Session = Depends(get_session)):
     card_data = {
         "ease_factor": payload.ease_factor,
         "repetition": payload.repetition,
         "interval": payload.interval,
     }
     interval, n, ef = get_updated_sm2_values(card_data, payload.quality)
-    db.update_card_progress(
-        payload.user_id, payload.card_id, interval, n, ef, payload.quality
+    card_service.update_card_progress(
+        session, payload.user_id, payload.card_id, interval, n, ef, payload.quality
     )
     return {"message": "success", "interval": interval, "ease_factor": ef}
 
 
 @router.post("/session")
-def log_session(payload: StudySessionLog):
-    db.log_study_session(
-        payload.user_id, payload.deck_id, payload.cards_reviewed, payload.avg_quality
+def log_session(payload: StudySessionLog, session: Session = Depends(get_session)):
+    card_service.log_study_session(
+        session, payload.user_id, payload.deck_id, payload.cards_reviewed, payload.avg_quality
     )
     return {"message": "success"}
 
 
-# Preview: generate cards WITHOUT saving to DB (for review/edit flow)
 @router.post("/{deck_id}/preview")
 async def preview_cards(
     deck_id: int,
     files: list[UploadFile] = File(...),
     count: int = Form(default=100),
 ):
-    data_dir = Path(__file__).resolve().parents[3] / "data"
+    data_dir = Path(__file__).resolve().parents[4] / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
 
     all_pages = []
@@ -219,49 +175,29 @@ async def preview_cards(
                 temp_path.unlink()
 
     if not all_pages:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "Không trích xuất được text từ các file đã tải lên. "
-                "Có thể file chứa ảnh scan hoặc định dạng không đúng."
-            ),
-        )
+        raise HTTPException(status_code=422, detail="Không trích xuất được text.")
 
     try:
         cards = await _generate_cards_chunked(all_pages, count)
-
-        if not cards:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "AI không tạo được flashcards từ nội dung này. "
-                    "Hãy thử file khác hoặc kiểm tra OPENAI_API_KEY."
-                ),
-            )
-
         return {"cards": cards, "total": len(cards)}
-
-    except HTTPException:
-        raise  # re-raise without wrapping
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
 
 
-# Bulk create: save reviewed/edited cards from preview to DB
 @router.post("/{deck_id}/bulk_create")
-def bulk_create_cards(deck_id: int, payload: BulkCreatePayload):
-    db.bulk_add_flashcards(deck_id, payload.cards)
+def bulk_create_cards(deck_id: int, payload: BulkCreatePayload, session: Session = Depends(get_session)):
+    card_service.bulk_add_flashcards(session, deck_id, payload.cards)
     return {"message": "success", "created": len(payload.cards)}
 
 
-# Legacy generate endpoint (saves immediately, for compatibility)
 @router.post("/{deck_id}/generate")
 async def generate_cards(
     deck_id: int,
     files: list[UploadFile] = File(...),
     count: int = Form(default=100),
+    session: Session = Depends(get_session),
 ):
-    data_dir = Path(__file__).resolve().parents[3] / "data"
+    data_dir = Path(__file__).resolve().parents[4] / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
 
     all_pages = []
@@ -279,38 +215,31 @@ async def generate_cards(
                 temp_path.unlink()
 
     if not all_pages:
-        raise HTTPException(status_code=422, detail="Không trích xuất được text từ các file đã tải lên.")
+        raise HTTPException(status_code=422, detail="Không trích xuất được text.")
 
     try:
         cards_data = await _generate_cards_chunked(all_pages, count)
-        if not cards_data:
-            raise HTTPException(status_code=422, detail="AI không tạo được flashcards.")
-        db.bulk_add_flashcards(deck_id, cards_data)
+        card_service.bulk_add_flashcards(session, deck_id, cards_data)
         return {"message": "success", "generated": len(cards_data)}
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
 
 
-# Update a single card  (PUT /api/cards/{card_id})
 @router.put("/{card_id}")
-def update_card(card_id: int, payload: CardEdit):
-    db.update_flashcard(card_id, payload.front, payload.back, payload.difficulty)
+def update_card(card_id: int, payload: CardEdit, session: Session = Depends(get_session)):
+    card_service.update_flashcard(session, card_id, payload.front, payload.back, payload.difficulty)
     return {"message": "success"}
 
 
-# Delete a single card  (DELETE /api/cards/{card_id})
 @router.delete("/{card_id}")
-def delete_card(card_id: int):
-    db.delete_flashcard(card_id)
+def delete_card(card_id: int, session: Session = Depends(get_session)):
+    card_service.delete_flashcard(session, card_id)
     return {"message": "success"}
 
 
-# Analytics for a deck: forgetting speed + hardest cards
 @router.get("/{deck_id}/analytics")
-def get_deck_analytics(deck_id: int, user_id: int):
-    cards = db.get_deck_cards(deck_id, user_id)
+def get_deck_analytics(deck_id: int, user_id: int, session: Session = Depends(get_session)):
+    cards = card_service.get_deck_cards(session, deck_id, user_id)
     reviewed = [c for c in cards if c.get("repetition") and c["repetition"] > 0]
 
     hardest = sorted(reviewed, key=lambda c: c.get("ease_factor", 2.5))[:5]
