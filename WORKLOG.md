@@ -175,7 +175,7 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 | Task | Người làm | Deadline | Trạng thái |
 |---|---|---|---|
 | Cập nhật SQL ORM & Model Mapping | Cao Chinh Bùi | 20/04 | ✅ Xong |
-| Frontend Chatbot (Study Page) | BDT-17 | 21/04 | ✅ Xong |
+| Frontend Chatbot (Study Page) | tiensohot | 21/04 | ✅ Xong |
 | Tính năng Explain + Citations | BDT-17 | 21/04 | ✅ Xong |
 | Refactor App-Client (Async/Types) | BDT-17 | 21/04 | ✅ Xong |
 | Tạo survey đánh giá (CSV) | BDT-17 | 21/04 | ✅ Xong |
