@@ -139,3 +139,45 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 **Code thay đổi:** `src/agent.ts` lines 45-67
 
 **Học được:** Luôn thiết kế stop condition trước khi implement retry logic.
+
+---
+
+### [ADR-3] Di chuyển sang Anthropic Claude làm Model chính — 20/04/2026
+
+**Bối cảnh:** Cần cải thiện khả năng suy luận (reasoning) và độ chính xác của Flashcards khi xử lý tài liệu phức tạp.
+
+**Các lựa chọn đã xem xét:**
+- **OpenAI GPT-4o**: Tốt nhưng giá cao và một số trường hợp vẫn còn "hallucination".
+- **Anthropic Claude 3.5 Sonnet**: Reasoning tốt hơn cho việc phân tích cấu trúc tài liệu, context window lớn hơn.
+
+**Quyết định:** Chuyển sang dùng Anthropic Claude. Cập nhật `DEFAULT_MODEL` và cấu hình API key modular hơn.
+
+**Hệ quả:** Code service cần cập nhật wrapper gọi API của Anthropic. Phải quản lý API key mới.
+
+---
+
+### [ADR-4] Tích hợp hệ thống trích dẫn (Citations) vào tính năng Explain — 21/04/2026
+
+**Bối cảnh:** Khi AI giải thích thẻ, người dùng cần biết thông tin đó lấy từ đâu trong tài liệu gốc để đảm bảo tính xác thực (NotebookLM style).
+
+**Các lựa chọn đã xem xét:**
+- **Plain text explanation**: Đơn giản nhưng khó kiểm chứng.
+- **Embedded citations with popover**: Hiển thị snippet văn bản gốc khi click vào link trích dẫn.
+
+**Quyết định:** Chọn hệ thống Citations với popover. Cập nhật schema `Card` để lưu `source_context` và chỉnh sửa prompt AI để trả về định dạng có kèm ID trích dẫn.
+
+**Hệ quả:** Database schema thay đổi, cần migration. Frontend logic phức tạp hơn do phải handle popover.
+
+---
+
+### Sprint 3 — 14/04 → 21/04/2026
+
+| Task | Người làm | Deadline | Trạng thái |
+|---|---|---|---|
+| Cập nhật SQL ORM & Model Mapping | Cao Chinh Bùi | 20/04 | ✅ Xong |
+| Frontend Chatbot (Study Page) | BDT-17 | 21/04 | ✅ Xong |
+| Tính năng Explain + Citations | BDT-17 | 21/04 | ✅ Xong |
+| Refactor App-Client (Async/Types) | BDT-17 | 21/04 | ✅ Xong |
+| Tạo survey đánh giá (CSV) | BDT-17 | 21/04 | ✅ Xong |
+| Fix merge conflicts (README/Architecture) | Cao Chinh Bùi | 20/04 | ✅ Xong |
+
