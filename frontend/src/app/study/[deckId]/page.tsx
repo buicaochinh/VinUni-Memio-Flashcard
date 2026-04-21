@@ -30,7 +30,9 @@ import {
   Sparkles,
   ChevronRight,
   ChevronLeft,
-  X
+  X,
+  ExternalLink,
+  Info
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
@@ -104,7 +106,8 @@ export default function StudyPage() {
 
   // Explain mode states
   const [isExplainMode, setIsExplainMode] = useState(false);
-  const [chatHistory, setChatHistory] = useState<{role: string, text: string}[]>([]);
+  const [chatHistory, setChatHistory] = useState<{role: string, text: string, citations?: any[]}[]>([]);
+  const [activeCitation, setActiveCitation] = useState<{id: number, text: string, source: string} | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [isChatting, setIsChatting] = useState(false);
 
@@ -211,20 +214,35 @@ export default function StudyPage() {
     if (chatBottomRef.current) chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
 
-  const handleExplain = async () => {
-    if (!chatInput.trim() || !card) return;
-    const currentInput = chatInput;
-    setChatInput("");
-    setChatHistory(prev => [...prev, { role: "user", text: currentInput }]);
+  const handleExplain = async (overrideMessage?: string) => {
+    const message = overrideMessage || chatInput;
+    if (!message.trim() || !card) return;
+    
+    if (!overrideMessage) setChatInput("");
+    setChatHistory(prev => [...prev, { role: "user", text: message }]);
     setIsChatting(true);
+    if (!isExplainMode) setIsExplainMode(true);
     
     try {
-      const resp = await explainCard(card.front, card.back, currentInput, chatHistory);
-      setChatHistory(prev => [...prev, { role: "assistant", text: resp }]);
+      const data = await explainCard(card.front, card.back, message, chatHistory, card.source_context);
+      setChatHistory(prev => [...prev, { 
+        role: "assistant", 
+        text: data.answer || data.response || "No explanation found.",
+        citations: data.citations || []
+      }]);
     } catch {
       setChatHistory(prev => [...prev, { role: "assistant", text: "Xin lỗi, có lỗi khi gọi AI. Vui lòng thử lại!" }]);
     }
     setIsChatting(false);
+  };
+
+  const handleQuickExplain = () => {
+    if (!card) return;
+    const prompt = `you are reviewing flashcards based on the source material and you would like to expand your understanding of one of them.
+On the front it reads: "${card.front}"
+The answer on the back reads: "${card.back}"
+Explain this topic in more detail.`;
+    handleExplain(prompt);
   };
 
   useEffect(() => {
@@ -358,16 +376,26 @@ export default function StudyPage() {
               ) : (
                 chatHistory.map((m, i) => (
                   <div key={i} className={cn(
-                    "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%]",
+                    "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%] relative group/msg",
                     m.role === "user" 
                       ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm" 
                       : "mr-auto bg-white border border-border text-text font-medium rounded-tl-none shadow-sm"
                   )}>
                     {m.role === "user" ? m.text : (
-                      <div
-                        className="text-[0.92rem] leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: mdToHtml(m.text) }}
-                      />
+                      <div className="space-y-2">
+                        <div
+                          className="text-[0.92rem] leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: mdToHtml(m.text).replace(/\[(\d+)\]/g, '<button class="citation-badge" data-id="$1">$1</button>') }}
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.classList.contains('citation-badge')) {
+                              const cid = parseInt(target.getAttribute('data-id') || '0');
+                              const cit = m.citations?.find((c: any) => c.id === cid);
+                              if (cit) setActiveCitation(cit);
+                            }
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
                 ))
@@ -382,6 +410,42 @@ export default function StudyPage() {
               )}
               <div ref={chatBottomRef} />
             </div>
+
+            {/* Citation Popover */}
+            {activeCitation && (
+              <div className="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end p-4 animate-in fade-in duration-300">
+                <div className="w-full bg-surface border-t border-border rounded-t-[32px] p-8 shadow-2xl animate-in slide-in-from-bottom-full duration-500 relative">
+                  <button 
+                    onClick={() => setActiveCitation(null)}
+                    className="absolute right-6 top-6 w-10 h-10 rounded-full bg-surface-muted flex items-center justify-center hover:bg-border transition-colors"
+                  >
+                    <X className="w-5 h-5"/>
+                  </button>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-black text-sm">
+                      {activeCitation.id}
+                    </div>
+                    <h4 className="font-extrabold text-xl">Key Takeaway</h4>
+                  </div>
+                  <p className="text-lg font-bold leading-relaxed mb-6 text-text">
+                    {activeCitation.text}
+                  </p>
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-surface-muted/50 border border-border-strong/10">
+                      <div className="text-[0.7rem] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
+                        <Info className="w-3.5 h-3.5" /> Source Material
+                      </div>
+                      <p className="text-sm font-medium italic text-muted leading-relaxed">
+                        "{activeCitation.source}"
+                      </p>
+                    </div>
+                    <button className="flex items-center gap-2 text-primary font-bold text-sm hover:underline py-1">
+                      <ExternalLink className="w-4 h-4" /> View full source
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="p-4 bg-white/50 border-t border-border mt-auto">
               <div className="relative group">
@@ -470,14 +534,22 @@ export default function StudyPage() {
                       <div className="text-[0.82rem] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-primary" /> Câu hỏi
                       </div>
-                      <span className={cn(
-                        "px-3 py-1 rounded-full text-[0.7rem] font-black uppercase tracking-widest shadow-sm",
-                        card.difficulty === "easy" ? "bg-green-500 text-white" : 
-                        card.difficulty === "medium" ? "bg-amber-500 text-white" : 
-                        "bg-rose-500 text-white"
-                      )}>
-                        {card.difficulty === "easy" ? "DỄ" : card.difficulty === "medium" ? "TB" : "KHÓ"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-border-strong text-primary text-[0.7rem] font-bold shadow-sm hover:bg-surface-muted transition-all"
+                        >
+                          <Bot className="w-3.5 h-3.5" /> Explain
+                        </button>
+                        <span className={cn(
+                          "px-3 py-1 rounded-full text-[0.7rem] font-black uppercase tracking-widest shadow-sm",
+                          card.difficulty === "easy" ? "bg-green-500 text-white" : 
+                          card.difficulty === "medium" ? "bg-amber-500 text-white" : 
+                          "bg-rose-500 text-white"
+                        )}>
+                          {card.difficulty === "easy" ? "DỄ" : card.difficulty === "medium" ? "TB" : "KHÓ"}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex-1 flex items-center justify-center text-center text-xl md:text-2xl lg:text-3xl font-extrabold leading-tight tracking-tight text-text">
                       {card.front}
@@ -489,8 +561,16 @@ export default function StudyPage() {
 
                   {/* Back */}
                   <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-gradient-to-br from-[#f0fdf9] to-[#e0f2ef] border-2 border-secondary/30 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
-                    <div className="text-[0.82rem] font-bold text-secondary-dark uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <CheckCircle2 className="w-5 h-5" /> Đáp án
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="text-[0.82rem] font-bold text-secondary-dark uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5" /> Đáp án
+                      </div>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/50 border border-secondary/20 text-secondary-dark text-[0.7rem] font-bold shadow-sm hover:bg-white transition-all"
+                      >
+                        <Bot className="w-3.5 h-3.5" /> Explain
+                      </button>
                     </div>
                     <div className="flex-1 flex items-center justify-center text-center text-lg md:text-xl lg:text-2xl font-bold leading-relaxed text-secondary-dark overflow-y-auto custom-scrollbar px-2">
                       {card.back}
