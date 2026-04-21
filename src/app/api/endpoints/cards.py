@@ -64,7 +64,7 @@ NGÔN NGỮ: Xác định ngôn ngữ chính của tài liệu và dùng NHẤT 
 Không trộn lẫn ngôn ngữ trong cùng một thẻ hoặc giữa các thẻ.
 
 CHỈ TRẢ VỀ DUY NHẤT 1 MẢNG JSON BẮT ĐẦU BẰNG [ NGAY DÒNG ĐẦU TIÊN, KHÔNG KÈM TEXT.
-Format: [{{"front": "câu hỏi", "back": "câu trả lời", "difficulty": "medium"}}]
+Format: [{{"front": "câu hỏi", "back": "câu trả lời", "difficulty": "medium", "source_context": "đoạn trích ngắn từ nội dung gốc dùng để tạo thẻ này"}}]
 
 Nội dung: {context}"""
 )
@@ -256,7 +256,11 @@ def get_deck_analytics(deck_id: int, user_id: int, session: Session = Depends(ge
 
 
 EXPLAIN_PROMPT = PromptTemplate.from_template(
-    """Bạn là một gia sư AI thân thiện, giúp học sinh hiểu rõ hơn về flashcard này.
+    """Bạn là một gia sư AI thân thiện, giúp học sinh hiểu rõ hơn về kiến thức trong flashcard này.
+Grounding: Hãy dựa vào nội dung gốc (Source Context) bên dưới để giải thích chính xác.
+
+Source Context: {source_context}
+
 Flashcard:
 - Câu hỏi: {front}
 - Đáp án: {back}
@@ -264,7 +268,19 @@ Flashcard:
 Lịch sử trò chuyện:
 {history}
 
-Câu hỏi của học sinh: {message}"""
+Câu hỏi của học sinh: {message}
+
+YÊU CẦU:
+1. Giải thích chi tiết, chuyên sâu và dễ hiểu.
+2. Sử dụng các trích dẫn [1], [2],... ngay sau các thông tin quan trọng được trích lục hoặc tóm tắt từ Source Context.
+3. Trả về kết quả dưới dạng JSON DUY NHẤT với cấu trúc:
+{{
+  "answer": "Nội dung giải thích (Markdown) có kèm các trích dẫn [1], [2]...",
+  "citations": [
+    {{ "id": 1, "text": "Tóm tắt ngắn gọn ý của trích dẫn 1", "source": "Câu văn/Đoạn văn gốc chính xác từ Source Context" }}
+  ]
+}}
+CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH GÌ THÊM BÊN NGOÀI."""
 )
 
 @router.post("/explain")
@@ -275,7 +291,20 @@ def get_explain(payload: ExplainRequest):
     response = chain.invoke({
         "front": payload.front,
         "back": payload.back,
+        "source_context": payload.source_context or "Flashcard content.",
         "history": history_text,
         "message": payload.message
     })
-    return {"response": response.content}
+    
+    # Try to parse as JSON
+    content = response.content
+    try:
+        # If it's wrapped in markdown code blocks
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        
+        return json.loads(content)
+    except:
+        return {"answer": response.content, "citations": []}

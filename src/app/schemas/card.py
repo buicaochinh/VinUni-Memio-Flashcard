@@ -14,6 +14,7 @@ class CardEdit(BaseModel):
     front: str
     back: str
     difficulty: str = "medium"
+    source_context: Optional[str] = None
 
 class BulkCreatePayload(BaseModel):
     cards: List[Dict]
@@ -28,4 +29,5 @@ class ExplainRequest(BaseModel):
     front: str
     back: str
     message: str
+    source_context: Optional[str] = None
     history: List[Dict] = []
