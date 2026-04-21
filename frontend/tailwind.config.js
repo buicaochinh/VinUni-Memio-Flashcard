@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -46,11 +47,11 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
         surface: {
-          DEFAULT: '#ffffff',
-          muted: '#f5f5f4',
-          raised: 'rgba(255,255,255,0.92)',
+          DEFAULT: 'hsl(var(--surface))',
+          muted: 'hsl(var(--surface-muted))',
+          raised: 'hsl(var(--surface-raised))',
         },
-        'border-strong': 'rgba(0,0,0,0.14)',
+        'border-strong': 'hsl(var(--border-strong))',
         success: '#15803d',
         danger: '#b91c1c',
         warning: '#b45309',
