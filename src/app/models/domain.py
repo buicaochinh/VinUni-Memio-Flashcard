@@ -32,6 +32,7 @@ class Flashcard(SQLModel, table=True):
     front: str
     back: str
     difficulty: str = "medium"
+    source_context: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     deck: Optional[Deck] = Relationship(back_populates="flashcards")
