@@ -246,28 +246,33 @@ Tài liệu API tương tác: `GET /docs` (Swagger UI)
 
 ```
 A20-App-001/
-├── frontend/                   # Next.js 15 (TypeScript)
-│   ├── src/app/                # App Router pages
-│   └── src/lib/app-client.ts   # API client, types, auth
-├── src/
-│   ├── backend/
-│   │   ├── main.py             # FastAPI app, CORS
-│   │   └── routers/
-│   │       ├── auth.py         # Authentication
-│   │       ├── decks.py        # Deck CRUD + sharing
-│   │       └── cards.py        # Cards, generation, study
-│   ├── database.py             # Schema, queries (SQLite/PostgreSQL)
-│   ├── sm2.py                  # SM-2 spaced repetition algorithm
-│   ├── config.py               # Environment config
-│   └── streamlit_app.py        # Standalone Streamlit UI
-├── db_deploy/                  # PostgreSQL Docker deployment
-├── scripts/                    # Deployment scripts
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── docker-compose.yml
-├── Caddyfile
-├── requirements.txt
-└── .env.example
+├── .github/               # Quy trình CI/CD (GitHub Actions)
+├── data/                  # Dữ liệu cục bộ, SQLite & tệp tin tải lên
+├── db_deploy/             # Cấu hình triển khai cơ sở dữ liệu PostgreSQL
+├── frontend/              # Next.js 15 App Router (TypeScript)
+│   ├── public/            # Tài nguyên tĩnh (Images, Icons, Fonts)
+│   └── src/
+│       ├── app/           # Routes, Layouts & Server Components
+│       ├── components/    # Reusable UI Components (Atomic Design)
+│       └── lib/           # API Client, State Management & Utils
+├── scripts/                # Scripts vận hành, backup & deploy tự động
+├── src/                    # Backend FastAPI (Python 3.11+)
+│   ├── app/               # Enterprise Application Core
+│   │   ├── api/           # REST API Endpoints (v1/v2)
+│   │   ├── core/          # Cấu hình hệ thống, Bảo mật & Constants
+│   │   ├── db/            # Database Engine & Session Management
+│   │   ├── models/        # Thực thể dữ liệu (SQLModel Entities)
+│   │   ├── schemas/       # DTOs & Validation (Pydantic Models)
+│   │   ├── services/      # Business Logic Layer (Xử lý nghiệp vụ chính)
+│   │   └── utils/         # Tiện ích dùng chung (Helper functions)
+│   ├── backend/           # Routers & Request Handlers
+│   └── main.py            # Điểm khởi chạy ứng dụng (Entry Point)
+├── Dockerfile.backend      # Container hóa dịch vụ Backend
+├── Dockerfile.frontend     # Container hóa dịch vụ Frontend
+├── docker-compose.yml      # Điều phối toàn bộ Microservices
+├── Caddyfile               # Cấu hình Reverse Proxy & SSL (HTTPS)
+├── requirements.txt        # Danh sách phụ thuộc Python
+└── .env.example            # Tệp cấu hình mẫu cho môi trường
 ```
 
 ---
