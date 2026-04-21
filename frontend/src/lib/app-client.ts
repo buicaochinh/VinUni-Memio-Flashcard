@@ -21,6 +21,7 @@ export type Card = {
   front: string;
   back: string;
   difficulty?: "easy" | "medium" | "hard";
+  source_context?: string;
   ease_factor?: number | null;
   repetition?: number | null;
   interval?: number | null;
@@ -252,15 +253,20 @@ export async function logStudySession(
   });
 }
 
-export async function explainCard(front: string, back: string, message: string, history: any[] = []) {
+export async function explainCard(
+  front: string, 
+  back: string, 
+  message: string, 
+  history: any[] = [], 
+  sourceContext?: string
+) {
   const res = await fetch(apiUrl("/api/cards/explain"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ front, back, message, history }),
+    body: JSON.stringify({ front, back, message, history, source_context: sourceContext }),
   });
   if (!res.ok) throw new Error("EXPLAIN_FAILED");
-  const data = await res.json();
-  return data.response as string;
+  return res.json();
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
