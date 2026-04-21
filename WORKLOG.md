@@ -142,6 +142,20 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ---
 
+### Bug bảo mật: Rò rỉ dữ liệu Deck (Multi-tenancy Isolation) — 20/04/2026
+
+**Triệu chứng:** Người dùng có thể nhìn thấy danh sách Deck của người khác nếu không lọc theo `user_id`.
+
+**Root cause:** Trong `deck_service.py`, hàm `get_user_decks` ban đầu thiếu ràng buộc `where(Deck.user_id == user_id)`.
+
+**Fix:** 
+- Cập nhật `src/app/services/deck_service.py`: Thêm điều kiện lọc `user_id` vào câu lệnh `select(Deck)`.
+- Cập nhật API endpoint `GET /api/decks/` để bắt buộc truyền `user_id`.
+
+**Học được:** Luôn thiết kế database schema và query với tư duy multi-tenancy từ đầu. Cần bổ sung middleware xác thực (Authentication) để lấy `user_id` từ token thay vì nhận qua query parameter (tiềm ẩn rủi ro thao túng ID).
+
+---
+
 ### [ADR-3] Di chuyển sang Anthropic Claude làm Model chính — 20/04/2026
 
 **Bối cảnh:** Cần cải thiện khả năng suy luận (reasoning) và độ chính xác của Flashcards khi xử lý tài liệu phức tạp.
