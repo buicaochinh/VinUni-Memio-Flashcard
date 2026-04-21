@@ -19,7 +19,7 @@ graph TD
 
 ## 2. Mô hình thực thể - quan hệ (ER Diagram)
 
-Dựa trên mã nguồn `src/app/models/domain.py`, đây là cấu trúc cơ sở dữ liệu hiện tại của bạn.
+**cấu trúc cơ sở dữ liệu**
 
 ```mermaid
 erDiagram
@@ -67,7 +67,7 @@ erDiagram
 
 ## 3. Quy trình ôn tập (Study Flow - SM-2)
 
-Mô tả luồng xử lý khi người dùng học một thẻ và hệ thống tính toán thời gian ôn tập tiếp theo.
+**luồng xử lý khi người dùng học một thẻ và hệ thống tính toán thời gian ôn tập tiếp theo.**
 
 ```mermaid
 sequenceDiagram
@@ -105,6 +105,3 @@ flowchart LR
     JSON --> Save[Lưu vào Database]
     Save --> Ready[Deck sẵn sàng học]
 ```
-
-> [!TIP]
-> Bạn có thể copy code trên vào [Mermaid Live Editor](https://mermaid.live/) hoặc cài extension **Mermaid Preview** trong VS Code để xem hình ảnh trực quan hơn.
