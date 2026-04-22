@@ -8,7 +8,9 @@ WORKDIR /app
 # apk là package manager của Alpine
 RUN apk add --no-cache \
     build-base \
-    curl
+    curl \
+    libpq \
+    gcompat
 
 # Cài đặt dependency (layer này được cache nếu requirements.txt không đổi)
 COPY requirements.txt .

@@ -3,6 +3,7 @@ openai
 python-dotenv
 httpx
 pydantic
+pydantic-settings
 docx2txt>=0.8
 langchain-community
 langchain
@@ -14,5 +15,4 @@ python-multipart
 aiofiles
 psycopg2-binary
 langchain-anthropic
-passlib[bcrypt]
 sqlmodel
