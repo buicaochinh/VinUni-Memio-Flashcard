@@ -44,8 +44,11 @@ def login_username(request: UsernameLoginRequest, session: Session = Depends(get
 @router.post("/login/guest")
 def login_guest(request: GuestLoginRequest, session: Session = Depends(get_session)):
     """Create a guest user session"""
-    user = user_service.create_guest_user(session, request.guest_name)
-    return {"message": "success", "user": user}
+    try:
+        user = user_service.create_guest_user(session, request.guest_name)
+        return {"message": "success", "user": user}
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Keep backward compatibility
 @router.post("/login")

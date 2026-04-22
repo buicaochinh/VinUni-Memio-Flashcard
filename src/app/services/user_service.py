@@ -1,4 +1,5 @@
 from sqlmodel import Session, select
+from sqlalchemy.exc import IntegrityError
 from src.app.models.domain import User
 from src.app.utils.security import hash_password, verify_password, generate_guest_id
 
@@ -38,8 +39,12 @@ def register_user(session: Session, username: str, password: str, email: str = N
         auth_type="username"
     )
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    try:
+        session.commit()
+        session.refresh(user)
+    except IntegrityError:
+        session.rollback()
+        raise ValueError("Username already exists")
 
     return user.model_dump(exclude={"password_hash"})
 
@@ -58,16 +63,26 @@ def login_user(session: Session, username: str, password: str):
 
 def create_guest_user(session: Session, guest_name: str = "Guest User"):
     """Create a guest user session"""
-    guest_username = generate_guest_id()
+    for _ in range(5):
+        guest_username = generate_guest_id()
+        statement = select(User).where(User.username == guest_username)
+        existing = session.exec(statement).first()
+        if existing:
+            continue
 
-    user = User(
-        username=guest_username,
-        name=guest_name,
-        auth_type="guest",
-        is_guest=True
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
+        user = User(
+            username=guest_username,
+            name=guest_name,
+            auth_type="guest",
+            is_guest=True
+        )
+        session.add(user)
+        try:
+            session.commit()
+            session.refresh(user)
+            return user.model_dump(exclude={"password_hash"})
+        except IntegrityError:
+            session.rollback()
+            continue
 
-    return user.model_dump(exclude={"password_hash"})
+    raise ValueError("Could not create guest user")
