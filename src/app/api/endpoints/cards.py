@@ -47,26 +47,32 @@ def get_llm():
 # ---------------------------------------------------------------------------
 
 CARD_PROMPT = PromptTemplate.from_template(
-    """Hãy tạo {count} flashcards học thuật chất lượng cao từ nội dung sau.
-Trích xuất các khái niệm quan trọng, định nghĩa, thực thể và quy trình từ NỘI DUNG HỌC THUẬT.
+    """Create {count} high-quality academic flashcards from the content below.
+Extract important concepts, definitions, entities, and processes from ACADEMIC CONTENT.
 
-BỎ QUA các thông tin sau với những tài liệu là sách/ tài liệu học thuật (không tạo flashcard từ chúng):
-- Tên tác giả, dịch giả, biên tập viên
-- Nhà xuất bản (NXB), năm xuất bản, địa chỉ xuất bản
-- ISBN, mã số sách, bản quyền, lời cảm ơn
-- Mục lục, lời tựa, lời giới thiệu mang tính hành chính
-- Header, footer, số trang, watermark
+SKIP the following information in books/academic documents (do not create flashcards from them):
+- Author names, translators, editors
+- Publishers, publication year, publication address
+- ISBN, book codes, copyright, acknowledgments
+- Table of contents, preface, administrative introductions
+- Headers, footers, page numbers, watermarks
 
-Mỗi thẻ cần câu hỏi rõ ràng và câu trả lời chính xác, ngắn gọn.
-Phân loại độ khó: "easy" (dễ nhớ), "medium" (cần luyện tập), "hard" (phức tạp).
+Each card needs a clear question and accurate, concise answer.
+Difficulty classification: "easy" (easy to remember), "medium" (needs practice), "hard" (complex).
 
-NGÔN NGỮ: Xác định ngôn ngữ chính của tài liệu và dùng NHẤT QUÁN ngôn ngữ đó cho toàn bộ flashcards.
-Không trộn lẫn ngôn ngữ trong cùng một thẻ hoặc giữa các thẻ.
+LANGUAGE REQUIREMENT - CRITICAL:
+- Detect the primary language of the document content
+- Use ONLY that language consistently for ALL flashcards
+- If content is in Chinese (中文/繁體中文/简体中文), generate ALL cards in Chinese
+- If content is in Vietnamese, generate ALL cards in Vietnamese
+- If content is in English, generate ALL cards in English
+- Do NOT mix languages within a card or between cards
+- Preserve original terminology and proper nouns in their original language
 
-CHỈ TRẢ VỀ DUY NHẤT 1 MẢNG JSON BẮT ĐẦU BẰNG [ NGAY DÒNG ĐẦU TIÊN, KHÔNG KÈM TEXT.
-Format: [{{"front": "câu hỏi", "back": "câu trả lời", "difficulty": "medium", "source_context": "đoạn trích ngắn từ nội dung gốc dùng để tạo thẻ này"}}]
+RETURN ONLY A JSON ARRAY STARTING WITH [ ON THE FIRST LINE, NO ADDITIONAL TEXT.
+Format: [{{"front": "question", "back": "answer", "difficulty": "medium", "source_context": "short excerpt from original content used to create this card"}}]
 
-Nội dung: {context}"""
+Content: {context}"""
 )
 
 
