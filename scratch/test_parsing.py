@@ -40,11 +40,18 @@ Nội dung: {context}"""
 
 def parse_llm_json(content: str) -> list[dict]:
     """Parse JSON từ response của LLM"""
-    match = re.search(r"\[.*\]", content, re.DOTALL)
+    # Try non-greedy match first to avoid capturing extra text
+    match = re.search(r"\[.*?\]", content, re.DOTALL)
+    if not match:
+        # Fallback: try greedy if non-greedy fails
+        match = re.search(r"\[.*\]", content, re.DOTALL)
+
     if match:
         raw = match.group(0)
     else:
+        # Remove markdown code blocks
         raw = content.replace("```json", "").replace("```", "").strip()
+
     try:
         return json.loads(raw)
     except Exception as e:
