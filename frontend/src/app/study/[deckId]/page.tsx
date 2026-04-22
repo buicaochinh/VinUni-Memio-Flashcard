@@ -461,7 +461,7 @@ Explain this topic in more detail.`;
                 />
                 <button 
                   className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-amber-200"
-                  onClick={handleExplain} 
+                  onClick={() => void handleExplain()} 
                   disabled={!chatInput.trim() || isChatting}
                 >
                   <Send className="w-4 h-4" />
