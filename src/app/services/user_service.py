@@ -1,12 +1,14 @@
 from sqlmodel import Session, select
 from src.app.models.domain import User
+from src.app.utils.security import hash_password, verify_password, generate_guest_id
 
 def get_or_create_user(session: Session, google_id: str, name: str, email: str, photo_url: str = ""):
+    """Google OAuth login"""
     statement = select(User).where(User.google_id == google_id)
     user = session.exec(statement).first()
-    
+
     if not user:
-        user = User(google_id=google_id, name=name, email=email, photo_url=photo_url)
+        user = User(google_id=google_id, name=name, email=email, photo_url=photo_url, auth_type="google")
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -17,5 +19,55 @@ def get_or_create_user(session: Session, google_id: str, name: str, email: str, 
         session.add(user)
         session.commit()
         session.refresh(user)
-        
-    return user.model_dump()
+
+    return user.model_dump(exclude={"password_hash"})
+
+def register_user(session: Session, username: str, password: str, email: str = None, name: str = None):
+    """Register a new user with username/password"""
+    statement = select(User).where(User.username == username)
+    existing = session.exec(statement).first()
+
+    if existing:
+        raise ValueError("Username already exists")
+
+    user = User(
+        username=username,
+        password_hash=hash_password(password),
+        email=email,
+        name=name or username,
+        auth_type="username"
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return user.model_dump(exclude={"password_hash"})
+
+def login_user(session: Session, username: str, password: str):
+    """Login with username/password"""
+    statement = select(User).where(User.username == username)
+    user = session.exec(statement).first()
+
+    if not user or not user.password_hash:
+        raise ValueError("Invalid username or password")
+
+    if not verify_password(password, user.password_hash):
+        raise ValueError("Invalid username or password")
+
+    return user.model_dump(exclude={"password_hash"})
+
+def create_guest_user(session: Session, guest_name: str = "Guest User"):
+    """Create a guest user session"""
+    guest_username = generate_guest_id()
+
+    user = User(
+        username=guest_username,
+        name=guest_name,
+        auth_type="guest",
+        is_guest=True
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return user.model_dump(exclude={"password_hash"})

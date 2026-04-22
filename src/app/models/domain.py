@@ -5,10 +5,14 @@ from datetime import datetime
 class User(SQLModel, table=True):
     __tablename__ = "users"
     id: Optional[int] = Field(default=None, primary_key=True)
-    google_id: str = Field(unique=True, index=True)
+    google_id: Optional[str] = Field(default=None, unique=True, index=True)
+    username: Optional[str] = Field(default=None, unique=True, index=True)
+    password_hash: Optional[str] = None
     name: Optional[str] = None
     email: Optional[str] = None
     photo_url: Optional[str] = None
+    auth_type: str = Field(default="google")  # "google", "username", "guest"
+    is_guest: bool = Field(default=False)
 
     decks: List["Deck"] = Relationship(back_populates="user")
 
