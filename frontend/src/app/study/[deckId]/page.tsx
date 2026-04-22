@@ -16,14 +16,14 @@ import {
   explainCard,
   User,
 } from "../../../lib/app-client";
-import { 
-  ArrowLeft, 
-  Bot, 
-  Send, 
-  CheckCircle2, 
-  AlertCircle, 
-  HelpCircle, 
-  Zap, 
+import {
+  ArrowLeft,
+  Bot,
+  Send,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  Zap,
   RotateCcw,
   WifiOff,
   Keyboard,
@@ -101,7 +101,7 @@ export default function StudyPage() {
   const [isDragging,   setIsDragging]   = useState(false);
   const [offline,      setOffline]      = useState(false);
   const [msg,          setMsg]          = useState<string | null>(null);
-  const [ratingQuality, setRatingQuality] = useState<number | null>(null); 
+  const [ratingQuality, setRatingQuality] = useState<number | null>(null);
   const [sessionRatings, setSessionRatings] = useState<number[]>([]);
 
   // Explain mode states
@@ -217,16 +217,16 @@ export default function StudyPage() {
   const handleExplain = async (overrideMessage?: string) => {
     const message = overrideMessage || chatInput;
     if (!message.trim() || !card) return;
-    
+
     if (!overrideMessage) setChatInput("");
     setChatHistory(prev => [...prev, { role: "user", text: message }]);
     setIsChatting(true);
     if (!isExplainMode) setIsExplainMode(true);
-    
+
     try {
       const data = await explainCard(card.front, card.back, message, chatHistory, card.source_context);
-      setChatHistory(prev => [...prev, { 
-        role: "assistant", 
+      setChatHistory(prev => [...prev, {
+        role: "assistant",
         text: data.answer || data.response || "No explanation found.",
         citations: data.citations || []
       }]);
@@ -248,7 +248,7 @@ Explain this topic in more detail.`;
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
-      
+
       switch (e.key) {
         case ' ':
           e.preventDefault();
@@ -289,13 +289,13 @@ Explain this topic in more detail.`;
           <h2 className="text-2xl font-extrabold tracking-tight mb-3">Deck này chưa có flashcards</h2>
           <p className="text-muted mb-10 leading-relaxed">Hãy sang Generator để tạo nội dung trước.</p>
           <div className="grid gap-3">
-            <button 
+            <button
               className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-extrabold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
               onClick={() => router.push(`/generate?deckId=${deckId}`)}
             >
               <Sparkles className="w-5 h-5" /> Sang Generator
             </button>
-            <button 
+            <button
               className="w-full py-4 px-6 rounded-2xl font-bold text-muted border border-border-strong bg-white/50 hover:bg-white hover:-translate-y-px transition-all"
               onClick={() => router.push("/workspace")}
             >
@@ -309,7 +309,7 @@ Explain this topic in more detail.`;
 
   const leftHintOpacity  = Math.max(0, Math.min(1, -dragX / SWIPE_THRESHOLD));
   const rightHintOpacity = Math.max(0, Math.min(1,  dragX / SWIPE_THRESHOLD));
-  const cardRotate       = (dragX / 400) * 8; 
+  const cardRotate       = (dragX / 400) * 8;
   const cardScale        = isDragging ? 1.02 : 1;
 
   return (
@@ -324,7 +324,7 @@ Explain this topic in more detail.`;
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
         <div className="flex items-center gap-4 overflow-hidden">
-          <button 
+          <button
             onClick={() => router.push("/workspace")}
             className="w-10 h-10 rounded-xl flex items-center justify-center border border-border-strong hover:bg-surface-muted transition-all"
           >
@@ -338,7 +338,7 @@ Explain this topic in more detail.`;
           </div>
         </div>
         <div className="flex gap-2">
-          <button 
+          <button
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[0.88rem] transition-all",
               isExplainMode ? "bg-primary text-white shadow-md shadow-amber-200" : "bg-white border border-border-strong text-subtle hover:bg-surface-muted"
@@ -366,7 +366,7 @@ Explain this topic in more detail.`;
               </div>
               <p className="text-muted text-[0.88rem] underline decoration-primary/30 decoration-2 underline-offset-4">Hỏi thêm về kiến thức trong thẻ này</p>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
               {chatHistory.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center opacity-40 text-center px-4">
@@ -377,8 +377,8 @@ Explain this topic in more detail.`;
                 chatHistory.map((m, i) => (
                   <div key={i} className={cn(
                     "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%] relative group/msg",
-                    m.role === "user" 
-                      ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm" 
+                    m.role === "user"
+                      ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm"
                       : "mr-auto bg-white border border-border text-text font-medium rounded-tl-none shadow-sm"
                   )}>
                     {m.role === "user" ? m.text : (
@@ -415,7 +415,7 @@ Explain this topic in more detail.`;
             {activeCitation && (
               <div className="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end p-4 animate-in fade-in duration-300">
                 <div className="w-full bg-surface border-t border-border rounded-t-[32px] p-8 shadow-2xl animate-in slide-in-from-bottom-full duration-500 relative">
-                  <button 
+                  <button
                     onClick={() => setActiveCitation(null)}
                     className="absolute right-6 top-6 w-10 h-10 rounded-full bg-surface-muted flex items-center justify-center hover:bg-border transition-colors"
                   >
@@ -449,9 +449,9 @@ Explain this topic in more detail.`;
 
             <div className="p-4 bg-white/50 border-t border-border mt-auto">
               <div className="relative group">
-                <input 
-                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-white text-text font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm" 
-                  placeholder="Nhập câu hỏi của bạn..." 
+                <input
+                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-white text-text font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
+                  placeholder="Nhập câu hỏi của bạn..."
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => {
@@ -459,9 +459,9 @@ Explain this topic in more detail.`;
                     e.stopPropagation();
                   }}
                 />
-                <button 
+                <button
                   className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-amber-200"
-                  onClick={() => void handleExplain()} 
+                  onClick={() => handleExplain()}
                   disabled={!chatInput.trim() || isChatting}
                 >
                   <Send className="w-4 h-4" />
@@ -483,9 +483,9 @@ Explain this topic in more detail.`;
                     <span className="text-[1.2rem] font-black text-text">{Math.round(progress)}%</span>
                   </div>
                   <div className="h-2.5 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
-                    <div 
-                      className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300" 
-                      style={{ width: `${progress}%` }} 
+                    <div
+                      className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300"
+                      style={{ width: `${progress}%` }}
                     />
                   </div>
                 </div>
@@ -499,14 +499,14 @@ Explain this topic in more detail.`;
               {/* Card area */}
               <div className="relative group w-full h-[400px] md:h-[460px]">
                 {/* Swipe hints */}
-                <div 
-                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary" 
+                <div
+                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary"
                   style={{ opacity: rightHintOpacity }}
                 >
                   <Zap className="w-6 h-6" /> Easy
                 </div>
-                <div 
-                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500" 
+                <div
+                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500"
                   style={{ opacity: leftHintOpacity }}
                 >
                   <RotateCcw className="w-6 h-6" /> Again
@@ -535,7 +535,7 @@ Explain this topic in more detail.`;
                         <Sparkles className="w-4 h-4 text-primary" /> Câu hỏi
                       </div>
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-border-strong text-primary text-[0.7rem] font-bold shadow-sm hover:bg-surface-muted transition-all"
                         >
@@ -543,8 +543,8 @@ Explain this topic in more detail.`;
                         </button>
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[0.7rem] font-black uppercase tracking-widest shadow-sm",
-                          card.difficulty === "easy" ? "bg-green-500 text-white" : 
-                          card.difficulty === "medium" ? "bg-amber-500 text-white" : 
+                          card.difficulty === "easy" ? "bg-green-500 text-white" :
+                          card.difficulty === "medium" ? "bg-amber-500 text-white" :
                           "bg-rose-500 text-white"
                         )}>
                           {card.difficulty === "easy" ? "DỄ" : card.difficulty === "medium" ? "TB" : "KHÓ"}
@@ -565,7 +565,7 @@ Explain this topic in more detail.`;
                       <div className="text-[0.82rem] font-bold text-secondary-dark uppercase tracking-widest flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5" /> Đáp án
                       </div>
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/50 border border-secondary/20 text-secondary-dark text-[0.7rem] font-bold shadow-sm hover:bg-white transition-all"
                       >
@@ -595,7 +595,7 @@ Explain this topic in more detail.`;
                         </div>
                       </div>
                     )}
-                    <button 
+                    <button
                       onClick={() => setIsFlipped(true)}
                       className="group flex items-center gap-2 text-subtle hover:text-primary transition-colors py-2"
                     >
