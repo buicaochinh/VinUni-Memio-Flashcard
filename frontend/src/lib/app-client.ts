@@ -3,8 +3,11 @@
 export type User = {
   id: number;
   name: string;
-  email: string;
+  email?: string | null;
   photo_url?: string;
+  username?: string | null;
+  auth_type?: "google" | "username" | "guest" | string;
+  is_guest?: boolean;
 };
 
 export type Deck = {
@@ -86,6 +89,15 @@ export function clearStoredUser() {
   window.localStorage.removeItem("flashcard_user");
 }
 
+async function readErrorDetail(res: Response): Promise<string | null> {
+  try {
+    const data = await res.json();
+    return typeof data?.detail === "string" ? data.detail : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Google Sign-In ───────────────────────────────────────────────────────────
 
 export async function loginWithGoogle(googleId: string, name: string, email: string, photoUrl = "") {
@@ -95,6 +107,55 @@ export async function loginWithGoogle(googleId: string, name: string, email: str
     body: JSON.stringify({ google_id: googleId, name, email, photo_url: photoUrl }),
   });
   if (!res.ok) throw new Error("LOGIN_FAILED");
+  const data = await res.json();
+  return data.user as User;
+}
+
+export type UsernameRegisterInput = {
+  username: string;
+  password: string;
+  email?: string;
+  name?: string;
+};
+
+export async function registerUser(input: UsernameRegisterInput) {
+  const res = await fetch(apiUrl("/api/auth/register"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "REGISTER_FAILED");
+  }
+  const data = await res.json();
+  return data.user as User;
+}
+
+export async function loginWithUsername(username: string, password: string) {
+  const res = await fetch(apiUrl("/api/auth/login/username"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "LOGIN_FAILED");
+  }
+  const data = await res.json();
+  return data.user as User;
+}
+
+export async function loginAsGuest(guestName?: string) {
+  const res = await fetch(apiUrl("/api/auth/login/guest"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ guest_name: guestName }),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "GUEST_LOGIN_FAILED");
+  }
   const data = await res.json();
   return data.user as User;
 }

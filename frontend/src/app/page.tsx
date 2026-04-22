@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   decodeGoogleJwt,
   getStoredUser,
+  loginAsGuest,
   loginWithGoogle,
+  loginWithUsername,
+  registerUser,
   saveStoredUser,
 } from "../lib/app-client";
 
@@ -33,6 +36,17 @@ export default function Home() {
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<"google" | "login" | "register">("google");
+
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [regUsername, setRegUsername] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regName, setRegName] = useState("");
+
+  const [guestName, setGuestName] = useState("Guest User");
 
   // Redirect if already logged in
   useEffect(() => {
@@ -89,6 +103,57 @@ export default function Home() {
       router.push("/workspace");
     } catch {
       setStatus("Đăng nhập thất bại. Hãy kiểm tra kết nối và thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUsernameLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus(null);
+    try {
+      const user = await loginWithUsername(username.trim(), password);
+      saveStoredUser(user);
+      router.push("/workspace");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Đăng nhập thất bại";
+      setStatus(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus(null);
+    try {
+      const user = await registerUser({
+        username: regUsername.trim(),
+        password: regPassword,
+        email: regEmail.trim() ? regEmail.trim() : undefined,
+        name: regName.trim() ? regName.trim() : undefined,
+      });
+      saveStoredUser(user);
+      router.push("/workspace");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Đăng ký thất bại";
+      setStatus(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGuest = async () => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      const user = await loginAsGuest(guestName.trim() ? guestName.trim() : undefined);
+      saveStoredUser(user);
+      router.push("/workspace");
+    } catch {
+      setStatus("Không thể đăng nhập guest. Hãy thử lại.");
     } finally {
       setLoading(false);
     }
@@ -159,6 +224,48 @@ export default function Home() {
             </p>
           </div>
 
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => setTab("google")}
+              className={[
+                "px-3 py-2 rounded-xl border font-bold text-sm transition-colors outline-none",
+                tab === "google"
+                  ? "bg-surface text-foreground border-border-strong shadow-xs"
+                  : "bg-white/50 text-muted hover:bg-surface-muted border-border",
+              ].join(" ")}
+            >
+              Google
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => setTab("login")}
+              className={[
+                "px-3 py-2 rounded-xl border font-bold text-sm transition-colors outline-none",
+                tab === "login"
+                  ? "bg-surface text-foreground border-border-strong shadow-xs"
+                  : "bg-white/50 text-muted hover:bg-surface-muted border-border",
+              ].join(" ")}
+            >
+              Tài khoản
+            </button>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => setTab("register")}
+              className={[
+                "px-3 py-2 rounded-xl border font-bold text-sm transition-colors outline-none",
+                tab === "register"
+                  ? "bg-surface text-foreground border-border-strong shadow-xs"
+                  : "bg-white/50 text-muted hover:bg-surface-muted border-border",
+              ].join(" ")}
+            >
+              Đăng ký
+            </button>
+          </div>
+
           <div className="grid gap-3">
             {[
               { icon: FileText, title: "Upload tài liệu", desc: "PDF, Text hoặc Markdown — AI trích xuất khái niệm, tạo Q&A." },
@@ -180,7 +287,9 @@ export default function Home() {
             })}
           </div>
 
-          {/* Google Sign-In button rendered by GIS */}
+          {tab === "google" && (
+            <>
+              {/* Google Sign-In button rendered by GIS */}
           {GOOGLE_CLIENT_ID ? (
             <div>
               <div
@@ -202,6 +311,99 @@ export default function Home() {
               </p>
             </div>
           )}
+            </>
+          )}
+
+          {tab === "login" && (
+            <form onSubmit={handleUsernameLogin} className="grid gap-3">
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+                placeholder="Username"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                type="password"
+                placeholder="Password"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-sm hover:-translate-y-[1px] active:translate-y-0 transition-transform shadow-xs cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
+              >
+                {loading ? "Đang đăng nhập…" : "Đăng nhập"}
+              </button>
+            </form>
+          )}
+
+          {tab === "register" && (
+            <form onSubmit={handleRegister} className="grid gap-3">
+              <input
+                value={regUsername}
+                onChange={(e) => setRegUsername(e.target.value)}
+                disabled={loading}
+                placeholder="Username"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <input
+                value={regPassword}
+                onChange={(e) => setRegPassword(e.target.value)}
+                disabled={loading}
+                type="password"
+                placeholder="Password (min 6)"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <input
+                value={regEmail}
+                onChange={(e) => setRegEmail(e.target.value)}
+                disabled={loading}
+                placeholder="Email (optional)"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <input
+                value={regName}
+                onChange={(e) => setRegName(e.target.value)}
+                disabled={loading}
+                placeholder="Name (optional)"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-sm hover:-translate-y-[1px] active:translate-y-0 transition-transform shadow-xs cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
+              >
+                {loading ? "Đang đăng ký…" : "Tạo tài khoản"}
+              </button>
+            </form>
+          )}
+
+          <div className="grid gap-2">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-muted text-xs font-semibold">Hoặc</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <input
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              disabled={loading}
+              placeholder="Tên hiển thị (guest)"
+              className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            />
+            <button
+              type="button"
+              onClick={handleGuest}
+              disabled={loading}
+              className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/70 text-foreground font-bold text-sm hover:bg-surface-muted transition-colors outline-none disabled:opacity-60"
+            >
+              {loading ? "Đang vào chế độ khách…" : "Tiếp tục với tư cách khách"}
+            </button>
+          </div>
 
           {status && (
             <p className="text-danger text-[0.88rem] leading-[1.5] mt-1">
