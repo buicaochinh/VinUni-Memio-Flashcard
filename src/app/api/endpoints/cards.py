@@ -71,7 +71,12 @@ Nội dung: {context}"""
 
 
 def _parse_llm_json(content: str) -> list[dict]:
-    match = re.search(r"\[.*\]", content, re.DOTALL)
+    # Try non-greedy match first to avoid capturing extra text
+    match = re.search(r"\[.*?\]", content, re.DOTALL)
+    if not match:
+        # Fallback: try greedy if non-greedy fails
+        match = re.search(r"\[.*\]", content, re.DOTALL)
+
     if match:
         raw = match.group(0)
     else:
