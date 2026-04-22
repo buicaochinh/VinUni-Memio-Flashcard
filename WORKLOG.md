@@ -195,3 +195,20 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 | Tạo survey đánh giá (CSV) | BDT-17 | 21/04 | ✅ Xong |
 | Fix merge conflicts (README/Architecture) | Cao Chinh Bùi | 20/04 | ✅ Xong |
 
+---
+
+### [ADR-5] Triển khai Dark Mode cho Memio Frontend — 21/04/2026
+
+**Bối cảnh:** Cần bổ sung giao diện tối để cải thiện trải nghiệm học tập trong điều kiện thiếu sáng và tăng tính chuyên nghiệp cho UI.
+
+**Các lựa chọn đã xem xét:**
+- **Hardcode class dark cho từng component**: Làm nhanh ban đầu nhưng khó bảo trì, dễ lệch màu giữa các màn.
+- **`next-themes` + CSS variables + Tailwind darkMode dạng `class`**: Dễ mở rộng, đồng bộ token màu toàn app, chuyển đổi theme mượt hơn.
+
+**Quyết định:** Chọn hướng `next-themes` + design tokens. App được bọc `ThemeProvider`, mặc định `defaultTheme="system"` để tự theo system preference của người dùng. Thêm `ThemeToggle` ở AppShell (desktop + mobile).
+
+**Hệ quả:**
+- Cập nhật `tailwind.config.js` để dùng `darkMode: "class"` và chuyển `surface`/`border-strong` sang CSS variables.
+- Cập nhật `globals.css` với bộ biến `.dark` đầy đủ (bao gồm điều chỉnh primary trong dark mode sang tông sáng hơn để tăng tương phản).
+- Layout root và shell component thay đổi để hỗ trợ chuyển theme runtime.
+
