@@ -14,3 +14,5 @@ python-multipart
 aiofiles
 psycopg2-binary
 langchain-anthropic
+passlib[bcrypt]
+sqlmodel
