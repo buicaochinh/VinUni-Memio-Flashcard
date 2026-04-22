@@ -114,23 +114,6 @@ export default function StudyPage() {
   const pointerStart = useRef<{ x: number; t: number } | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const storedUser = getStoredUser();
-    if (!storedUser) { router.replace("/"); return; }
-    setUser(storedUser);
-    void loadCards(storedUser.id);
-
-    const handleOnline  = () => { setOffline(false); void flushProgressQueue(); };
-    const handleOffline = () => setOffline(true);
-    window.addEventListener("online",  handleOnline);
-    window.addEventListener("offline", handleOffline);
-    setOffline(!navigator.onLine);
-    return () => {
-      window.removeEventListener("online",  handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, [router]);
-
   const loadCards = async (userId: number) => {
     try {
       let loaded: Card[];
@@ -148,6 +131,23 @@ export default function StudyPage() {
       else         setMsg("Không tải được flashcards.");
     }
   };
+
+  useEffect(() => {
+    const storedUser = getStoredUser();
+    if (!storedUser) { router.replace("/"); return; }
+    setUser(storedUser);
+    void loadCards(storedUser.id);
+
+    const handleOnline  = () => { setOffline(false); void flushProgressQueue(); };
+    const handleOffline = () => setOffline(true);
+    window.addEventListener("online",  handleOnline);
+    window.addEventListener("offline", handleOffline);
+    setOffline(!navigator.onLine);
+    return () => {
+      window.removeEventListener("online",  handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [router]);
 
   const handleRate = async (quality: 0 | 1 | 2 | 3) => {
     if (!user || cards.length === 0) return;
@@ -436,7 +436,7 @@ Explain this topic in more detail.`;
                         <Info className="w-3.5 h-3.5" /> Source Material
                       </div>
                       <p className="text-sm font-medium italic text-muted leading-relaxed">
-                        "{activeCitation.source}"
+                        &quot;{activeCitation.source}&quot;
                       </p>
                     </div>
                     <button className="flex items-center gap-2 text-primary font-bold text-sm hover:underline py-1">
