@@ -16,3 +16,6 @@ aiofiles
 psycopg2-binary
 langchain-anthropic
 sqlmodel
+passlib[bcrypt]
+bcrypt
+email-validator
