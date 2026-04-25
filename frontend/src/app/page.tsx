@@ -307,6 +307,7 @@ export default function Home() {
               <div
                 ref={googleBtnRef}
                 className="flex justify-center min-h-[44px]"
+                style={{ colorScheme: resolvedTheme === "dark" ? "dark" : "light" }}
               />
               {loading && (
                 <p className="text-muted text-[0.88rem] leading-[1.5] mt-2.5 text-center">
