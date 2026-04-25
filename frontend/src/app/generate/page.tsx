@@ -174,7 +174,7 @@ export default function GeneratePage() {
       {stage === "setup" && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="mb-8">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
               <Sparkles className="w-4 h-4 text-primary" /> AI Flashcard Generator
             </div>
             <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-extrabold tracking-[-0.05em] mb-2.5 leading-tight">
@@ -182,7 +182,7 @@ export default function GeneratePage() {
               <span className="bg-gradient-to-r from-primary to-amber-500 bg-clip-text text-transparent">AI làm phần còn lại</span>
             </h1>
             <p className="text-muted text-base max-w-[64ch] leading-relaxed">
-              Upload PDF → AI tạo đến <strong className="text-text">{targetCount}</strong> flashcards → Bạn xem lại và chỉnh sửa → Lưu vào deck.
+              Upload PDF → AI tạo đến <strong className="text-foreground">{targetCount}</strong> flashcards → Bạn xem lại và chỉnh sửa → Lưu vào deck.
             </p>
           </div>
 
@@ -196,7 +196,7 @@ export default function GeneratePage() {
                 <div>
                   <label className="block text-[0.82rem] font-bold text-muted uppercase tracking-wider mb-2">Chọn deck đích</label>
                   <select
-                    className="w-full rounded-2xl border border-border-strong bg-surface text-text px-4 py-3.5 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] appearance-none cursor-pointer"
+                    className="w-full rounded-2xl border border-border-strong bg-surface text-foreground px-4 py-3.5 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] appearance-none cursor-pointer"
                     value={selectedDeckId ?? ""}
                     onChange={(e) => setSelectedDeckId(Number(e.target.value))}
                   >
@@ -318,9 +318,9 @@ export default function GeneratePage() {
                 <h3 className="mb-4 font-bold text-lg">AI tạo gì?</h3>
                 <div className="grid gap-4">
                   {[
-                    { icon: Sparkles, t: "Câu hỏi từ khái niệm chính", c: "text-amber-500 bg-amber-50" },
+                    { icon: Sparkles, t: "Câu hỏi từ khái niệm chính", c: "text-amber-500 bg-amber-50 dark:bg-amber-500/10" },
                     { icon: Check, t: "Câu trả lời chính xác", c: "text-secondary bg-secondary/5" },
-                    { icon: BrainCircuit, t: "Phân loại độ khó thông minh", c: "text-rose-500 bg-rose-50" },
+                    { icon: BrainCircuit, t: "Phân loại độ khó thông minh", c: "text-rose-500 bg-rose-50 dark:bg-rose-500/10" },
                   ].map((f) => {
                     const Icon = f.icon;
                     return (
@@ -328,7 +328,7 @@ export default function GeneratePage() {
                         <div className={cn("flex-none w-8 h-8 rounded-lg grid place-items-center", f.c)}>
                           <Icon className="w-4 h-4" />
                         </div>
-                        <p className="text-[0.88rem] font-bold text-text leading-snug m-0">{f.t}</p>
+                        <p className="text-[0.88rem] font-bold text-foreground leading-snug m-0">{f.t}</p>
                       </div>
                     );
                   })}
@@ -349,7 +349,7 @@ export default function GeneratePage() {
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight mb-3">AI đang đọc tài liệu…</h2>
           <p className="text-muted text-lg max-w-[50ch] mb-10 leading-relaxed">
-            Đang trích xuất khái niệm và tạo <strong className="text-text">{targetCount} flashcards</strong>.<br />Quá trình này có thể mất 30–60 giây.
+            Đang trích xuất khái niệm và tạo <strong className="text-foreground">{targetCount} flashcards</strong>.<br />Quá trình này có thể mất 30–60 giây.
           </p>
           
           <div className="w-full max-w-[400px]">
@@ -371,7 +371,7 @@ export default function GeneratePage() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sticky top-[-32px] md:top-[-40px] z-40 bg-background/80 backdrop-blur-xl py-6 border-b border-border/50">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-2">
                 <Pencil className="w-3.5 h-3.5" /> Xem lại trước khi lưu
               </div>
               <h2 className="text-3xl font-extrabold tracking-tight mb-2.5">
@@ -381,9 +381,9 @@ export default function GeneratePage() {
                 {Object.entries(diffCount).map(([d, n]) => (
                   <span key={d} className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.75rem] font-bold tracking-tight",
-                    d === "easy" ? "bg-green-50 text-green-700" : 
-                    d === "medium" ? "bg-amber-50 text-amber-700" : 
-                    "bg-rose-50 text-rose-700"
+                    d === "easy" ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" : 
+                    d === "medium" ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" : 
+                    "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400"
                   )}>
                     {d === "easy" ? "Dễ" : d === "medium" ? "TB" : "Khó"}: {n}
                   </span>
@@ -392,13 +392,13 @@ export default function GeneratePage() {
             </div>
             <div className="flex gap-3 w-full md:w-auto">
               <button 
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface text-text font-bold text-[0.92rem] hover:-translate-y-px transition-all shadow-xs"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface text-foreground font-bold text-[0.92rem] hover:-translate-y-px transition-all shadow-xs"
                 onClick={addCard}
               >
                 <Plus className="w-4 h-4" /> Thêm thẻ
               </button>
               <button 
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-white/70 text-muted font-bold text-[0.92rem] hover:bg-white hover:-translate-y-px transition-all"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface/70 text-muted font-bold text-[0.92rem] hover:bg-surface hover:-translate-y-px transition-all"
                 onClick={() => setStage("setup")}
               >
                 <RotateCcw className="w-4 h-4" /> Làm lại
@@ -425,7 +425,7 @@ export default function GeneratePage() {
                 key={idx} 
                 className={cn(
                   "p-[22px] flex flex-col gap-4 bg-surface-raised border border-border rounded-2xl shadow-sm transition-all duration-300",
-                  editingIdx === idx ? "ring-2 ring-primary border-primary bg-white shadow-xl scale-[1.02] z-10" : "hover:border-primary/40"
+                  editingIdx === idx ? "ring-2 ring-primary border-primary bg-surface shadow-xl scale-[1.02] z-10" : "hover:border-primary/40"
                 )}
               >
                 {editingIdx === idx && editState ? (
@@ -434,7 +434,7 @@ export default function GeneratePage() {
                       <div>
                         <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu hỏi (Front)</label>
                         <textarea
-                          className="w-full rounded-xl border border-primary/30 bg-white text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          className="w-full rounded-xl border border-primary/30 bg-surface text-foreground px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.front}
                           onChange={(e) => setEditState({ ...editState, front: e.target.value })}
                           autoFocus
@@ -443,7 +443,7 @@ export default function GeneratePage() {
                       <div>
                         <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu trả lời (Back)</label>
                         <textarea
-                          className="w-full rounded-xl border border-primary/30 bg-white text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          className="w-full rounded-xl border border-primary/30 bg-surface text-foreground px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.back}
                           onChange={(e) => setEditState({ ...editState, back: e.target.value })}
                         />
@@ -488,18 +488,18 @@ export default function GeneratePage() {
                     <div className="flex-1">
                       <span className={cn(
                         "inline-flex items-center rounded-full px-2.5 py-1 text-[0.75rem] font-bold tracking-tight mb-3",
-                        card.difficulty === "easy" ? "bg-green-100 text-green-700" : 
-                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700" : 
+                        card.difficulty === "easy" ? "bg-green-100 text-green-700 dark:text-green-400" : 
+                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700 dark:text-amber-400" : 
                         "bg-red-100 text-red-700"
                       )}>
                         {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
                       </span>
-                      <p className="font-extrabold text-[0.95rem] leading-snug mb-2 text-text line-clamp-3">{card.front}</p>
+                      <p className="font-extrabold text-[0.95rem] leading-snug mb-2 text-foreground line-clamp-3">{card.front}</p>
                       <p className="text-muted text-[0.88rem] leading-relaxed m-0 line-clamp-4">{card.back}</p>
                     </div>
                     <div className="flex justify-end gap-2.5 pt-4 border-t border-border/50">
                       <button
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-danger bg-[#fff1f2] border border-danger/10 hover:shadow-sm hover:-translate-y-px active:translate-y-0 transition-all"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-danger bg-[#fff1f2] dark:bg-danger/10 border border-danger/10 hover:shadow-sm hover:-translate-y-px active:translate-y-0 transition-all"
                         onClick={() => removeCard(idx)}
                         title="Xóa thẻ"
                       >
@@ -532,7 +532,7 @@ export default function GeneratePage() {
 
       {stage === "saved" && (
         <div className="mt-10 p-10 bg-surface border border-border rounded-[40px] shadow-sm text-center animate-in zoom-in-95 duration-500">
-          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-green-50 dark:bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <Sparkles className="w-10 h-10 text-green-500" />
           </div>
           <h2 className="text-2xl font-extrabold mb-2">Đã lưu thành công!</h2>

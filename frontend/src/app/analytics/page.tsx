@@ -42,7 +42,7 @@ function ForgetBar({ rate }: { rate: number }) {
         <div 
           className={cn(
             "h-full transition-all duration-700 ease-out rounded-full shadow-[0_0_12px_rgba(0,0,0,0.05)]",
-            rate > 40 ? "bg-rose-500 shadow-rose-200" : rate > 20 ? "bg-amber-500 shadow-amber-100" : "bg-secondary shadow-teal-100"
+            rate > 40 ? "bg-rose-500 shadow-rose-200 dark:shadow-rose-500/20" : rate > 20 ? "bg-amber-500 shadow-amber-100 dark:shadow-amber-500/10" : "bg-secondary shadow-teal-100 dark:shadow-teal-500/10"
           )} 
           style={{ width: `${Math.min(rate, 100)}%` }} 
         />
@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
   return (
     <AppShell user={user}>
       <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5 shadow-xs">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5 shadow-xs">
           <BarChart3 className="w-4 h-4 text-primary" /> Learning Analytics
         </div>
         <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-extrabold tracking-[-0.05em] mb-2.5 leading-tight">
@@ -146,7 +146,7 @@ export default function AnalyticsPage() {
       )}
 
       {error && (
-        <div className="p-10 bg-rose-50 border border-rose-100 rounded-[32px] text-center text-rose-600 animate-in zoom-in-95 duration-300">
+        <div className="p-10 bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-[32px] text-center text-rose-600 dark:text-rose-400 animate-in zoom-in-95 duration-300">
           <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p className="font-bold text-lg">{error}</p>
         </div>
@@ -159,11 +159,11 @@ export default function AnalyticsPage() {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[
-                { label: "Study Streak", value: data.streak, sub: "ngày liên tiếp", icon: Flame, color: "text-amber-500 bg-amber-50", glow: "shadow-amber-100" },
-                { label: "Đã ôn tập", value: data.total_reviewed, sub: "thẻ flashcards", icon: BookOpen, color: "text-secondary bg-secondary/5", glow: "shadow-teal-100" },
+                { label: "Study Streak", value: data.streak, sub: "ngày liên tiếp", icon: Flame, color: "text-amber-500 bg-amber-50 dark:bg-amber-500/10", glow: "shadow-amber-100 dark:shadow-amber-500/10" },
+                { label: "Đã ôn tập", value: data.total_reviewed, sub: "thẻ flashcards", icon: BookOpen, color: "text-secondary bg-secondary/5", glow: "shadow-teal-100 dark:shadow-teal-500/10" },
                 { label: "Tốc độ quên", value: `${data.forgetting_rate}%`, sub: "trung bình", icon: Brain, 
-                  color: data.forgetting_rate > 40 ? "text-rose-500 bg-rose-50" : data.forgetting_rate > 20 ? "text-amber-500 bg-amber-50" : "text-green-500 bg-green-50",
-                  glow: data.forgetting_rate > 40 ? "shadow-rose-100" : data.forgetting_rate > 20 ? "shadow-amber-100" : "shadow-green-100"
+                  color: data.forgetting_rate > 40 ? "text-rose-500 bg-rose-50 dark:bg-rose-500/10" : data.forgetting_rate > 20 ? "text-amber-500 bg-amber-50 dark:bg-amber-500/10" : "text-green-500 bg-green-50 dark:bg-green-500/10",
+                  glow: data.forgetting_rate > 40 ? "shadow-rose-100" : data.forgetting_rate > 20 ? "shadow-amber-100 dark:shadow-amber-500/10" : "shadow-green-100"
                 },
               ].map((m) => {
                 const Icon = m.icon;
@@ -173,7 +173,7 @@ export default function AnalyticsPage() {
                       <Icon className="w-6 h-6" />
                     </div>
                     <div className="text-[0.75rem] font-bold text-subtle uppercase tracking-widest mb-1.5">{m.label}</div>
-                    <div className="text-3xl font-black text-text mb-1 tracking-tight">{m.value}</div>
+                    <div className="text-3xl font-black text-foreground mb-1 tracking-tight">{m.value}</div>
                     <div className="text-[0.8rem] font-medium text-muted">{m.sub}</div>
                   </div>
                 );
@@ -199,7 +199,7 @@ export default function AnalyticsPage() {
             </section>
 
             {/* Deck detail stats */}
-            <section className="p-10 bg-white border border-border rounded-[40px] shadow-[0_8px_40px_rgba(0,0,0,0.03)]">
+            <section className="p-10 bg-surface border border-border rounded-[40px] shadow-[0_8px_40px_rgba(0,0,0,0.03)]">
               <h3 className="text-xl font-extrabold mb-8 flex items-center gap-2">
                 <Brain className="w-6 h-6 text-primary" /> Tốc độ quên theo deck
               </h3>
@@ -249,14 +249,14 @@ export default function AnalyticsPage() {
               ) : (
                 <div className="space-y-4">
                   {data.hardest_cards.map((c, i) => (
-                    <div key={i} className="group p-4 bg-white border border-border rounded-2xl shadow-xs hover:border-rose-300 transition-all hover:shadow-md hover:-translate-x-1 duration-300">
+                    <div key={i} className="group p-4 bg-surface border border-border rounded-2xl shadow-xs hover:border-rose-300 transition-all hover:shadow-md hover:-translate-x-1 duration-300">
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex-shrink-0 flex flex-col items-center justify-center">
-                          <span className="text-[0.5rem] font-black text-rose-300 uppercase leading-none mb-0.5">EF</span>
+                        <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 flex-shrink-0 flex flex-col items-center justify-center">
+                          <span className="text-[0.5rem] font-black text-rose-300 dark:text-rose-400 uppercase leading-none mb-0.5">EF</span>
                           <span className="text-[0.85rem] font-black text-rose-500 leading-none">{c.ease_factor.toFixed(1)}</span>
                         </div>
                         <div>
-                          <p className="font-extrabold text-[0.88rem] text-text mb-1 leading-tight line-clamp-2">{c.front}</p>
+                          <p className="font-extrabold text-[0.88rem] text-foreground mb-1 leading-tight line-clamp-2">{c.front}</p>
                           <p className="text-[0.8rem] text-muted line-clamp-2 leading-relaxed">{c.back}</p>
                         </div>
                       </div>
@@ -273,7 +273,7 @@ export default function AnalyticsPage() {
             </section>
 
             {/* Study Tips */}
-            <section className="p-8 bg-white border border-border rounded-[32px] shadow-sm relative overflow-hidden group">
+            <section className="p-8 bg-surface border border-border rounded-[32px] shadow-sm relative overflow-hidden group">
               <h3 className="text-lg font-extrabold mb-6 flex items-center gap-2 relative z-10">
                 <Lightbulb className="w-5 h-5 text-amber-500" /> Gợi ý học tập
               </h3>
@@ -286,16 +286,16 @@ export default function AnalyticsPage() {
                   const Icon = t.icon;
                   return (
                     <div key={idx} className="flex gap-3 group/tip">
-                      <div className="w-5 h-5 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0 group-hover/tip:bg-amber-100 transition-colors">
-                        <Icon className="w-3 h-3 text-amber-600" />
+                      <div className="w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 flex items-center justify-center shrink-0 group-hover/tip:bg-amber-100 transition-colors">
+                        <Icon className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                       </div>
-                      <p className="text-[0.82rem] font-bold text-muted leading-relaxed group-hover/tip:text-text transition-colors">{t.tip}</p>
+                      <p className="text-[0.82rem] font-bold text-muted leading-relaxed group-hover/tip:text-foreground transition-colors">{t.tip}</p>
                     </div>
                   );
                 })}
               </div>
               {/* Background accent */}
-              <div className="absolute bottom-0 right-0 p-16 -mr-20 -mb-20 bg-amber-50 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute bottom-0 right-0 p-16 -mr-20 -mb-20 bg-amber-50 dark:bg-amber-500/10 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity" />
             </section>
 
             {/* Sharing */}

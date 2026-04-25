@@ -79,10 +79,10 @@ function mdToHtml(md: string): string {
 }
 
 const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string; icon: any }> = {
-  0: { label: "Again", hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200", icon: RotateCcw },
-  1: { label: "Hard",  hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200", icon: HelpCircle },
+  0: { label: "Again", hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200 dark:shadow-rose-500/20", icon: RotateCcw },
+  1: { label: "Hard",  hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200 dark:shadow-amber-500/20", icon: HelpCircle },
   2: { label: "Good",  hint: "Đúng nhịp",         color: "bg-secondary text-white shadow-teal-200", icon: CheckCircle2 },
-  3: { label: "Easy",  hint: "Nắm chắc rồi",      color: "bg-primary text-white shadow-amber-200", icon: Zap },
+  3: { label: "Easy",  hint: "Nắm chắc rồi",      color: "bg-primary text-white shadow-amber-200 dark:shadow-amber-500/20", icon: Zap },
 };
 
 const SWIPE_THRESHOLD = 80;  // px
@@ -296,7 +296,7 @@ Explain this topic in more detail.`;
               <Sparkles className="w-5 h-5" /> Sang Generator
             </button>
             <button
-              className="w-full py-4 px-6 rounded-2xl font-bold text-muted border border-border-strong bg-white/50 hover:bg-white hover:-translate-y-px transition-all"
+              className="w-full py-4 px-6 rounded-2xl font-bold text-muted border border-border-strong bg-surface/50 hover:bg-surface hover:-translate-y-px transition-all"
               onClick={() => router.push("/workspace")}
             >
               Về Workspace
@@ -322,7 +322,7 @@ Explain this topic in more detail.`;
       )}
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
+      <header className="sticky top-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
         <div className="flex items-center gap-4 overflow-hidden">
           <button
             onClick={() => router.push("/workspace")}
@@ -341,7 +341,7 @@ Explain this topic in more detail.`;
           <button
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[0.88rem] transition-all",
-              isExplainMode ? "bg-primary text-white shadow-md shadow-amber-200" : "bg-white border border-border-strong text-subtle hover:bg-surface-muted"
+              isExplainMode ? "bg-primary text-white shadow-md shadow-amber-200 dark:shadow-amber-500/20" : "bg-surface border border-border-strong text-subtle hover:bg-surface-muted"
             )}
             onClick={() => setIsExplainMode(!isExplainMode)}
           >
@@ -357,7 +357,7 @@ Explain this topic in more detail.`;
         {/* ── Explain Sidebar ── */}
         {isExplainMode && (
           <aside className="w-full md:w-[380px] flex flex-col bg-surface-raised border border-border rounded-[28px] shadow-sm backdrop-blur-xl animate-in slide-in-from-left-4 duration-500 overflow-hidden">
-            <div className="p-6 border-b border-border bg-white/50">
+            <div className="p-6 border-b border-border bg-surface/50">
               <div className="flex justify-between items-center mb-1">
                 <h3 className="font-extrabold text-lg flex items-center gap-2">
                   <Bot className="w-6 h-6 text-primary" /> AI Learning Assistant
@@ -379,7 +379,7 @@ Explain this topic in more detail.`;
                     "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%] relative group/msg",
                     m.role === "user"
                       ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm"
-                      : "mr-auto bg-white border border-border text-text font-medium rounded-tl-none shadow-sm"
+                      : "mr-auto bg-surface border border-border text-foreground font-medium rounded-tl-none shadow-sm"
                   )}>
                     {m.role === "user" ? m.text : (
                       <div className="space-y-2">
@@ -401,7 +401,7 @@ Explain this topic in more detail.`;
                 ))
               )}
               {isChatting && (
-                <div className="mr-auto bg-white border border-border p-4 rounded-[20px] rounded-tl-none shadow-sm flex items-center gap-2 text-muted italic text-sm">
+                <div className="mr-auto bg-surface border border-border p-4 rounded-[20px] rounded-tl-none shadow-sm flex items-center gap-2 text-muted italic text-sm">
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
@@ -427,7 +427,7 @@ Explain this topic in more detail.`;
                     </div>
                     <h4 className="font-extrabold text-xl">Key Takeaway</h4>
                   </div>
-                  <p className="text-lg font-bold leading-relaxed mb-6 text-text">
+                  <p className="text-lg font-bold leading-relaxed mb-6 text-foreground">
                     {activeCitation.text}
                   </p>
                   <div className="space-y-4">
@@ -447,10 +447,10 @@ Explain this topic in more detail.`;
               </div>
             )}
 
-            <div className="p-4 bg-white/50 border-t border-border mt-auto">
+            <div className="p-4 bg-surface/50 border-t border-border mt-auto">
               <div className="relative group">
                 <input
-                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-white text-text font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
+                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-surface text-foreground font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
                   placeholder="Nhập câu hỏi của bạn..."
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
@@ -460,7 +460,7 @@ Explain this topic in more detail.`;
                   }}
                 />
                 <button
-                  className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-amber-200"
+                  className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-amber-200 dark:shadow-amber-500/20"
                   onClick={() => handleExplain()}
                   disabled={!chatInput.trim() || isChatting}
                 >
@@ -480,7 +480,7 @@ Explain this topic in more detail.`;
                 <div className="flex-1">
                   <div className="flex justify-between items-end mb-2.5">
                     <span className="text-[0.75rem] font-extrabold uppercase tracking-widest text-muted">Thẻ {idx + 1} / {cards.length}</span>
-                    <span className="text-[1.2rem] font-black text-text">{Math.round(progress)}%</span>
+                    <span className="text-[1.2rem] font-black text-foreground">{Math.round(progress)}%</span>
                   </div>
                   <div className="h-2.5 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
                     <div
@@ -490,7 +490,7 @@ Explain this topic in more detail.`;
                   </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
-                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-border-strong text-primary text-[0.75rem] font-black shadow-sm tracking-wide">
+                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-strong text-primary text-[0.75rem] font-black shadow-sm tracking-wide">
                     {cards.length < 5 ? "STARTER" : cards.length < 15 ? "ACTIVE" : "MASTERY"}
                   </div>
                 </div>
@@ -500,13 +500,13 @@ Explain this topic in more detail.`;
               <div className="relative group w-full h-[400px] md:h-[460px]">
                 {/* Swipe hints */}
                 <div
-                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary"
+                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-black scale-125 md:scale-150 transition-opacity bg-surface/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary"
                   style={{ opacity: rightHintOpacity }}
                 >
                   <Zap className="w-6 h-6" /> Easy
                 </div>
                 <div
-                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-black scale-125 md:scale-150 transition-opacity bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500"
+                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-black scale-125 md:scale-150 transition-opacity bg-surface/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500"
                   style={{ opacity: leftHintOpacity }}
                 >
                   <RotateCcw className="w-6 h-6" /> Again
@@ -537,7 +537,7 @@ Explain this topic in more detail.`;
                       <div className="flex items-center gap-2">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-border-strong text-primary text-[0.7rem] font-bold shadow-sm hover:bg-surface-muted transition-all"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-strong text-primary text-[0.7rem] font-bold shadow-sm hover:bg-surface-muted transition-all"
                         >
                           <Bot className="w-3.5 h-3.5" /> Explain
                         </button>
@@ -551,7 +551,7 @@ Explain this topic in more detail.`;
                         </span>
                       </div>
                     </div>
-                    <div className="flex-1 flex items-center justify-center text-center text-xl md:text-2xl lg:text-3xl font-extrabold leading-tight tracking-tight text-text">
+                    <div className="flex-1 flex items-center justify-center text-center text-xl md:text-2xl lg:text-3xl font-extrabold leading-tight tracking-tight text-foreground">
                       {card.front}
                     </div>
                     <div className="pt-6 mt-auto border-t border-border-strong/40 flex items-center justify-center gap-2 text-subtle font-bold text-xs uppercase tracking-widest opacity-60">
@@ -567,7 +567,7 @@ Explain this topic in more detail.`;
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/50 border border-secondary/20 text-secondary-dark text-[0.7rem] font-bold shadow-sm hover:bg-white transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/50 border border-secondary/20 text-secondary-dark text-[0.7rem] font-bold shadow-sm hover:bg-surface transition-all"
                       >
                         <Bot className="w-3.5 h-3.5" /> Explain
                       </button>
@@ -590,8 +590,8 @@ Explain this topic in more detail.`;
                       <div className="flex gap-4 items-center px-5 py-3 rounded-2xl bg-surface-raised border border-border shadow-sm">
                         <Keyboard className="w-5 h-5 text-muted" />
                         <div className="flex gap-3 text-[0.75rem] font-bold text-subtle">
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-white shadow-xs">Space</kbd> Flip</span>
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-white shadow-xs">←/→</kbd> Nav</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">Space</kbd> Flip</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">←/→</kbd> Nav</span>
                         </div>
                       </div>
                     )}
