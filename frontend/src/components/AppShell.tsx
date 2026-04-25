@@ -41,6 +41,7 @@ export default function AppShell({ children, user }: AppShellProps) {
                 src="/icon.png" 
                 alt="Memio Logo" 
                 fill
+                sizes="42px"
                 className="object-contain mix-blend-multiply dark:mix-blend-normal flex-shrink-0" 
                 priority
               />

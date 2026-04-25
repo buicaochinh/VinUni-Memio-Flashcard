@@ -182,6 +182,7 @@ export default function Home() {
                 src="/icon.png" 
                 alt="Memio Logo" 
                 fill
+                sizes="64px"
                 className="object-contain mix-blend-multiply flex-shrink-0" 
                 priority
               />
@@ -307,7 +308,6 @@ export default function Home() {
               <div
                 ref={googleBtnRef}
                 className="flex justify-center min-h-[44px]"
-                style={{ colorScheme: resolvedTheme === "dark" ? "dark" : "light" }}
               />
               {loading && (
                 <p className="text-muted text-[0.88rem] leading-[1.5] mt-2.5 text-center">
