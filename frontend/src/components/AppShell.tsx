@@ -49,7 +49,6 @@ export default function AppShell({ children, user }: AppShellProps) {
               <span className="text-primary">Mem</span><span className="text-foreground">io</span>
             </span>
           </Link>
-          <ThemeToggle />
         </div>
 
         <nav className="flex flex-col gap-2 flex-1">
@@ -110,7 +109,7 @@ export default function AppShell({ children, user }: AppShellProps) {
       </main>
 
       {/* ── Mobile bottom navigation ── */}
-      <div className="md:hidden fixed top-4 right-4 z-[101]">
+      <div className="fixed top-6 right-6 z-[101]">
         <ThemeToggle />
       </div>
 

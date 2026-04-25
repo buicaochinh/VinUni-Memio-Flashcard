@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
   decodeGoogleJwt,
   getStoredUser,
@@ -11,6 +12,7 @@ import {
   registerUser,
   saveStoredUser,
 } from "../lib/app-client";
+import ThemeToggle from "../components/ThemeToggle";
 
 // Extend Window to include google GIS object
 declare global {
@@ -33,6 +35,7 @@ import { FileText, Brain, Repeat } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const googleBtnRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,7 +69,7 @@ export default function Home() {
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         type: "standard",
         shape: "rectangular",
-        theme: "outline",
+        theme: resolvedTheme === "dark" ? "filled_black" : "outline",
         size: "large",
         text: "signin_with",
         locale: "vi",
@@ -86,7 +89,7 @@ export default function Home() {
       }, 100);
       return () => clearInterval(interval);
     }
-  }, []);
+  }, [resolvedTheme]);
 
   const handleGoogleCredential = async (response: { credential: string }) => {
     setLoading(true);
@@ -160,7 +163,10 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen grid place-items-center p-5 bg-background">
+    <main className="min-h-screen grid place-items-center p-5 bg-background relative">
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-[1040px] grid grid-cols-1 md:grid-cols-[1.2fr_0.7fr] gap-5">
         {/* ── Hero / left column ── */}
         <section className="p-7 md:p-9 bg-surface-raised/90 border border-border rounded-[28px] shadow-sm backdrop-blur-xl relative overflow-hidden">
