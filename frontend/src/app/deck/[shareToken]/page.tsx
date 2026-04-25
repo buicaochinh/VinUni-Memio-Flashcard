@@ -72,7 +72,7 @@ export default function SharedDeckPage() {
   return (
     <main className="min-h-screen bg-background">
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
+      <header className="sticky top-0 z-50 bg-surface/90 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
         <div className="brand-lockup">
           <Link href="/" className="flex items-center gap-3 outline-none">
             <div className="relative h-8 w-8">
@@ -84,7 +84,7 @@ export default function SharedDeckPage() {
               />
             </div>
             <span className="text-xl font-extrabold tracking-tight">
-              <span className="text-primary">Mem</span><span className="text-text">io</span>
+              <span className="text-primary">Mem</span><span className="text-foreground">io</span>
             </span>
           </Link>
         </div>
@@ -99,7 +99,7 @@ export default function SharedDeckPage() {
       <div className="w-full max-w-[1100px] mx-auto p-4 md:p-8 pb-14">
         {/* ── Deck info ── */}
         <section className="p-8 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl relative overflow-hidden mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
             <BookOpen className="w-4 h-4 text-secondary" /> Bộ thẻ được chia sẻ
           </div>
           <h1 className="text-[clamp(1.6rem,4vw,3rem)] font-bold tracking-tight mb-2">
@@ -109,15 +109,15 @@ export default function SharedDeckPage() {
             <p className="text-muted mb-4 max-w-[70ch] leading-relaxed">{deck.description}</p>
           )}
           <div className="flex gap-3 flex-wrap items-center">
-            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-[#f0fdf9] text-secondary text-[0.82rem] font-semibold">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-[#f0fdf9] dark:bg-secondary/10 text-secondary text-[0.82rem] font-semibold">
               <Layers className="w-3.5 h-3.5" /> {cards.length} flashcards
             </span>
             {Object.entries(diffCount).map(([d, n]) => (
               <span key={d} className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.82rem] font-semibold capitalize",
-                d === "easy" ? "bg-green-50 text-green-700" : 
-                d === "medium" ? "bg-amber-50 text-amber-700" : 
-                "bg-rose-50 text-rose-700"
+                d === "easy" ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" : 
+                d === "medium" ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" : 
+                "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400"
               )}>
                 {d === "easy" ? "Dễ" : d === "medium" ? "Trung bình" : "Khó"}: {n}
               </span>
@@ -129,7 +129,7 @@ export default function SharedDeckPage() {
         <div className="relative max-w-md mb-6">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle" />
           <input
-            className="w-full pl-10 pr-4 py-3 rounded-2xl border border-border-strong bg-surface text-text outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
+            className="w-full pl-10 pr-4 py-3 rounded-2xl border border-border-strong bg-surface text-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm kiếm flashcard…"
@@ -155,8 +155,8 @@ export default function SharedDeckPage() {
                     {card.difficulty && (
                       <span className={cn(
                         "self-start px-2.5 py-1 rounded-full text-[0.7rem] font-bold uppercase tracking-wider",
-                        card.difficulty === "easy" ? "bg-green-100 text-green-700" : 
-                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700" : 
+                        card.difficulty === "easy" ? "bg-green-100 text-green-700 dark:text-green-400" : 
+                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700 dark:text-amber-400" : 
                         "bg-red-100 text-red-700"
                       )}>
                         {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
@@ -203,7 +203,7 @@ export default function SharedDeckPage() {
             Muốn học với Spaced Repetition?
           </h3>
           <p className="text-muted mb-8 max-w-[56ch] mx-auto">
-            Đăng nhập để lưu deck này, ôn tập với thuật toán <strong className="text-text">SM-2</strong> và theo dõi tiến độ của bạn.
+            Đăng nhập để lưu deck này, ôn tập với thuật toán <strong className="text-foreground">SM-2</strong> và theo dõi tiến độ của bạn.
           </p>
           <button 
             className="py-3.5 px-8 rounded-xl font-bold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"

@@ -33,7 +33,7 @@ export default function AppShell({ children, user }: AppShellProps) {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-transparent">
       {/* ── Sidebar (Desktop) ── */}
-      <aside className="hidden md:flex flex-col w-[260px] sticky top-0 h-screen border-r border-border bg-white dark:bg-zinc-950 shadow-[4px_0_24px_rgba(0,0,0,0.03)] p-6 gap-8 z-50">
+      <aside className="hidden md:flex flex-col w-[260px] sticky top-0 h-screen border-r border-border bg-surface shadow-[4px_0_24px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.15)] p-6 gap-8 z-50">
         <div className="px-2 flex items-center justify-between gap-3">
           <Link href="/workspace" className="flex items-center gap-3 overflow-hidden outline-none">
             <div className="relative h-[42px] w-[42px]">
@@ -41,7 +41,7 @@ export default function AppShell({ children, user }: AppShellProps) {
                 src="/icon.png" 
                 alt="Memio Logo" 
                 fill
-                className="object-contain mix-blend-multiply flex-shrink-0" 
+                className="object-contain mix-blend-multiply dark:mix-blend-normal flex-shrink-0" 
                 priority
               />
             </div>

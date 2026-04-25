@@ -124,7 +124,7 @@ export default function WorkspacePage() {
       {/* ── Summary hero ── */}
       <section className="grid grid-cols-1 md:grid-cols-[1.4fr_0.75fr] gap-5 mb-5 items-start">
         <div className="p-8 relative overflow-hidden bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
             <FolderKanban className="w-4 h-4 text-primary" /> Deck Management
           </div>
           <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-bold tracking-[-0.05em] mb-2.5">
@@ -134,15 +134,15 @@ export default function WorkspacePage() {
             Mỗi deck là một chủ đề học độc lập. Tạo deck, upload tài liệu rồi học với Smart Review.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-6">
-            <div className="py-3 px-4 bg-white/60 border border-border rounded-2xl">
+            <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
               <div className="text-muted text-[0.82rem] mb-1 font-medium">Tổng deck</div>
               <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{decks.length}</div>
             </div>
-            <div className="py-3 px-4 bg-white/60 border border-border rounded-2xl">
+            <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
               <div className="text-muted text-[0.82rem] mb-1 font-medium">Tổng flashcards</div>
               <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{totalCards}</div>
             </div>
-            <div className="py-3 px-4 bg-white/60 border border-border rounded-2xl">
+            <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
               <div className="text-muted text-[0.82rem] mb-1 font-medium">Deck sẵn sàng</div>
               <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{readyDecks}</div>
             </div>
@@ -153,14 +153,14 @@ export default function WorkspacePage() {
           <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
             <h3 className="mb-3.5 font-bold text-lg">Tạo deck mới</h3>
             <input
-              className="w-full rounded-xl border border-border-strong bg-surface text-text px-4 py-3 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] mb-2.5"
+              className="w-full rounded-xl border border-border-strong bg-surface text-foreground px-4 py-3 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] mb-2.5"
               value={newDeckName}
               onChange={(e) => setNewDeckName(e.target.value)}
               placeholder="Tên deck (VD: IELTS Writing…)"
               onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
             />
             <input
-              className="w-full rounded-xl border border-border-strong bg-surface text-text px-4 py-3 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] mb-3.5"
+              className="w-full rounded-xl border border-border-strong bg-surface text-foreground px-4 py-3 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] mb-3.5"
               value={newDeckDesc}
               onChange={(e) => setNewDeckDesc(e.target.value)}
               placeholder="Mô tả ngắn (tuỳ chọn)"
@@ -227,7 +227,7 @@ export default function WorkspacePage() {
                   <div className="flex gap-1.5 flex-wrap">
                     <span className={cn(
                       "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.82rem] font-semibold",
-                      deck.is_public ? "bg-[#f0fdf9] text-secondary" : "bg-[#fef9ec] text-primary-strong"
+                      deck.is_public ? "bg-[#f0fdf9] dark:bg-secondary/10 text-secondary" : "bg-[#fef9ec] dark:bg-primary/10 text-primary-strong dark:text-primary"
                     )}>
                       {deck.is_public ? <Globe2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                       {deck.is_public ? "Public" : "Private"}
@@ -261,7 +261,7 @@ export default function WorkspacePage() {
                   {/* Actions */}
                   <div className="grid grid-cols-2 gap-2">
                     <button
-                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-strong bg-surface text-text font-bold text-[0.92rem] hover:-translate-y-px active:translate-y-0 transition-transform shadow-xs"
+                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-[0.92rem] hover:-translate-y-px active:translate-y-0 transition-transform shadow-xs"
                       onClick={() => router.push(`/generate?deckId=${deck.id}`)}
                     >
                       <Sparkles className="w-4 h-4 text-primary" /> Generate
@@ -285,7 +285,7 @@ export default function WorkspacePage() {
                       {deck.share_token ? "Chia sẻ" : "Bật chia sẻ"}
                     </button>
                     <button
-                      className="flex items-center justify-center px-3 py-2 rounded-xl text-danger bg-[#fff1f2] border border-danger/15 font-bold hover:-translate-y-px active:translate-y-0 transition-all"
+                      className="flex items-center justify-center px-3 py-2 rounded-xl text-danger bg-[#fff1f2] dark:bg-danger/10 border border-danger/15 font-bold hover:-translate-y-px active:translate-y-0 transition-all"
                       onClick={() => handleDeleteDeck(deck.id)}
                     >
                       <Trash className="w-4 h-4" />
@@ -322,7 +322,7 @@ export default function WorkspacePage() {
               <div className="flex flex-col gap-5 mt-2">
                 <div className="flex items-center gap-2 border border-border bg-surface-muted rounded-xl p-1 shadow-inner">
                   <input
-                    className="flex-1 bg-transparent border-none outline-none px-3 text-text text-sm font-mono"
+                    className="flex-1 bg-transparent border-none outline-none px-3 text-foreground text-sm font-mono"
                     readOnly
                     value={shareUrl(shareModal.share_token)}
                   />
@@ -335,13 +335,13 @@ export default function WorkspacePage() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    className="flex-1 px-4 py-2.5 rounded-xl text-danger bg-[#fff1f2] border border-danger/15 font-bold hover:opacity-90 transition-all cursor-pointer text-sm"
+                    className="flex-1 px-4 py-2.5 rounded-xl text-danger bg-[#fff1f2] dark:bg-danger/10 border border-danger/15 font-bold hover:opacity-90 transition-all cursor-pointer text-sm"
                     onClick={() => handleUnshare(shareModal.id)}
                   >
                     Tắt chia sẻ
                   </button>
                   <Dialog.Close asChild>
-                    <button className="flex-1 px-4 py-2.5 rounded-xl border border-border-strong bg-surface text-text font-bold text-sm cursor-pointer hover:bg-surface-muted transition-all">
+                    <button className="flex-1 px-4 py-2.5 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-sm cursor-pointer hover:bg-surface-muted transition-all">
                       Đóng
                     </button>
                   </Dialog.Close>

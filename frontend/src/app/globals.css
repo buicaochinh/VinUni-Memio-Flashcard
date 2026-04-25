@@ -33,35 +33,66 @@
     --primary-hex: #d97706;
     --secondary-hex: #0f766e;
     --primary-glow: rgba(217, 119, 6, 0.18);
+    
+    /* Semantic status colors */
+    --success: 142 76% 30%;
+    --danger: 0 72% 40%;
+    --warning: 35 92% 44%;
+    --info: 217 91% 50%;
+    --subtle: 25 5% 60%;
+
+    /* Background Gradient Opacity */
+    --bg-gradient-primary: 14%;
+    --bg-gradient-secondary: 12%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 96%;
-    --card: 222 47% 14%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 14%;
-    --popover-foreground: 210 40% 96%;
+    /* Premium Obsidian Dark Theme */
+    --background: 240 6% 6%;
+    --foreground: 0 0% 95%;
+    --card: 240 4% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 4% 10%;
+    --popover-foreground: 0 0% 95%;
+    
+    /* Brand colors optimized for dark mode */
     --primary: 35 98% 56%;
     --primary-foreground: 26 83% 14%;
     --secondary: 172 66% 38%;
     --secondary-foreground: 180 100% 97%;
-    --muted: 215 20% 65%;
-    --muted-foreground: 215 20% 65%;
+    
+    /* CRITICAL: --muted is used as text-muted throughout the app */
+    --muted: 0 0% 55%;
+    --muted-foreground: 0 0% 70%;
     --accent: 262 90% 70%;
-    --accent-foreground: 260 50% 15%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 19% 28%;
-    --input: 217 19% 28%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* Visible borders */
+    --border: 240 4% 18%;
+    --input: 240 4% 18%;
     --ring: 35 98% 56%;
-    --surface: 222 47% 14%;
-    --surface-muted: 217 33% 20%;
-    --surface-raised: 222 41% 16% / 0.9;
-    --border-strong: 210 25% 90% / 0.2;
+    
+    --surface: 240 4% 10%;
+    --surface-muted: 240 3% 14%;
+    --surface-raised: 240 4% 13% / 0.9;
+    --border-strong: 0 0% 30%;
+    
     --primary-hex: #f59e0b;
     --secondary-hex: #14b8a6;
-    --primary-glow: rgba(245, 158, 11, 0.26);
+    --primary-glow: rgba(245, 158, 11, 0.15);
+    
+    /* Semantic status colors for dark mode */
+    --success: 142 70% 45%;
+    --danger: 0 84% 60%;
+    --warning: 35 98% 56%;
+    --info: 217 91% 65%;
+    --subtle: 0 0% 50%;
+
+    /* Subtle background gradients in dark mode */
+    --bg-gradient-primary: 8%;
+    --bg-gradient-secondary: 6%;
   }
 }
 
@@ -106,8 +137,8 @@
 body {
   background-color: hsl(var(--background));
   background-image:
-    radial-gradient(circle at 0% 0%, color-mix(in srgb, hsl(var(--primary)) 14%, transparent) 0%, transparent 50%),
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, hsl(var(--secondary)) 12%, transparent) 0%, transparent 50%);
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, hsl(var(--primary)) var(--bg-gradient-primary, 14%), transparent) 0%, transparent 50%),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, hsl(var(--secondary)) var(--bg-gradient-secondary, 12%), transparent) 0%, transparent 50%);
   background-attachment: fixed;
   min-height: 100vh;
 }

@@ -175,38 +175,38 @@ export default function Home() {
               />
             </div>
             <span className="text-[2rem] font-extrabold tracking-tight">
-              <span className="text-primary">Mem</span><span className="text-text">io</span>
+              <span className="text-primary">Mem</span><span className="text-foreground">io</span>
             </span>
           </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
             ✦ Memio: AI Learning Companion
           </div>
-          <h1 className="text-[clamp(2rem,5vw,3.8rem)] leading-[1.0] tracking-[-0.05em] mb-3 bg-gradient-to-br from-primary-strong to-secondary bg-clip-text text-transparent">
+          <h1 className="text-[clamp(2rem,5vw,3.8rem)] leading-[1.0] tracking-[-0.05em] mb-3 bg-gradient-to-br from-primary to-secondary bg-clip-text text-transparent">
             Học ít hơn.
             <br />
             Nhớ nhiều hơn.
           </h1>
           <p className="max-w-[56ch] text-muted text-base leading-[1.7]">
-            Tải lên tài liệu — <strong className="text-text">Memio</strong> sẽ tự động tạo flashcards
+            Tải lên tài liệu — <strong className="text-foreground">Memio</strong> sẽ tự động tạo flashcards
             chất lượng cao, giúp bạn ghi nhớ nhanh chóng với thuật toán ôn tập tối ưu.
           </p>
 
           <div className="flex gap-2 flex-wrap mt-3.5">
-            <span className="rounded-full px-3 py-1.5 bg-white/70 border border-border text-muted text-[0.82rem]">AI Generation</span>
-            <span className="rounded-full px-3 py-1.5 bg-white/70 border border-border text-muted text-[0.82rem]">Spaced Repetition</span>
-            <span className="rounded-full px-3 py-1.5 bg-white/70 border border-border text-muted text-[0.82rem]">Focus Design</span>
+            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">AI Generation</span>
+            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">Spaced Repetition</span>
+            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">Focus Design</span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 mt-7">
-            <div className="p-3.5 px-4 bg-white/60 border border-border rounded-2xl">
+            <div className="p-3.5 px-4 bg-surface/60 border border-border rounded-2xl">
               <div className="text-muted text-[0.82rem] mb-1 font-medium">Tạo flashcards</div>
               <div className="text-[1.5rem] font-extrabold tracking-tight">≤ 100</div>
             </div>
-            <div className="p-3.5 px-4 bg-white/60 border border-border rounded-2xl">
+            <div className="p-3.5 px-4 bg-surface/60 border border-border rounded-2xl">
               <div className="text-muted text-[0.82rem] mb-1 font-medium">Thuật toán</div>
               <div className="text-[1.5rem] font-extrabold tracking-tight">SM-2</div>
             </div>
-            <div className="p-3.5 px-4 bg-white/60 border border-border rounded-2xl">
+            <div className="p-3.5 px-4 bg-surface/60 border border-border rounded-2xl">
               <div className="text-muted text-[0.82rem] mb-1 font-medium">Offline</div>
               <div className="text-[1.5rem] font-extrabold tracking-tight">✓</div>
             </div>
@@ -233,7 +233,7 @@ export default function Home() {
                 "px-3 py-2 rounded-xl border font-bold text-sm transition-colors outline-none",
                 tab === "google"
                   ? "bg-surface text-foreground border-border-strong shadow-xs"
-                  : "bg-white/50 text-muted hover:bg-surface-muted border-border",
+                  : "bg-surface/50 text-muted hover:bg-surface-muted border-border",
               ].join(" ")}
             >
               Google
@@ -246,7 +246,7 @@ export default function Home() {
                 "px-3 py-2 rounded-xl border font-bold text-sm transition-colors outline-none",
                 tab === "login"
                   ? "bg-surface text-foreground border-border-strong shadow-xs"
-                  : "bg-white/50 text-muted hover:bg-surface-muted border-border",
+                  : "bg-surface/50 text-muted hover:bg-surface-muted border-border",
               ].join(" ")}
             >
               Tài khoản
@@ -259,7 +259,7 @@ export default function Home() {
                 "px-3 py-2 rounded-xl border font-bold text-sm transition-colors outline-none",
                 tab === "register"
                   ? "bg-surface text-foreground border-border-strong shadow-xs"
-                  : "bg-white/50 text-muted hover:bg-surface-muted border-border",
+                  : "bg-surface/50 text-muted hover:bg-surface-muted border-border",
               ].join(" ")}
             >
               Đăng ký
@@ -303,7 +303,7 @@ export default function Home() {
               )}
             </div>
           ) : (
-            <div className="p-3.5 px-4 bg-[#fff8e7] rounded-2xl border border-[#fde68a]">
+            <div className="p-3.5 px-4 bg-[#fff8e7] dark:bg-primary/10 rounded-2xl border border-[#fde68a] dark:border-primary/20">
               <p className="text-muted text-[0.88rem] leading-[1.5] mb-0">
                 <strong>Cần cấu hình Google Client ID.</strong>
                 <br />
@@ -321,7 +321,7 @@ export default function Home() {
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={loading}
                 placeholder="Username"
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
               <input
                 value={password}
@@ -329,7 +329,7 @@ export default function Home() {
                 disabled={loading}
                 type="password"
                 placeholder="Password"
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
               <button
                 type="submit"
@@ -348,7 +348,7 @@ export default function Home() {
                 onChange={(e) => setRegUsername(e.target.value)}
                 disabled={loading}
                 placeholder="Username"
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
               <input
                 value={regPassword}
@@ -356,21 +356,21 @@ export default function Home() {
                 disabled={loading}
                 type="password"
                 placeholder="Password (min 6)"
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
               <input
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}
                 disabled={loading}
                 placeholder="Email (optional)"
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
               <input
                 value={regName}
                 onChange={(e) => setRegName(e.target.value)}
                 disabled={loading}
                 placeholder="Name (optional)"
-                className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
               />
               <button
                 type="submit"
@@ -393,13 +393,13 @@ export default function Home() {
               onChange={(e) => setGuestName(e.target.value)}
               disabled={loading}
               placeholder="Tên hiển thị (guest)"
-              className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/60 outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
             <button
               type="button"
               onClick={handleGuest}
               disabled={loading}
-              className="w-full px-4 py-2.5 rounded-xl border border-border bg-white/70 text-foreground font-bold text-sm hover:bg-surface-muted transition-colors outline-none disabled:opacity-60"
+              className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface/70 text-foreground font-bold text-sm hover:bg-surface-muted transition-colors outline-none disabled:opacity-60"
             >
               {loading ? "Đang vào chế độ khách…" : "Tiếp tục với tư cách khách"}
             </button>
