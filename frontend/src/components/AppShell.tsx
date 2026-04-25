@@ -15,9 +15,9 @@ type AppShellProps = {
 };
 
 const NAV_ITEMS = [
-  { href: "/workspace",  label: "Decks",     icon: LibraryBig },
-  { href: "/generate",   label: "Generate",  icon: Sparkles },
-  { href: "/analytics",  label: "Analytics", icon: BarChart3 },
+  { href: "/workspace",  label: "Bộ thẻ",      icon: LibraryBig },
+  { href: "/generate",   label: "Tạo thẻ",     icon: Sparkles },
+  { href: "/analytics",  label: "Thống kê",    icon: BarChart3 },
 ];
 
 export default function AppShell({ children, user }: AppShellProps) {
@@ -77,12 +77,13 @@ export default function AppShell({ children, user }: AppShellProps) {
         <div className="pt-5 border-t border-border flex flex-col gap-4">
           <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-surface-muted truncate">
             {user.photo_url && !imgError ? (
-              <Image
+              <img
                 src={user.photo_url}
                 alt={user.name}
                 width={32}
                 height={32}
-                className="rounded-full flex-shrink-0"
+                className="rounded-full flex-shrink-0 w-8 h-8 object-cover"
+                referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
               />
             ) : (
@@ -91,12 +92,12 @@ export default function AppShell({ children, user }: AppShellProps) {
               </div>
             )}
             <span className="text-[14px] font-semibold text-foreground truncate">
-              {user.name.split(" ").pop()}
+              {user.name}
             </span>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-sm hover:-translate-y-[1px] active:translate-y-0 transition-transform shadow-xs cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg border border-border bg-transparent text-muted-foreground font-medium text-xs hover:text-foreground hover:bg-surface-muted transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             <LogOut className="w-4 h-4" /> Đăng xuất
           </button>
@@ -131,6 +132,13 @@ export default function AppShell({ children, user }: AppShellProps) {
             </Link>
           );
         })}
+        <button
+          onClick={handleLogout}
+          className="flex-1 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors outline-none text-muted-foreground hover:text-foreground"
+        >
+          <LogOut className="w-[22px] h-[22px]" strokeWidth={2} />
+          <span className="text-[11px] font-bold">Thoát</span>
+        </button>
       </nav>
     </div>
   );

@@ -33,7 +33,7 @@
     --primary-hex: #d97706;
     --secondary-hex: #0f766e;
     --primary-glow: rgba(217, 119, 6, 0.18);
-    
+
     /* Semantic status colors */
     --success: 142 76% 30%;
     --danger: 0 72% 40%;
@@ -47,42 +47,33 @@
   }
 
   .dark {
-    /* Premium Obsidian Dark Theme */
-    --background: 240 6% 6%;
+    --background: 0 0% 5%;
     --foreground: 0 0% 95%;
-    --card: 240 4% 10%;
+    --card: 0 0% 8%;
     --card-foreground: 0 0% 95%;
-    --popover: 240 4% 10%;
+    --popover: 0 0% 8%;
     --popover-foreground: 0 0% 95%;
-    
-    /* Brand colors optimized for dark mode */
     --primary: 35 98% 56%;
     --primary-foreground: 26 83% 14%;
     --secondary: 172 66% 38%;
     --secondary-foreground: 180 100% 97%;
-    
-    /* CRITICAL: --muted is used as text-muted throughout the app */
     --muted: 0 0% 55%;
-    --muted-foreground: 0 0% 70%;
+    --muted-foreground: 0 0% 55%;
     --accent: 262 90% 70%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 84% 60%;
+    --accent-foreground: 260 50% 15%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    
-    /* Visible borders */
-    --border: 240 4% 18%;
-    --input: 240 4% 18%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
     --ring: 35 98% 56%;
-    
-    --surface: 240 4% 10%;
-    --surface-muted: 240 3% 14%;
-    --surface-raised: 240 4% 13% / 0.9;
-    --border-strong: 0 0% 30%;
-    
+    --surface: 0 0% 9%;
+    --surface-muted: 0 0% 13%;
+    --surface-raised: 0 0% 11% / 0.9;
+    --border-strong: 0 0% 90% / 0.2;
     --primary-hex: #f59e0b;
     --secondary-hex: #14b8a6;
     --primary-glow: rgba(245, 158, 11, 0.15);
-    
+
     /* Semantic status colors for dark mode */
     --success: 142 70% 45%;
     --danger: 0 84% 60%;
@@ -110,7 +101,7 @@
   .text-balance {
     text-wrap: balance;
   }
-  
+
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
   }

@@ -12,17 +12,17 @@ import {
   PreviewCard,
   User,
 } from "../../lib/app-client";
-import { 
-  Sparkles, 
-  Upload, 
-  FileText, 
-  X, 
-  Settings2, 
-  Plus, 
-  Trash2, 
-  Check, 
-  RotateCcw, 
-  Save, 
+import {
+  Sparkles,
+  Upload,
+  FileText,
+  X,
+  Settings2,
+  Plus,
+  Trash2,
+  Check,
+  RotateCcw,
+  Save,
   CheckCircle2,
   FileUp,
   BrainCircuit,
@@ -78,9 +78,9 @@ export default function GeneratePage() {
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    const dropped = Array.from(e.dataTransfer.files).filter(f => 
-       f.type === "application/pdf" || 
-       f.type === "text/plain" || 
+    const dropped = Array.from(e.dataTransfer.files).filter(f =>
+       f.type === "application/pdf" ||
+       f.type === "text/plain" ||
        f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
        f.name.endsWith(".txt") || f.name.endsWith(".docx") || f.name.endsWith(".pdf")
     );
@@ -175,7 +175,7 @@ export default function GeneratePage() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="mb-8">
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
-              <Sparkles className="w-4 h-4 text-primary" /> AI Flashcard Generator
+              <Sparkles className="w-4 h-4 text-primary" /> Tạo Flashcard AI
             </div>
             <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-extrabold tracking-[-0.05em] mb-2.5 leading-tight">
               Tải lên tài liệu,{" "}
@@ -244,7 +244,7 @@ export default function GeneratePage() {
                     onChange={handleFileChange}
                     className="hidden"
                   />
-                  
+
                   {files.length > 0 ? (
                     <>
                       <div className="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
@@ -351,12 +351,12 @@ export default function GeneratePage() {
           <p className="text-muted text-lg max-w-[50ch] mb-10 leading-relaxed">
             Đang trích xuất khái niệm và tạo <strong className="text-foreground">{targetCount} flashcards</strong>.<br />Quá trình này có thể mất 30–60 giây.
           </p>
-          
+
           <div className="w-full max-w-[400px]">
             <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
-              <div 
-                className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300" 
-                style={{ width: `${progress}%` }} 
+              <div
+                className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300"
+                style={{ width: `${progress}%` }}
               />
             </div>
             <div className="flex justify-between mt-3 px-1">
@@ -381,8 +381,8 @@ export default function GeneratePage() {
                 {Object.entries(diffCount).map(([d, n]) => (
                   <span key={d} className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.75rem] font-bold tracking-tight",
-                    d === "easy" ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" : 
-                    d === "medium" ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" : 
+                    d === "easy" ? "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400" :
+                    d === "medium" ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400" :
                     "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400"
                   )}>
                     {d === "easy" ? "Dễ" : d === "medium" ? "TB" : "Khó"}: {n}
@@ -391,19 +391,19 @@ export default function GeneratePage() {
               </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
-              <button 
+              <button
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface text-foreground font-bold text-[0.92rem] hover:-translate-y-px transition-all shadow-xs"
                 onClick={addCard}
               >
                 <Plus className="w-4 h-4" /> Thêm thẻ
               </button>
-              <button 
+              <button
                 className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface/70 text-muted font-bold text-[0.92rem] hover:bg-surface hover:-translate-y-px transition-all"
                 onClick={() => setStage("setup")}
               >
                 <RotateCcw className="w-4 h-4" /> Làm lại
               </button>
-              <button 
+              <button
                 className="flex-[1.5] md:flex-none flex items-center justify-center gap-2 px-7 py-3 border-0 rounded-2xl font-bold text-[0.95rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0"
                 onClick={handleSave}
               >
@@ -421,8 +421,8 @@ export default function GeneratePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {cards.map((card, idx) => (
-              <div 
-                key={idx} 
+              <div
+                key={idx}
                 className={cn(
                   "p-[22px] flex flex-col gap-4 bg-surface-raised border border-border rounded-2xl shadow-sm transition-all duration-300",
                   editingIdx === idx ? "ring-2 ring-primary border-primary bg-surface shadow-xl scale-[1.02] z-10" : "hover:border-primary/40"
@@ -434,7 +434,7 @@ export default function GeneratePage() {
                       <div>
                         <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu hỏi (Front)</label>
                         <textarea
-                          className="w-full rounded-xl border border-primary/30 bg-surface text-foreground px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          className="w-full rounded-xl border border-primary/30 bg-surface text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.front}
                           onChange={(e) => setEditState({ ...editState, front: e.target.value })}
                           autoFocus
@@ -443,7 +443,7 @@ export default function GeneratePage() {
                       <div>
                         <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu trả lời (Back)</label>
                         <textarea
-                          className="w-full rounded-xl border border-primary/30 bg-surface text-foreground px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          className="w-full rounded-xl border border-primary/30 bg-surface text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.back}
                           onChange={(e) => setEditState({ ...editState, back: e.target.value })}
                         />
@@ -456,8 +456,8 @@ export default function GeneratePage() {
                               key={d}
                               className={cn(
                                 "flex-1 py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-tighter transition-all",
-                                editState.difficulty === d 
-                                  ? "bg-primary text-white shadow-sm ring-2 ring-primary/20" 
+                                editState.difficulty === d
+                                  ? "bg-primary text-white shadow-sm ring-2 ring-primary/20"
                                   : "bg-surface text-muted border border-border hover:bg-surface-muted"
                               )}
                               onClick={() => setEditState({ ...editState, difficulty: d })}
@@ -469,13 +469,13 @@ export default function GeneratePage() {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-2">
-                      <button 
+                      <button
                         className="flex-1 flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-muted font-bold text-sm hover:bg-surface-muted transition-all"
                         onClick={cancelEdit}
                       >
                         Hủy
                       </button>
-                      <button 
+                      <button
                         className="flex-[1.5] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-secondary text-white font-bold text-sm hover:opacity-90 shadow-sm transition-all"
                         onClick={saveEdit}
                       >
@@ -488,8 +488,8 @@ export default function GeneratePage() {
                     <div className="flex-1">
                       <span className={cn(
                         "inline-flex items-center rounded-full px-2.5 py-1 text-[0.75rem] font-bold tracking-tight mb-3",
-                        card.difficulty === "easy" ? "bg-green-100 text-green-700 dark:text-green-400" : 
-                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700 dark:text-amber-400" : 
+                        card.difficulty === "easy" ? "bg-green-100 text-green-700 dark:text-green-400" :
+                        card.difficulty === "medium" ? "bg-amber-100 text-amber-700 dark:text-amber-400" :
                         "bg-red-100 text-red-700"
                       )}>
                         {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
@@ -517,7 +517,7 @@ export default function GeneratePage() {
                 )}
               </div>
             ))}
-            <button 
+            <button
               onClick={addCard}
               className="p-[22px] min-h-[220px] flex flex-col items-center justify-center gap-3 bg-transparent border-2 border-dashed border-border-strong rounded-2xl text-subtle hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
             >

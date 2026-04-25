@@ -125,10 +125,10 @@ export default function WorkspacePage() {
       <section className="grid grid-cols-1 md:grid-cols-[1.4fr_0.75fr] gap-5 mb-5 items-start">
         <div className="p-8 relative overflow-hidden bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
-            <FolderKanban className="w-4 h-4 text-primary" /> Deck Management
+            <FolderKanban className="w-4 h-4 text-primary" /> Quản lý bộ thẻ
           </div>
           <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-bold tracking-[-0.05em] mb-2.5">
-            Xin chào, {user.name.split(" ").pop()} 👋
+            Xin chào, {user.name} 👋
           </h1>
           <p className="max-w-[54ch] text-muted text-base leading-[1.7] mb-0">
             Mỗi deck là một chủ đề học độc lập. Tạo deck, upload tài liệu rồi học với Smart Review.
@@ -187,10 +187,10 @@ export default function WorkspacePage() {
             <h3 className="mb-3 font-bold text-lg">Quy trình học</h3>
             <div className="grid gap-3">
               {[
-                { n: "1", t: "Tạo deck tại Workspace" },
-                { n: "2", t: "Upload tài liệu ở Generator" },
-                { n: "3", t: "Ôn tập tại Study" },
-                { n: "4", t: "Theo dõi tiến độ ở Analytics" },
+                { n: "1", t: "Tạo deck tại Bộ thẻ" },
+                { n: "2", t: "Tải tài liệu ở Tạo thẻ" },
+                { n: "3", t: "Ôn tập tại Học" },
+                { n: "4", t: "Theo dõi tiến độ ở Thống kê" },
               ].map((s) => (
                 <div key={s.n} className="flex gap-3 items-start">
                   <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-surface-muted text-secondary">
@@ -230,7 +230,7 @@ export default function WorkspacePage() {
                       deck.is_public ? "bg-[#f0fdf9] dark:bg-secondary/10 text-secondary" : "bg-[#fef9ec] dark:bg-primary/10 text-primary-strong dark:text-primary"
                     )}>
                       {deck.is_public ? <Globe2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                      {deck.is_public ? "Public" : "Private"}
+                      {deck.is_public ? "Công khai" : "Riêng tư"}
                     </span>
                   </div>
 
@@ -247,7 +247,7 @@ export default function WorkspacePage() {
                     <div className="flex justify-between items-center gap-2 text-[0.85rem] font-medium mb-1.5 text-muted">
                       <span>{count} flashcards</span>
                       <span className={isReady ? "text-success" : "text-muted"}>
-                        {isReady ? "Ready" : "Empty"}
+                        {isReady ? "Sẵn sàng" : "Trống"}
                       </span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-surface-muted overflow-hidden">
@@ -264,7 +264,7 @@ export default function WorkspacePage() {
                       className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-[0.92rem] hover:-translate-y-px active:translate-y-0 transition-transform shadow-xs"
                       onClick={() => router.push(`/generate?deckId=${deck.id}`)}
                     >
-                      <Sparkles className="w-4 h-4 text-primary" /> Generate
+                      <Sparkles className="w-4 h-4 text-primary" /> Tạo thẻ
                     </button>
                     <button
                       className="flex items-center justify-center gap-2 px-4 py-3 border-0 rounded-xl font-bold text-[0.92rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:shadow-[0_10px_28px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
@@ -311,7 +311,7 @@ export default function WorkspacePage() {
                 </button>
               </Dialog.Close>
             </div>
-            
+
             <Dialog.Description className="text-muted text-[0.95rem]">
               {shareModal?.share_token
                 ? "Bất kỳ ai có link này đều có thể xem bộ thẻ (chỉ đọc)."
@@ -349,7 +349,7 @@ export default function WorkspacePage() {
               </div>
             ) : (
               <div className="mt-3">
-                <button 
+                <button
                   className="flex items-center justify-center gap-2 w-full appearance-none border-0 rounded-xl px-5 py-3.5 cursor-pointer font-bold text-[0.92rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:-translate-y-px"
                   onClick={() => handleShare(shareModal!)}
                 >

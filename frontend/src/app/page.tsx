@@ -192,9 +192,9 @@ export default function Home() {
           </p>
 
           <div className="flex gap-2 flex-wrap mt-3.5">
-            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">AI Generation</span>
-            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">Spaced Repetition</span>
-            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">Focus Design</span>
+            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">Tạo thẻ AI</span>
+            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">Lặp lại ngắt quãng</span>
+            <span className="rounded-full px-3 py-1.5 bg-surface/70 border border-border text-muted text-[0.82rem]">Thiết kế tập trung</span>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 mt-7">
@@ -270,7 +270,7 @@ export default function Home() {
             {[
               { icon: FileText, title: "Upload tài liệu", desc: "PDF, Text hoặc Markdown — AI trích xuất khái niệm, tạo Q&A." },
               { icon: Brain, title: "Xem lại & chỉnh sửa", desc: "Duyệt và sửa từng thẻ trước khi lưu vào deck." },
-              { icon: Repeat, title: "Smart Review", desc: "Swipe trái/phải. SM-2 tự lên lịch ôn tập tối ưu." },
+              { icon: Repeat, title: "Ôn tập thông minh", desc: "Vuốt trái/phải. SM-2 tự lên lịch ôn tập tối ưu." },
             ].map((f) => {
               const Icon = f.icon;
               return (

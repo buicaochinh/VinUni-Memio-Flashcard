@@ -79,10 +79,10 @@ function mdToHtml(md: string): string {
 }
 
 const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string; icon: any }> = {
-  0: { label: "Again", hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200 dark:shadow-rose-500/20", icon: RotateCcw },
-  1: { label: "Hard",  hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200 dark:shadow-amber-500/20", icon: HelpCircle },
-  2: { label: "Good",  hint: "Đúng nhịp",         color: "bg-secondary text-white shadow-teal-200", icon: CheckCircle2 },
-  3: { label: "Easy",  hint: "Nắm chắc rồi",      color: "bg-primary text-white shadow-amber-200 dark:shadow-amber-500/20", icon: Zap },
+  0: { label: "Lại",    hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200", icon: RotateCcw },
+  1: { label: "Khó",    hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200", icon: HelpCircle },
+  2: { label: "Tốt",    hint: "Đúng nhịp",         color: "bg-secondary text-white shadow-teal-200", icon: CheckCircle2 },
+  3: { label: "Dễ",     hint: "Nắm chắc rồi",      color: "bg-primary text-white shadow-amber-200", icon: Zap },
 };
 
 const SWIPE_THRESHOLD = 80;  // px
@@ -227,7 +227,7 @@ export default function StudyPage() {
       const data = await explainCard(card.front, card.back, message, chatHistory, card.source_context);
       setChatHistory(prev => [...prev, {
         role: "assistant",
-        text: data.answer || data.response || "No explanation found.",
+        text: data.answer || data.response || "Không tìm thấy giải thích.",
         citations: data.citations || []
       }]);
     } catch {
@@ -293,13 +293,13 @@ Explain this topic in more detail.`;
               className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-extrabold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
               onClick={() => router.push(`/generate?deckId=${deckId}`)}
             >
-              <Sparkles className="w-5 h-5" /> Sang Generator
+              <Sparkles className="w-5 h-5" /> Tạo thẻ
             </button>
             <button
               className="w-full py-4 px-6 rounded-2xl font-bold text-muted border border-border-strong bg-surface/50 hover:bg-surface hover:-translate-y-px transition-all"
               onClick={() => router.push("/workspace")}
             >
-              Về Workspace
+              Về Bộ thẻ
             </button>
           </div>
         </section>
@@ -332,7 +332,7 @@ Explain this topic in more detail.`;
           </button>
           <div>
             <div className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold text-primary uppercase tracking-widest mb-0.5">
-              <Sparkles className="w-3 h-3" /> AI Spaced Repetition
+              <Sparkles className="w-3 h-3" /> Ôn tập thông minh
             </div>
             <h1 className="text-xl font-bold tracking-tight truncate max-w-[200px] md:max-w-none">Deck #{deckId}</h1>
           </div>
@@ -341,7 +341,7 @@ Explain this topic in more detail.`;
           <button
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[0.88rem] transition-all",
-              isExplainMode ? "bg-primary text-white shadow-md shadow-amber-200 dark:shadow-amber-500/20" : "bg-surface border border-border-strong text-subtle hover:bg-surface-muted"
+              isExplainMode ? "bg-primary text-white shadow-md shadow-amber-200" : "bg-surface border border-border-strong text-subtle hover:bg-surface-muted"
             )}
             onClick={() => setIsExplainMode(!isExplainMode)}
           >
@@ -360,7 +360,7 @@ Explain this topic in more detail.`;
             <div className="p-6 border-b border-border bg-surface/50">
               <div className="flex justify-between items-center mb-1">
                 <h3 className="font-extrabold text-lg flex items-center gap-2">
-                  <Bot className="w-6 h-6 text-primary" /> AI Learning Assistant
+                  <Bot className="w-6 h-6 text-primary" /> Trợ lý học tập AI
                 </h3>
                 <button onClick={() => setIsExplainMode(false)} className="md:hidden p-1 opacity-50"><X/></button>
               </div>
@@ -379,7 +379,7 @@ Explain this topic in more detail.`;
                     "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%] relative group/msg",
                     m.role === "user"
                       ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm"
-                      : "mr-auto bg-surface border border-border text-foreground font-medium rounded-tl-none shadow-sm"
+                      : "mr-auto bg-surface border border-border text-text font-medium rounded-tl-none shadow-sm"
                   )}>
                     {m.role === "user" ? m.text : (
                       <div className="space-y-2">
@@ -425,7 +425,7 @@ Explain this topic in more detail.`;
                     <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-black text-sm">
                       {activeCitation.id}
                     </div>
-                    <h4 className="font-extrabold text-xl">Key Takeaway</h4>
+                    <h4 className="font-extrabold text-xl">Điểm chính</h4>
                   </div>
                   <p className="text-lg font-bold leading-relaxed mb-6 text-foreground">
                     {activeCitation.text}
@@ -433,14 +433,14 @@ Explain this topic in more detail.`;
                   <div className="space-y-4">
                     <div className="p-5 rounded-2xl bg-surface-muted/50 border border-border-strong/10">
                       <div className="text-[0.7rem] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
-                        <Info className="w-3.5 h-3.5" /> Source Material
+                        <Info className="w-3.5 h-3.5" /> Tài liệu nguồn
                       </div>
                       <p className="text-sm font-medium italic text-muted leading-relaxed">
                         &quot;{activeCitation.source}&quot;
                       </p>
                     </div>
                     <button className="flex items-center gap-2 text-primary font-bold text-sm hover:underline py-1">
-                      <ExternalLink className="w-4 h-4" /> View full source
+                      <ExternalLink className="w-4 h-4" /> Xem nguồn đầy đủ
                     </button>
                   </div>
                 </div>
@@ -450,7 +450,7 @@ Explain this topic in more detail.`;
             <div className="p-4 bg-surface/50 border-t border-border mt-auto">
               <div className="relative group">
                 <input
-                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-surface text-foreground font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
+                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-surface text-text font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
                   placeholder="Nhập câu hỏi của bạn..."
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
@@ -491,7 +491,7 @@ Explain this topic in more detail.`;
                 </div>
                 <div className="flex flex-col items-end shrink-0">
                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-strong text-primary text-[0.75rem] font-black shadow-sm tracking-wide">
-                    {cards.length < 5 ? "STARTER" : cards.length < 15 ? "ACTIVE" : "MASTERY"}
+                    {cards.length < 5 ? "BẮt đầu" : cards.length < 15 ? "Tiến bộ" : "Thành thạo"}
                   </div>
                 </div>
               </div>
@@ -503,13 +503,13 @@ Explain this topic in more detail.`;
                   className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-black scale-125 md:scale-150 transition-opacity bg-surface/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary"
                   style={{ opacity: rightHintOpacity }}
                 >
-                  <Zap className="w-6 h-6" /> Easy
+                  <Zap className="w-6 h-6" /> Dễ
                 </div>
                 <div
                   className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-black scale-125 md:scale-150 transition-opacity bg-surface/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500"
                   style={{ opacity: leftHintOpacity }}
                 >
-                  <RotateCcw className="w-6 h-6" /> Again
+                  <RotateCcw className="w-6 h-6" /> Lại
                 </div>
 
                 {/* Flip card */}
@@ -539,7 +539,7 @@ Explain this topic in more detail.`;
                           onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-strong text-primary text-[0.7rem] font-bold shadow-sm hover:bg-surface-muted transition-all"
                         >
-                          <Bot className="w-3.5 h-3.5" /> Explain
+                          <Bot className="w-3.5 h-3.5" /> Giải thích
                         </button>
                         <span className={cn(
                           "px-3 py-1 rounded-full text-[0.7rem] font-black uppercase tracking-widest shadow-sm",
@@ -569,7 +569,7 @@ Explain this topic in more detail.`;
                         onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/50 border border-secondary/20 text-secondary-dark text-[0.7rem] font-bold shadow-sm hover:bg-surface transition-all"
                       >
-                        <Bot className="w-3.5 h-3.5" /> Explain
+                        <Bot className="w-3.5 h-3.5" /> Giải thích
                       </button>
                     </div>
                     <div className="flex-1 flex items-center justify-center text-center text-lg md:text-xl lg:text-2xl font-bold leading-relaxed text-secondary-dark overflow-y-auto custom-scrollbar px-2">
@@ -590,8 +590,8 @@ Explain this topic in more detail.`;
                       <div className="flex gap-4 items-center px-5 py-3 rounded-2xl bg-surface-raised border border-border shadow-sm">
                         <Keyboard className="w-5 h-5 text-muted" />
                         <div className="flex gap-3 text-[0.75rem] font-bold text-subtle">
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">Space</kbd> Flip</span>
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">←/→</kbd> Nav</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">Space</kbd> Lật</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">←/→</kbd> Chuyển</span>
                         </div>
                       </div>
                     )}
