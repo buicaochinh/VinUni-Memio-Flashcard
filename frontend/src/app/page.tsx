@@ -37,6 +37,7 @@ export default function Home() {
   const router = useRouter();
   const { resolvedTheme } = useTheme();
   const googleBtnRef = useRef<HTMLDivElement>(null);
+  const gisInitialized = useRef(false);
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"google" | "login" | "register">("google");
@@ -62,10 +63,15 @@ export default function Home() {
 
     const init = () => {
       if (!window.google || !googleBtnRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredential,
-      });
+      
+      if (!gisInitialized.current) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredential,
+        });
+        gisInitialized.current = true;
+      }
+
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         type: "standard",
         shape: "rectangular",
