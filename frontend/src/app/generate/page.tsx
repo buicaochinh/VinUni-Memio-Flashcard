@@ -174,14 +174,14 @@ export default function GeneratePage() {
       {stage === "setup" && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="mb-8">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
               <Sparkles className="w-4 h-4 text-primary" /> Tạo Flashcard AI
             </div>
             <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-extrabold tracking-[-0.05em] mb-2.5 leading-tight">
               Tải lên tài liệu,{" "}
-              <span className="bg-gradient-to-r from-primary to-amber-500 bg-clip-text text-transparent">AI làm phần còn lại</span>
+              <span className="text-primary">AI làm phần còn lại</span>
             </h1>
-            <p className="text-muted text-base max-w-[64ch] leading-relaxed">
+            <p className="text-muted-foreground text-base max-w-[64ch] leading-relaxed">
               Upload PDF → AI tạo đến <strong className="text-foreground">{targetCount}</strong> flashcards → Bạn xem lại và chỉnh sửa → Lưu vào deck.
             </p>
           </div>
@@ -194,7 +194,7 @@ export default function GeneratePage() {
 
               <div className="grid gap-6">
                 <div>
-                  <label className="block text-[0.82rem] font-bold text-muted uppercase tracking-wider mb-2">Chọn deck đích</label>
+                  <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider mb-2">Chọn deck đích</label>
                   <select
                     className="w-full rounded-2xl border border-border-strong bg-surface text-foreground px-4 py-3.5 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] appearance-none cursor-pointer"
                     value={selectedDeckId ?? ""}
@@ -209,7 +209,7 @@ export default function GeneratePage() {
 
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <label className="block text-[0.82rem] font-bold text-muted uppercase tracking-wider">Số flashcards mục tiêu</label>
+                    <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider">Số flashcards mục tiêu</label>
                     <span className="text-primary font-extrabold text-lg">{targetCount}</span>
                   </div>
                   <input
@@ -254,7 +254,7 @@ export default function GeneratePage() {
                         <p className="font-bold text-lg mb-1">Đã tải lên {files.length} file</p>
                         <div className="max-h-[120px] overflow-y-auto px-4 custom-scrollbar">
                           {files.map(f => (
-                            <div key={f.name} className="text-[0.82rem] text-muted truncate max-w-[200px] flex items-center gap-1.5 justify-center">
+                            <div key={f.name} className="text-[0.82rem] text-muted-foreground truncate max-w-[200px] flex items-center gap-1.5 justify-center">
                               <FileText className="w-3.5 h-3.5 opacity-60" /> {f.name}
                             </div>
                           ))}
@@ -269,7 +269,7 @@ export default function GeneratePage() {
                       </div>
                       <div className="text-center">
                         <p className="font-bold text-lg mb-1">Kéo thả hoặc nhấn để chọn file</p>
-                        <p className="text-muted text-[0.88rem]">Hỗ trợ PDF, DOCX, TXT. Dung lượng tối đa 10MB/file.</p>
+                        <p className="text-muted-foreground text-[0.88rem]">Hỗ trợ PDF, DOCX, TXT. Dung lượng tối đa 10MB/file.</p>
                       </div>
                     </>
                   )}
@@ -284,7 +284,7 @@ export default function GeneratePage() {
 
                 <div className="flex gap-4 mt-2">
                   <button
-                    className="flex-1 flex items-center justify-center gap-2 appearance-none border-0 rounded-2xl px-6 py-4 cursor-pointer font-extrabold text-[1rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:shadow-[0_10px_28px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    className="flex-1 flex items-center justify-center gap-2 appearance-none border-0 rounded-2xl px-6 py-4 cursor-pointer font-extrabold text-[1rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     onClick={handleGenerate}
                     disabled={files.length === 0 || !selectedDeckId}
                   >
@@ -305,7 +305,7 @@ export default function GeneratePage() {
                     { n: "4", t: "Lưu vào deck → Bắt đầu học" },
                   ].map((s) => (
                     <div key={s.n} className="flex gap-3 items-start">
-                      <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-surface-muted text-secondary">
+                      <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-primary/10 text-primary">
                         {s.n}
                       </div>
                       <div className="pt-1.5"><strong className="text-sm font-semibold leading-tight block">{s.t}</strong></div>
@@ -319,7 +319,7 @@ export default function GeneratePage() {
                 <div className="grid gap-4">
                   {[
                     { icon: Sparkles, t: "Câu hỏi từ khái niệm chính", c: "text-amber-500 bg-amber-50 dark:bg-amber-500/10" },
-                    { icon: Check, t: "Câu trả lời chính xác", c: "text-secondary bg-secondary/5" },
+                    { icon: Check, t: "Câu trả lời chính xác", c: "text-green-600 bg-green-50 dark:bg-green-500/10" },
                     { icon: BrainCircuit, t: "Phân loại độ khó thông minh", c: "text-rose-500 bg-rose-50 dark:bg-rose-500/10" },
                   ].map((f) => {
                     const Icon = f.icon;
@@ -348,14 +348,14 @@ export default function GeneratePage() {
             </div>
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight mb-3">AI đang đọc tài liệu…</h2>
-          <p className="text-muted text-lg max-w-[50ch] mb-10 leading-relaxed">
+          <p className="text-muted-foreground text-lg max-w-[50ch] mb-10 leading-relaxed">
             Đang trích xuất khái niệm và tạo <strong className="text-foreground">{targetCount} flashcards</strong>.<br />Quá trình này có thể mất 30–60 giây.
           </p>
 
           <div className="w-full max-w-[400px]">
             <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
               <div
-                className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300"
+                className="h-full bg-primary transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -371,7 +371,7 @@ export default function GeneratePage() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sticky top-[-32px] md:top-[-40px] z-40 bg-background/80 backdrop-blur-xl py-6 border-b border-border/50">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-2">
                 <Pencil className="w-3.5 h-3.5" /> Xem lại trước khi lưu
               </div>
               <h2 className="text-3xl font-extrabold tracking-tight mb-2.5">
@@ -398,13 +398,13 @@ export default function GeneratePage() {
                 <Plus className="w-4 h-4" /> Thêm thẻ
               </button>
               <button
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface/70 text-muted font-bold text-[0.92rem] hover:bg-surface hover:-translate-y-px transition-all"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface/70 text-muted-foreground font-bold text-[0.92rem] hover:bg-surface hover:-translate-y-px transition-all"
                 onClick={() => setStage("setup")}
               >
                 <RotateCcw className="w-4 h-4" /> Làm lại
               </button>
               <button
-                className="flex-[1.5] md:flex-none flex items-center justify-center gap-2 px-7 py-3 border-0 rounded-2xl font-bold text-[0.95rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0"
+                className="flex-[1.5] md:flex-none flex items-center justify-center gap-2 px-7 py-3 border-0 rounded-2xl font-bold text-[0.95rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0"
                 onClick={handleSave}
               >
                 <Save className="w-4 h-4" /> Lưu tất cả
@@ -432,7 +432,7 @@ export default function GeneratePage() {
                   <>
                     <div className="space-y-4">
                       <div>
-                        <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu hỏi (Front)</label>
+                        <label className="text-[0.7rem] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">Câu hỏi (Front)</label>
                         <textarea
                           className="w-full rounded-xl border border-primary/30 bg-surface text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.front}
@@ -441,7 +441,7 @@ export default function GeneratePage() {
                         />
                       </div>
                       <div>
-                        <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-1.5 block">Câu trả lời (Back)</label>
+                        <label className="text-[0.7rem] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">Câu trả lời (Back)</label>
                         <textarea
                           className="w-full rounded-xl border border-primary/30 bg-surface text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.back}
@@ -449,7 +449,7 @@ export default function GeneratePage() {
                         />
                       </div>
                       <div>
-                        <label className="text-[0.7rem] font-bold text-muted uppercase tracking-widest mb-2 block">Độ khó</label>
+                        <label className="text-[0.7rem] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">Độ khó</label>
                         <div className="flex gap-2">
                           {(["easy", "medium", "hard"] as const).map((d) => (
                             <button
@@ -458,7 +458,7 @@ export default function GeneratePage() {
                                 "flex-1 py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-tighter transition-all",
                                 editState.difficulty === d
                                   ? "bg-primary text-white shadow-sm ring-2 ring-primary/20"
-                                  : "bg-surface text-muted border border-border hover:bg-surface-muted"
+                                  : "bg-surface text-muted-foreground border border-border hover:bg-surface-muted"
                               )}
                               onClick={() => setEditState({ ...editState, difficulty: d })}
                             >
@@ -470,7 +470,7 @@ export default function GeneratePage() {
                     </div>
                     <div className="flex gap-2 mt-2">
                       <button
-                        className="flex-1 flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-muted font-bold text-sm hover:bg-surface-muted transition-all"
+                        className="flex-1 flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-muted-foreground font-bold text-sm hover:bg-surface-muted transition-all"
                         onClick={cancelEdit}
                       >
                         Hủy
@@ -495,7 +495,7 @@ export default function GeneratePage() {
                         {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
                       </span>
                       <p className="font-extrabold text-[0.95rem] leading-snug mb-2 text-foreground line-clamp-3">{card.front}</p>
-                      <p className="text-muted text-[0.88rem] leading-relaxed m-0 line-clamp-4">{card.back}</p>
+                      <p className="text-muted-foreground text-[0.88rem] leading-relaxed m-0 line-clamp-4">{card.back}</p>
                     </div>
                     <div className="flex justify-end gap-2.5 pt-4 border-t border-border/50">
                       <button
@@ -536,7 +536,7 @@ export default function GeneratePage() {
             <Sparkles className="w-10 h-10 text-green-500" />
           </div>
           <h2 className="text-2xl font-extrabold mb-2">Đã lưu thành công!</h2>
-          <p className="text-muted mb-8 italic">Các thẻ flashcards mới đã sẵn sàng để bạn chinh phục.</p>
+          <p className="text-muted-foreground mb-8 italic">Các thẻ flashcards mới đã sẵn sàng để bạn chinh phục.</p>
           <div className="flex justify-center gap-3">
             <button
               className="btn btn-primary"
