@@ -337,6 +337,7 @@ cd frontend && npm run dev
 ```
 
 ### Key Development Rules
+- **Python Execution:** Always prioritize using the local virtual environment (`venv` or `.venv`) located in the project root. Activate it before running commands (e.g., `source .venv/bin/activate`) or use the absolute path to the venv binary.
 - **Backend imports** use absolute paths: `from src.app.xxx import yyy`
 - **Frontend** uses path aliases from `tsconfig.json` — but most files use relative imports like `../../lib/app-client`
 - **All API responses** follow the pattern: `{"message": "success", ...data}` or `{"decks": [...]}`, `{"cards": [...]}`
