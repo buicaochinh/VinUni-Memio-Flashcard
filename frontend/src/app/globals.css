@@ -4,46 +4,42 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 20 14.3% 4.1%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 20 14.3% 4.1%;
+    --card-foreground: 0 0% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 20 14.3% 4.1%;
-    --primary: 35 92% 44%;
-    --primary-foreground: 60 9.1% 97.8%;
-    --secondary: 172 66% 26%;
-    --secondary-foreground: 60 9.1% 97.8%;
-    --muted: 25 5% 45%;
-    --muted-foreground: 25 5% 45%;
-    --accent: 262 83% 58%;
-    --accent-foreground: 210 40% 98%;
+    --popover-foreground: 0 0% 9%;
+    --primary: 221 83% 53%; /* Bright Blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 30%;
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 20 5.9% 90%;
-    --input: 20 5.9% 90%;
-    --ring: 35 92% 44%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 80%;
+    --input: 0 0% 80%;
+    --ring: 221 83% 53%;
     --radius: 1rem;
     --surface: 0 0% 100%;
-    --surface-muted: 40 9% 96%;
-    --surface-raised: 0 0% 100% / 0.92;
-    --border-strong: 0 0% 0% / 0.14;
+    --surface-muted: 0 0% 98%;
+    --surface-raised: 0 0% 100%;
+    --border-strong: 0 0% 0% / 0.1;
 
     /* Legacy mapping for compatibility if needed */
-    --primary-hex: #d97706;
-    --secondary-hex: #0f766e;
-    --primary-glow: rgba(217, 119, 6, 0.18);
+    --primary-hex: #2563eb;
+    --secondary-hex: #f3f4f6;
+    --primary-glow: rgba(37, 99, 235, 0.2);
 
     /* Semantic status colors */
-    --success: 142 76% 30%;
-    --danger: 0 72% 40%;
-    --warning: 35 92% 44%;
-    --info: 217 91% 50%;
-    --subtle: 25 5% 60%;
-
-    /* Background Gradient Opacity */
-    --bg-gradient-primary: 14%;
-    --bg-gradient-secondary: 12%;
+    --success: 142 76% 36%;
+    --danger: 0 72% 51%;
+    --warning: 38 92% 50%;
+    --info: 221 83% 53%;
+    --subtle: 0 0% 60%;
   }
 
   .dark {
@@ -53,37 +49,33 @@
     --card-foreground: 0 0% 95%;
     --popover: 0 0% 8%;
     --popover-foreground: 0 0% 95%;
-    --primary: 35 98% 56%;
-    --primary-foreground: 26 83% 14%;
-    --secondary: 172 66% 38%;
-    --secondary-foreground: 180 100% 97%;
-    --muted: 0 0% 55%;
-    --muted-foreground: 0 0% 55%;
-    --accent: 262 90% 70%;
-    --accent-foreground: 260 50% 15%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 13%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 13%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
-    --ring: 35 98% 56%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 217 91% 60%;
     --surface: 0 0% 9%;
     --surface-muted: 0 0% 13%;
-    --surface-raised: 0 0% 11% / 0.9;
-    --border-strong: 0 0% 90% / 0.2;
-    --primary-hex: #f59e0b;
-    --secondary-hex: #14b8a6;
-    --primary-glow: rgba(245, 158, 11, 0.15);
+    --surface-raised: 0 0% 11%;
+    --border-strong: 0 0% 90% / 0.15;
+    --primary-hex: #3b82f6;
+    --secondary-hex: #1f2937;
+    --primary-glow: rgba(59, 130, 246, 0.2);
 
     /* Semantic status colors for dark mode */
     --success: 142 70% 45%;
     --danger: 0 84% 60%;
-    --warning: 35 98% 56%;
+    --warning: 38 92% 50%;
     --info: 217 91% 65%;
     --subtle: 0 0% 50%;
-
-    /* Subtle background gradients in dark mode */
-    --bg-gradient-primary: 8%;
-    --bg-gradient-secondary: 6%;
   }
 }
 
@@ -94,6 +86,8 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -109,7 +103,7 @@
     @apply bg-transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full hover:bg-muted/50 transition-colors;
+    @apply bg-border rounded-full hover:bg-muted-foreground/30 transition-colors;
   }
 
   /* Perspectives for flip cards */
@@ -127,13 +121,10 @@
 /* Base Body Background Optimized for Painting */
 body {
   background-color: hsl(var(--background));
-  background-image:
-    radial-gradient(circle at 0% 0%, color-mix(in srgb, hsl(var(--primary)) var(--bg-gradient-primary, 14%), transparent) 0%, transparent 50%),
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, hsl(var(--secondary)) var(--bg-gradient-secondary, 12%), transparent) 0%, transparent 50%);
-  background-attachment: fixed;
   min-height: 100vh;
 }
 
 .citation-badge {
   @apply inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[0.65rem] font-black border border-primary/20 ml-1 hover:bg-primary hover:text-white transition-all transform hover:-translate-y-0.5 active:scale-95;
 }
+
