@@ -30,10 +30,10 @@ function ForgetBar({ rate }: { rate: number }) {
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-center px-1">
-        <span className="text-[0.75rem] font-bold text-muted uppercase tracking-wider">Tốc độ quên ước tính</span>
+        <span className="text-[0.75rem] font-bold text-muted-foreground uppercase tracking-wider">Tốc độ quên ước tính</span>
         <span className={cn(
           "text-sm font-black transition-colors duration-300",
-          rate > 40 ? "text-rose-500" : rate > 20 ? "text-amber-500" : "text-secondary"
+          rate > 40 ? "text-rose-500" : rate > 20 ? "text-amber-500" : "text-primary"
         )}>
           {rate}%
         </span>
@@ -42,12 +42,12 @@ function ForgetBar({ rate }: { rate: number }) {
         <div
           className={cn(
             "h-full transition-all duration-700 ease-out rounded-full shadow-[0_0_12px_rgba(0,0,0,0.05)]",
-            rate > 40 ? "bg-rose-500 shadow-rose-200 dark:shadow-rose-500/20" : rate > 20 ? "bg-amber-500 shadow-amber-100 dark:shadow-amber-500/10" : "bg-secondary shadow-teal-100 dark:shadow-teal-500/10"
+            rate > 40 ? "bg-rose-500 shadow-rose-200 dark:shadow-rose-500/20" : rate > 20 ? "bg-amber-500 shadow-amber-100 dark:shadow-amber-500/10" : "bg-primary shadow-blue-200 dark:shadow-blue-900/20"
           )}
           style={{ width: `${Math.min(rate, 100)}%` }}
         />
       </div>
-      <p className="text-[0.8rem] text-muted leading-relaxed px-1">
+      <p className="text-[0.8rem] text-muted-foreground leading-relaxed px-1">
         {rate > 40
           ? "⚠️ Nhiều thẻ cần ôn lại — hãy học thêm phiên Short Review."
           : rate > 20
@@ -126,13 +126,13 @@ export default function AnalyticsPage() {
   return (
     <AppShell user={user}>
       <div className="mb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5 shadow-xs">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-3.5 shadow-xs">
           <BarChart3 className="w-4 h-4 text-primary" /> Phân tích học tập
         </div>
         <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-extrabold tracking-[-0.05em] mb-2.5 leading-tight">
           Tiến độ học tập
         </h1>
-        <p className="text-muted text-base max-w-[64ch] leading-relaxed">Theo dõi streak, tốc độ quên và các khái niệm khó nhất của bạn.</p>
+        <p className="text-muted-foreground text-base max-w-[64ch] leading-relaxed">Theo dõi streak, tốc độ quên và các khái niệm khó nhất của bạn.</p>
       </div>
 
       {loading && (
@@ -160,7 +160,7 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[
                 { label: "Chuỗi học", value: data.streak, sub: "ngày liên tiếp", icon: Flame, color: "text-amber-500 bg-amber-50", glow: "shadow-amber-100" },
-                { label: "Đã ôn tập", value: data.total_reviewed, sub: "thẻ flashcards", icon: BookOpen, color: "text-secondary bg-secondary/5", glow: "shadow-teal-100" },
+                { label: "Đã ôn tập", value: data.total_reviewed, sub: "thẻ flashcards", icon: BookOpen, color: "text-blue-500 bg-blue-50 dark:bg-blue-500/10", glow: "shadow-blue-100" },
                 { label: "Tốc độ quên", value: `${data.forgetting_rate}%`, sub: "trung bình", icon: Brain,
                   color: data.forgetting_rate > 40 ? "text-rose-500 bg-rose-50 dark:bg-rose-500/10" : data.forgetting_rate > 20 ? "text-amber-500 bg-amber-50 dark:bg-amber-500/10" : "text-green-500 bg-green-50 dark:bg-green-500/10",
                   glow: data.forgetting_rate > 40 ? "shadow-rose-100" : data.forgetting_rate > 20 ? "shadow-amber-100 dark:shadow-amber-500/10" : "shadow-green-100"
@@ -174,7 +174,7 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="text-[0.75rem] font-bold text-subtle uppercase tracking-widest mb-1.5">{m.label}</div>
                     <div className="text-3xl font-black text-foreground mb-1 tracking-tight">{m.value}</div>
-                    <div className="text-[0.8rem] font-medium text-muted">{m.sub}</div>
+                    <div className="text-[0.8rem] font-medium text-muted-foreground">{m.sub}</div>
                   </div>
                 );
               })}
@@ -185,17 +185,17 @@ export default function AnalyticsPage() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
                   <h3 className="text-xl font-extrabold flex items-center gap-2 mb-1">
-                    <Calendar className="w-5 h-5 text-secondary" /> Hoạt động 35 ngày qua
+                    <Calendar className="w-5 h-5 text-primary" /> Hoạt động 35 ngày qua
                   </h3>
-                  <p className="text-[0.88rem] text-muted italic">Mỗi ô tương ứng với số thẻ bạn đã ôn trong ngày đó.</p>
+                  <p className="text-[0.88rem] text-muted-foreground italic">Mỗi ô tương ứng với số thẻ bạn đã ôn trong ngày đó.</p>
                 </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/5 text-secondary text-[0.8rem] font-bold border border-secondary/10">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400 text-[0.8rem] font-bold border border-green-200 dark:border-green-900/50">
                   <TrendingUp className="w-4 h-4" /> Hiệu suất ổn định
                 </div>
               </div>
               <Heatmap data={data.heatmap} />
 
-              <div className="absolute top-0 right-0 p-12 -mr-16 -mt-16 bg-secondary/5 rounded-full blur-3xl group-hover:bg-secondary/10 transition-colors" />
+              <div className="absolute top-0 right-0 p-12 -mr-16 -mt-16 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors" />
             </section>
 
             {/* Deck detail stats */}
@@ -206,8 +206,8 @@ export default function AnalyticsPage() {
 
               {data.deck_stats.length === 0 ? (
                 <div className="py-20 text-center">
-                  <div className="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-4 text-muted pt-1">📚</div>
-                  <p className="text-muted font-bold text-lg">Chưa có dữ liệu ôn tập.</p>
+                  <div className="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground pt-1">📚</div>
+                  <p className="text-muted-foreground font-bold text-lg">Chưa có dữ liệu ôn tập.</p>
                   <p className="text-sm text-subtle">Hãy bắt đầu một phiên học để xem thống kê tại đây.</p>
                 </div>
               ) : (
@@ -221,8 +221,8 @@ export default function AnalyticsPage() {
                         <div className="flex justify-between items-end mb-4 border-b border-border/50 pb-2">
                           <strong className="text-[1.1rem] font-black group-hover:text-primary transition-colors">{ds.name}</strong>
                           <div className="flex flex-col items-end">
-                            <span className="text-[0.65rem] font-bold text-muted uppercase tracking-widest leading-none mb-1">Thiết lập học</span>
-                            <span className="text-xs font-black text-secondary">EF: {ds.avg_ef?.toFixed(2) ?? "—"}</span>
+                            <span className="text-[0.65rem] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Thiết lập học</span>
+                            <span className="text-xs font-black text-primary">EF: {ds.avg_ef?.toFixed(2) ?? "—"}</span>
                           </div>
                         </div>
                         <ForgetBar rate={rate} />
@@ -243,7 +243,7 @@ export default function AnalyticsPage() {
               </h3>
 
               {data.hardest_cards.length === 0 ? (
-                <p className="text-muted text-[0.88rem] leading-relaxed italic bg-surface p-4 rounded-2xl border border-dashed border-border-strong">
+                <p className="text-muted-foreground text-[0.88rem] leading-relaxed italic bg-surface p-4 rounded-2xl border border-dashed border-border-strong">
                   Não bạn đang xử lý rất tốt! Ôn tập thêm để hệ thống nhận diện các điểm cần cải thiện.
                 </p>
               ) : (
@@ -257,7 +257,7 @@ export default function AnalyticsPage() {
                         </div>
                         <div>
                           <p className="font-extrabold text-[0.88rem] text-foreground mb-1 leading-tight line-clamp-2">{c.front}</p>
-                          <p className="text-[0.8rem] text-muted line-clamp-2 leading-relaxed">{c.back}</p>
+                          <p className="text-[0.8rem] text-muted-foreground line-clamp-2 leading-relaxed">{c.back}</p>
                         </div>
                       </div>
                     </div>
@@ -289,7 +289,7 @@ export default function AnalyticsPage() {
                       <div className="w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 flex items-center justify-center shrink-0 group-hover/tip:bg-amber-100 transition-colors">
                         <Icon className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                       </div>
-                      <p className="text-[0.82rem] font-bold text-muted leading-relaxed group-hover/tip:text-foreground transition-colors">{t.tip}</p>
+                      <p className="text-[0.82rem] font-bold text-muted-foreground leading-relaxed group-hover/tip:text-foreground transition-colors">{t.tip}</p>
                     </div>
                   );
                 })}
@@ -299,11 +299,11 @@ export default function AnalyticsPage() {
             </section>
 
             {/* Sharing */}
-            <section className="p-8 bg-gradient-to-br from-primary/10 to-amber-50 border border-primary/20 rounded-[32px] shadow-sm">
+            <section className="p-8 bg-surface-muted border border-border rounded-[32px] shadow-sm">
               <h3 className="text-lg font-extrabold mb-3 flex items-center gap-2">
                 <Share2 className="w-5 h-5 text-primary" /> Chia sẻ kiến thức
               </h3>
-              <p className="text-[0.88rem] text-muted font-medium mb-6 leading-relaxed">
+              <p className="text-[0.88rem] text-muted-foreground font-medium mb-6 leading-relaxed">
                 Giúp cộng đồng học tập bằng cách chia sẻ bộ thẻ chất lượng của bạn. Bạn có thể bật chia sẻ tại Bộ thẻ.
               </p>
               <button
