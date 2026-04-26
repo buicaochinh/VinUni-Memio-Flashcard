@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import {useState} from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
-import { clearStoredUser, User } from "../lib/app-client";
-import { LibraryBig, Sparkles, BarChart3, LogOut, User as UserIcon } from "lucide-react";
-import { cn } from "../lib/utils";
+import {usePathname, useRouter} from "next/navigation";
+import {clearStoredUser, User} from "../lib/app-client";
+import {BarChart3, LibraryBig, LogOut, Sparkles, User as UserIcon} from "lucide-react";
+import {cn} from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
 
 type AppShellProps = {

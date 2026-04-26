@@ -14,12 +14,12 @@ def get_connection():
     """Returns a raw psycopg2 connection."""
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL is not set")
-    
+
     # Ensure postgresql:// prefix
     url = DATABASE_URL
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-        
+
     return psycopg2.connect(url)
 
 def get_cursor(conn):
