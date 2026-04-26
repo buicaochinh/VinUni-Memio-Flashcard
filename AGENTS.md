@@ -77,7 +77,7 @@ If you are an AI coding agent (Claude Code, Cursor, Copilot, Codex, Gemini, etc.
 
 ```
 ┌─────────────────┐       ┌─────────────────┐       ┌──────────────────┐
-│   Next.js 15    │◄─────►│   FastAPI        │◄─────►│   PostgreSQL     │
+│   Next.js 16    │◄─────►│   FastAPI        │◄─────►│   PostgreSQL     │
 │   (Frontend)    │  HTTP │   (Backend)      │  SQL  │   (Remote DB)    │
 │   Port 3000     │       │   Port 8000      │       │   Port 5432      │
 └────────┬────────┘       └────────┬─────────┘       └──────────────────┘
@@ -252,8 +252,8 @@ Base: `/api` (mounted in `src/main.py`)
 ### Theme
 - **Dark mode:** `next-themes` with `attribute="class"`, `defaultTheme="system"`
 - **CSS variables** defined in `globals.css` under `:root` and `.dark`
-- **Primary color:** Amber/Orange (`hsl(35 92% 44%)` light / `hsl(35 98% 56%)` dark)
-- **Secondary color:** Teal (`hsl(172 66% 26%)` light / `hsl(172 66% 38%)` dark)
+- **Primary color:** Bright Blue (`hsl(221 83% 53%)` light / `hsl(217 91% 60%)` dark)
+- **Secondary color:** Minimalist Gray (`hsl(0 0% 96%)` light / `hsl(0 0% 13%)` dark) - *Caution: very low contrast in Light mode.*
 
 ### Key Tokens (in `tailwind.config.js`)
 - `surface`, `surface-muted`, `surface-raised` — layered surfaces
@@ -261,11 +261,16 @@ Base: `/api` (mounted in `src/main.py`)
 - `success`, `danger`, `warning`, `info`, `subtle` — semantic colors
 - `primary-glow` — box-shadow glow for CTA buttons
 
+### UI/UX Refinements (Recent Updates)
+- **Landing Page:** Enhanced with a "How it Works" section, FAQ, and a high-fidelity interactive dashboard mockup. Card layouts use clean horizontal alignment with modern hover effects (`hover:-translate-y-2`).
+- **Color Visibility Rule:** The `secondary` CSS variable maps to a very light gray (`#f5f5f5`), making `text-secondary` nearly invisible on `Light` mode. **Do NOT use `text-secondary` or `bg-secondary` for text or small icons.** Use high-contrast semantic colors (`primary`, `blue`, `green`, `amber`) instead. This was systematically fixed across the Workspace, Generate, and Analytics pages.
+- **Layout Fixes:** `ThemeToggle` must be placed within flex containers (not absolute positioned) to avoid overlapping text. Logos on auth pages are synced to a consistent 40px (`h-10 w-10`) size.
+
 ### Component Patterns
 - **AppShell:** Wraps all authenticated pages. Desktop sidebar (260px) + mobile bottom nav
 - **ThemeToggle:** Uses `mounted` state check to prevent SSR hydration mismatch
 - **Cards/Buttons:** Use `rounded-2xl`, `border border-border`, `bg-surface-raised`, Tailwind transitions
-- **CTA buttons:** `bg-gradient-to-br from-primary to-amber-500` with `shadow-[0_6px_20px_var(--primary-glow)]`
+- **CTA buttons:** `bg-primary` with `shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)]` and transitions
 - **Login page** uses Google Identity Services (GIS) SDK loaded via `next/Script`
 
 ### Auth Flow (Client-Side)
