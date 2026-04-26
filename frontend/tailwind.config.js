@@ -17,14 +17,14 @@ module.exports = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          strong: '#b45309',
-          light: '#fef3c7',
-          glow: 'rgba(217, 119, 6, 0.18)',
+          strong: '#1e40af', // Darker blue
+          light: '#dbeafe', // Very light blue
+          glow: 'rgba(37, 99, 235, 0.2)',
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
-          soft: '#ccfbf1',
+          soft: '#f3f4f6', // Soft gray
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
