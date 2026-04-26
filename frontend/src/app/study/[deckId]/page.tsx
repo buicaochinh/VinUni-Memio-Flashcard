@@ -283,11 +283,11 @@ Explain this topic in more detail.`;
     return (
       <main className="min-h-screen grid place-items-center p-5 bg-background">
         <section className="w-full max-w-[480px] p-10 bg-surface border border-border rounded-[32px] shadow-sm text-center">
-          <div className="w-20 h-20 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-6 text-muted">
+          <div className="w-20 h-20 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-6 text-muted-foreground">
             <Sparkles className="w-10 h-10" />
           </div>
           <h2 className="text-2xl font-extrabold tracking-tight mb-3">Deck này chưa có flashcards</h2>
-          <p className="text-muted mb-10 leading-relaxed">Hãy sang Generator để tạo nội dung trước.</p>
+          <p className="text-muted-foreground mb-10 leading-relaxed">Hãy sang Generator để tạo nội dung trước.</p>
           <div className="grid gap-3">
             <button
               className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-extrabold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
@@ -296,7 +296,7 @@ Explain this topic in more detail.`;
               <Sparkles className="w-5 h-5" /> Tạo thẻ
             </button>
             <button
-              className="w-full py-4 px-6 rounded-2xl font-bold text-muted border border-border-strong bg-surface/50 hover:bg-surface hover:-translate-y-px transition-all"
+              className="w-full py-4 px-6 rounded-2xl font-bold text-muted-foreground border border-border-strong bg-surface/50 hover:bg-surface hover:-translate-y-px transition-all"
               onClick={() => router.push("/workspace")}
             >
               Về Bộ thẻ
@@ -364,7 +364,7 @@ Explain this topic in more detail.`;
                 </h3>
                 <button onClick={() => setIsExplainMode(false)} className="md:hidden p-1 opacity-50"><X/></button>
               </div>
-              <p className="text-muted text-[0.88rem] underline decoration-primary/30 decoration-2 underline-offset-4">Hỏi thêm về kiến thức trong thẻ này</p>
+              <p className="text-muted-foreground text-[0.88rem] underline decoration-primary/30 decoration-2 underline-offset-4">Hỏi thêm về kiến thức trong thẻ này</p>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
@@ -401,7 +401,7 @@ Explain this topic in more detail.`;
                 ))
               )}
               {isChatting && (
-                <div className="mr-auto bg-surface border border-border p-4 rounded-[20px] rounded-tl-none shadow-sm flex items-center gap-2 text-muted italic text-sm">
+                <div className="mr-auto bg-surface border border-border p-4 rounded-[20px] rounded-tl-none shadow-sm flex items-center gap-2 text-muted-foreground italic text-sm">
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
                   <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
@@ -435,7 +435,7 @@ Explain this topic in more detail.`;
                       <div className="text-[0.7rem] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
                         <Info className="w-3.5 h-3.5" /> Tài liệu nguồn
                       </div>
-                      <p className="text-sm font-medium italic text-muted leading-relaxed">
+                      <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">
                         &quot;{activeCitation.source}&quot;
                       </p>
                     </div>
@@ -479,12 +479,12 @@ Explain this topic in more detail.`;
               <div className="flex items-center gap-6">
                 <div className="flex-1">
                   <div className="flex justify-between items-end mb-2.5">
-                    <span className="text-[0.75rem] font-extrabold uppercase tracking-widest text-muted">Thẻ {idx + 1} / {cards.length}</span>
+                    <span className="text-[0.75rem] font-extrabold uppercase tracking-widest text-muted-foreground">Thẻ {idx + 1} / {cards.length}</span>
                     <span className="text-[1.2rem] font-black text-foreground">{Math.round(progress)}%</span>
                   </div>
                   <div className="h-2.5 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
                     <div
-                      className="h-full bg-gradient-to-r from-primary to-amber-500 transition-all duration-300"
+                      className="h-full bg-primary transition-all duration-300"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -529,9 +529,9 @@ Explain this topic in more detail.`;
                   onPointerCancel={() => { setIsDragging(false); setDragX(0); }}
                 >
                   {/* Front */}
-                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-gradient-to-br from-white to-amber-50/20 border-2 border-border shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] flex flex-col">
+                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-surface-muted border-2 border-border shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] flex flex-col">
                     <div className="flex justify-between items-start mb-6">
-                      <div className="text-[0.82rem] font-bold text-muted uppercase tracking-widest flex items-center gap-2">
+                      <div className="text-[0.82rem] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-primary" /> Câu hỏi
                       </div>
                       <div className="flex items-center gap-2">
@@ -560,7 +560,7 @@ Explain this topic in more detail.`;
                   </div>
 
                   {/* Back */}
-                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-gradient-to-br from-[#f0fdf9] to-[#e0f2ef] border-2 border-secondary/30 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
+                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-blue-50 dark:bg-blue-900/20 border-2 border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
                     <div className="flex justify-between items-start mb-6">
                       <div className="text-[0.82rem] font-bold text-secondary-dark uppercase tracking-widest flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5" /> Đáp án
@@ -588,7 +588,7 @@ Explain this topic in more detail.`;
                   <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                     {idx === 0 && (
                       <div className="flex gap-4 items-center px-5 py-3 rounded-2xl bg-surface-raised border border-border shadow-sm">
-                        <Keyboard className="w-5 h-5 text-muted" />
+                        <Keyboard className="w-5 h-5 text-muted-foreground" />
                         <div className="flex gap-3 text-[0.75rem] font-bold text-subtle">
                           <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">Space</kbd> Lật</span>
                           <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">←/→</kbd> Chuyển</span>
