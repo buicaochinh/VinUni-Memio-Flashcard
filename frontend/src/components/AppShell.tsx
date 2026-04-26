@@ -38,7 +38,7 @@ export default function AppShell({ children, user }: AppShellProps) {
           <Link href="/workspace" className="flex items-center gap-3 overflow-hidden outline-none">
             <div className="relative h-[42px] w-[42px]">
               <Image 
-                src="/icon.png" 
+                src="/icon.svg" 
                 alt="Memio Logo" 
                 fill
                 sizes="42px"
