@@ -124,26 +124,26 @@ export default function WorkspacePage() {
       {/* ── Summary hero ── */}
       <section className="grid grid-cols-1 md:grid-cols-[1.4fr_0.75fr] gap-5 mb-5 items-start">
         <div className="p-8 relative overflow-hidden bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
             <FolderKanban className="w-4 h-4 text-primary" /> Quản lý bộ thẻ
           </div>
           <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-bold tracking-[-0.05em] mb-2.5">
             Xin chào, {user.name} 👋
           </h1>
-          <p className="max-w-[54ch] text-muted text-base leading-[1.7] mb-0">
+          <p className="max-w-[54ch] text-muted-foreground text-base leading-[1.7] mb-0">
             Mỗi deck là một chủ đề học độc lập. Tạo deck, upload tài liệu rồi học với Smart Review.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-6">
             <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
-              <div className="text-muted text-[0.82rem] mb-1 font-medium">Tổng deck</div>
+              <div className="text-muted-foreground text-[0.82rem] mb-1 font-medium">Tổng deck</div>
               <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{decks.length}</div>
             </div>
             <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
-              <div className="text-muted text-[0.82rem] mb-1 font-medium">Tổng flashcards</div>
+              <div className="text-muted-foreground text-[0.82rem] mb-1 font-medium">Tổng flashcards</div>
               <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{totalCards}</div>
             </div>
             <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
-              <div className="text-muted text-[0.82rem] mb-1 font-medium">Deck sẵn sàng</div>
+              <div className="text-muted-foreground text-[0.82rem] mb-1 font-medium">Deck sẵn sàng</div>
               <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{readyDecks}</div>
             </div>
           </div>
@@ -167,7 +167,7 @@ export default function WorkspacePage() {
               onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
             />
             <button
-              className="flex items-center justify-center gap-2 w-full appearance-none border-0 rounded-xl px-5 py-3.5 cursor-pointer font-bold text-[0.92rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:shadow-[0_10px_28px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 w-full appearance-none border-0 rounded-xl px-5 py-3.5 cursor-pointer font-bold text-[0.92rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleCreateDeck}
               disabled={creating || !newDeckName.trim()}
             >
@@ -193,10 +193,10 @@ export default function WorkspacePage() {
                 { n: "4", t: "Theo dõi tiến độ ở Thống kê" },
               ].map((s) => (
                 <div key={s.n} className="flex gap-3 items-start">
-                  <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-surface-muted text-secondary">
+                  <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-primary/10 text-primary">
                     {s.n}
                   </div>
-                  <div className="pt-1.5"><strong className="text-sm font-semibold">{s.t}</strong></div>
+                  <div className="pt-1.5"><strong className="text-sm font-semibold text-foreground">{s.t}</strong></div>
                 </div>
               ))}
             </div>
@@ -209,7 +209,7 @@ export default function WorkspacePage() {
         <div className="flex justify-between items-end gap-3 mb-4">
           <div>
             <h2 className="mb-1 font-bold text-xl">Danh sách Deck</h2>
-            <p className="text-muted text-[0.9rem] mb-0">
+            <p className="text-muted-foreground text-[0.9rem] mb-0">
               {decks.length === 0 ? "Chưa có deck nào — hãy tạo deck đầu tiên ở trên." : `${decks.length} deck`}
             </p>
           </div>
@@ -227,7 +227,7 @@ export default function WorkspacePage() {
                   <div className="flex gap-1.5 flex-wrap">
                     <span className={cn(
                       "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.82rem] font-semibold",
-                      deck.is_public ? "bg-[#f0fdf9] dark:bg-secondary/10 text-secondary" : "bg-[#fef9ec] dark:bg-primary/10 text-primary-strong dark:text-primary"
+                      deck.is_public ? "bg-secondary/10 text-secondary" : "bg-primary/10 text-primary-strong dark:text-primary"
                     )}>
                       {deck.is_public ? <Globe2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                       {deck.is_public ? "Công khai" : "Riêng tư"}
@@ -238,15 +238,15 @@ export default function WorkspacePage() {
                   <div>
                     <h3 className="text-[1.2rem] font-bold tracking-[-0.03em] mb-1">{deck.name}</h3>
                     {deck.description && (
-                      <p className="text-muted text-[0.88rem] leading-[1.5] m-0">{deck.description}</p>
+                      <p className="text-muted-foreground text-[0.88rem] leading-[1.5] m-0">{deck.description}</p>
                     )}
                   </div>
 
                   {/* Progress */}
                   <div>
-                    <div className="flex justify-between items-center gap-2 text-[0.85rem] font-medium mb-1.5 text-muted">
+                    <div className="flex justify-between items-center gap-2 text-[0.85rem] font-medium mb-1.5 text-muted-foreground">
                       <span>{count} flashcards</span>
-                      <span className={isReady ? "text-success" : "text-muted"}>
+                      <span className={isReady ? "text-success" : "text-muted-foreground"}>
                         {isReady ? "Sẵn sàng" : "Trống"}
                       </span>
                     </div>
@@ -267,7 +267,7 @@ export default function WorkspacePage() {
                       <Sparkles className="w-4 h-4 text-primary" /> Tạo thẻ
                     </button>
                     <button
-                      className="flex items-center justify-center gap-2 px-4 py-3 border-0 rounded-xl font-bold text-[0.92rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:shadow-[0_10px_28px_var(--primary-glow)] hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                      className="flex items-center justify-center gap-2 px-4 py-3 border-0 rounded-xl font-bold text-[0.92rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                       onClick={() => router.push(`/study/${deck.id}`)}
                       disabled={!isReady}
                     >
@@ -278,7 +278,7 @@ export default function WorkspacePage() {
                   {/* Share + Delete */}
                   <div className="flex gap-2 -mt-1">
                     <button
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-border-strong bg-transparent text-muted font-bold text-[0.82rem] hover:bg-surface-muted hover:-translate-y-px active:translate-y-0 transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-border-strong bg-transparent text-muted-foreground font-bold text-[0.82rem] hover:bg-surface-muted hover:-translate-y-px active:translate-y-0 transition-all"
                       onClick={() => handleShare(deck)}
                     >
                       <Link2 className="w-3.5 h-3.5" />
@@ -307,12 +307,12 @@ export default function WorkspacePage() {
               <Dialog.Title className="text-xl font-bold">Chia sẻ deck</Dialog.Title>
               <Dialog.Close asChild>
                 <button className="rounded-full w-8 h-8 flex items-center justify-center hover:bg-surface-muted transition-colors outline-none cursor-pointer">
-                  <X className="w-5 h-5 text-muted" />
+                  <X className="w-5 h-5 text-muted-foreground" />
                 </button>
               </Dialog.Close>
             </div>
 
-            <Dialog.Description className="text-muted text-[0.95rem]">
+            <Dialog.Description className="text-muted-foreground text-[0.95rem]">
               {shareModal?.share_token
                 ? "Bất kỳ ai có link này đều có thể xem bộ thẻ (chỉ đọc)."
                 : "Kích hoạt chia sẻ để tạo link công khai."}
@@ -350,7 +350,7 @@ export default function WorkspacePage() {
             ) : (
               <div className="mt-3">
                 <button
-                  className="flex items-center justify-center gap-2 w-full appearance-none border-0 rounded-xl px-5 py-3.5 cursor-pointer font-bold text-[0.92rem] transition-all text-white bg-gradient-to-br from-primary to-amber-500 shadow-[0_6px_20px_var(--primary-glow)] hover:-translate-y-px"
+                  className="flex items-center justify-center gap-2 w-full appearance-none border-0 rounded-xl px-5 py-3.5 cursor-pointer font-bold text-[0.92rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px"
                   onClick={() => handleShare(shareModal!)}
                 >
                   <Globe2 className="w-5 h-5" /> Kích hoạt chia sẻ
