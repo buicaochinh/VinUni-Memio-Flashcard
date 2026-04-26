@@ -41,7 +41,7 @@ export default function SharedDeckPage() {
       <main className="min-h-screen grid place-items-center p-5 bg-background">
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-muted">Đang tải bộ thẻ…</p>
+          <p className="text-muted-foreground">Đang tải bộ thẻ…</p>
         </div>
       </main>
     );
@@ -55,7 +55,7 @@ export default function SharedDeckPage() {
             <Lock className="w-16 h-16 mx-auto" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight mb-2">Không tìm thấy bộ thẻ</h2>
-          <p className="text-muted mb-6">
+          <p className="text-muted-foreground mb-6">
             {error ?? "Link không hợp lệ hoặc bộ thẻ đã tắt chia sẻ."}
           </p>
           <button 
@@ -77,7 +77,7 @@ export default function SharedDeckPage() {
           <Link href="/" className="flex items-center gap-3 outline-none">
             <div className="relative h-8 w-8">
               <Image 
-                src="/icon.png" 
+                src="/icon.svg" 
                 alt="Memio Logo" 
                 fill
                 className="object-contain mix-blend-multiply flex-shrink-0" 
@@ -99,14 +99,14 @@ export default function SharedDeckPage() {
       <div className="w-full max-w-[1100px] mx-auto p-4 md:p-8 pb-14">
         {/* ── Deck info ── */}
         <section className="p-8 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl relative overflow-hidden mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted text-[0.82rem] font-semibold mb-3.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
             <BookOpen className="w-4 h-4 text-secondary" /> Bộ thẻ được chia sẻ
           </div>
           <h1 className="text-[clamp(1.6rem,4vw,3rem)] font-bold tracking-tight mb-2">
             {deck.name}
           </h1>
           {deck.description && (
-            <p className="text-muted mb-4 max-w-[70ch] leading-relaxed">{deck.description}</p>
+            <p className="text-muted-foreground mb-4 max-w-[70ch] leading-relaxed">{deck.description}</p>
           )}
           <div className="flex gap-3 flex-wrap items-center">
             <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 bg-[#f0fdf9] dark:bg-secondary/10 text-secondary text-[0.82rem] font-semibold">
@@ -151,7 +151,7 @@ export default function SharedDeckPage() {
                   isFlip ? "[transform:rotateY(180deg)]" : ""
                 )}>
                   {/* Front */}
-                  <article className="absolute inset-0 h-full w-full rounded-2xl p-6 border border-border bg-gradient-to-br from-white to-amber-50/30 flex flex-col justify-between [backface-visibility:hidden]">
+                  <article className="absolute inset-0 h-full w-full rounded-2xl p-6 border border-border bg-surface-muted flex flex-col justify-between [backface-visibility:hidden]">
                     {card.difficulty && (
                       <span className={cn(
                         "self-start px-2.5 py-1 rounded-full text-[0.7rem] font-bold uppercase tracking-wider",
@@ -171,7 +171,7 @@ export default function SharedDeckPage() {
                   </article>
 
                   {/* Back */}
-                  <article className="absolute inset-0 h-full w-full rounded-2xl p-6 border border-border bg-gradient-to-br from-[#f0fdf9] to-[#e0f2ef] flex flex-col justify-between [backface-visibility:hidden] [transform:rotateY(180deg)] text-secondary-dark">
+                  <article className="absolute inset-0 h-full w-full rounded-2xl p-6 border border-primary/30 bg-blue-50 dark:bg-blue-900/20 flex flex-col justify-between [backface-visibility:hidden] [transform:rotateY(180deg)] text-foreground">
                     <div className="self-start text-[0.7rem] font-bold uppercase tracking-wider text-secondary flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3" /> Đáp án
                     </div>
@@ -190,10 +190,10 @@ export default function SharedDeckPage() {
 
         {filtered.length === 0 && (
           <div className="py-20 text-center animate-in fade-in slide-in-from-top-4">
-            <div className="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-4 text-muted">
+            <div className="w-16 h-16 bg-surface-muted rounded-full flex items-center justify-center mx-auto mb-4 text-muted-foreground">
               <Search className="w-8 h-8" />
             </div>
-            <p className="text-muted font-medium">Không tìm thấy thẻ phù hợp.</p>
+            <p className="text-muted-foreground font-medium">Không tìm thấy thẻ phù hợp.</p>
           </div>
         )}
 
@@ -202,7 +202,7 @@ export default function SharedDeckPage() {
           <h3 className="text-2xl font-bold tracking-tight mb-3">
             Muốn học với Spaced Repetition?
           </h3>
-          <p className="text-muted mb-8 max-w-[56ch] mx-auto">
+          <p className="text-muted-foreground mb-8 max-w-[56ch] mx-auto">
             Đăng nhập để lưu deck này, ôn tập với thuật toán <strong className="text-foreground">SM-2</strong> và theo dõi tiến độ của bạn.
           </p>
           <button 
