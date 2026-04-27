@@ -10,7 +10,7 @@ import {
   fetchDeckCards,
   flushProgressQueue,
   getCachedCards,
-  getStoredUser,
+  useStoredUser,
   isOnline,
   logStudySession,
   queueProgressUpdate,
@@ -93,7 +93,7 @@ export default function StudyPage() {
   const deckId     = Number(params.deckId);
   const router     = useRouter();
 
-  const user = useMemo(() => getStoredUser(), []);
+  const user = useStoredUser();
   const [cards,        setCards]        = useState<Card[]>([]);
   const [idx,          setIdx]          = useState(0);
   const [isFlipped,    setIsFlipped]    = useState(false);

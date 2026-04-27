@@ -1,6 +1,65 @@
 from typing import Optional, List
-from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint
+from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint, Index
 from datetime import datetime
+
+
+class AuthSession(SQLModel, table=True):
+    """
+    Refresh-session store (hash only).
+
+    Note: No migration tool (Alembic) in this repo. Keep schema minimal.
+    """
+
+    __tablename__ = "auth_sessions"
+    __table_args__ = (Index("ix_auth_sessions_revoked_at", "revoked_at"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    refresh_token_hash: str
+    device_name: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = Field(default=None, index=True)
+
+
+class ChatIntegration(SQLModel, table=True):
+    __tablename__ = "chat_integrations"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_user_id", name="unique_provider_user"),
+        UniqueConstraint("user_id", "provider", name="unique_user_provider"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    provider: str  # "telegram" | "discord"
+    provider_user_id: str  # telegram user id, discord user id
+
+    dm_chat_id: Optional[str] = None  # telegram chat id; discord DM channel id (if applicable)
+    group_target_id: Optional[str] = None  # telegram group chat id; discord channel id
+
+    timezone: str = "Asia/Ho_Chi_Minh"
+    send_window: str = "19:00-22:00"  # local time window
+    daily_goal: int = 20
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_sent_at: Optional[datetime] = None
+
+
+class LinkCode(SQLModel, table=True):
+    __tablename__ = "link_codes"
+    __table_args__ = (
+        UniqueConstraint("code", name="unique_link_code"),
+        Index("ix_link_codes_expires_at", "expires_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    code: str = Field(index=True)
+    provider: str  # "telegram" | "discord"
+    provider_user_id: str
+    expires_at: datetime
+    consumed_at: Optional[datetime] = None
+    consumed_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class User(SQLModel, table=True):
     __tablename__ = "users"

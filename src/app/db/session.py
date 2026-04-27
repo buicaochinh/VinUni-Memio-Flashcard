@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Generator
 
+from sqlalchemy.exc import ProgrammingError
 from sqlmodel import create_engine, Session, SQLModel
 from src.app.core.config import DATABASE_URL
 
@@ -24,8 +25,11 @@ def get_session() -> Generator[Session, None, None]:
 # ---------------------------------------------------------------------
 
 def init_db():
-    """Initialize the database schema."""
-    # Import models to ensure they are registered with SQLModel.metadata
-    from src.app.models import domain
-    
-    SQLModel.metadata.create_all(engine)
+    """
+    Legacy init hook (kept to avoid breaking imports).
+
+    This project now uses Alembic migrations; do not auto-create schema at runtime.
+    Apply migrations with:
+      alembic upgrade head
+    """
+    return

@@ -19,3 +19,7 @@ sqlmodel
 passlib[bcrypt]
 bcrypt
 email-validator
+PyJWT
+celery
+redis
+alembic

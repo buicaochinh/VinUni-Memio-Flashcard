@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type User = {
@@ -6,8 +7,7 @@ export type User = {
   email?: string | null;
   photo_url?: string;
   username?: string | null;
-  auth_type?: "google" | "username" | "guest" | string;
-  is_guest?: boolean;
+  auth_type?: "google" | "username" | string;
 };
 
 export type Deck = {
@@ -88,10 +88,13 @@ export function apiUrl(path: string) {
 
 // ─── Auth (localStorage) ──────────────────────────────────────────────────────
 
+const USER_STORAGE_KEY = "flashcard_user";
+const USER_CHANGED_EVENT = "flashcard_user_changed";
+
 export function getStoredUser(): User | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem("flashcard_user");
+    const raw = window.localStorage.getItem(USER_STORAGE_KEY);
     return raw ? (JSON.parse(raw) as User) : null;
   } catch {
     return null;
@@ -99,11 +102,67 @@ export function getStoredUser(): User | null {
 }
 
 export function saveStoredUser(user: User) {
-  window.localStorage.setItem("flashcard_user", JSON.stringify(user));
+  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  window.dispatchEvent(new Event(USER_CHANGED_EVENT));
 }
 
 export function clearStoredUser() {
-  window.localStorage.removeItem("flashcard_user");
+  window.localStorage.removeItem(USER_STORAGE_KEY);
+  window.dispatchEvent(new Event(USER_CHANGED_EVENT));
+}
+
+function subscribeStoredUser(onStoreChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === USER_STORAGE_KEY) onStoreChange();
+  };
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(USER_CHANGED_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(USER_CHANGED_EVENT, onStoreChange);
+  };
+}
+
+let _cachedUserRaw: string | null | undefined = undefined;
+let _cachedUserParsed: User | null = null;
+
+function getStoredUserSnapshot(): User | null {
+  if (typeof window === "undefined") return null;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(USER_STORAGE_KEY);
+  } catch {
+    raw = null;
+  }
+
+  // Return the same object instance if storage did not change.
+  if (raw === _cachedUserRaw) return _cachedUserParsed;
+
+  _cachedUserRaw = raw;
+  if (!raw) {
+    _cachedUserParsed = null;
+    return null;
+  }
+  try {
+    _cachedUserParsed = JSON.parse(raw) as User;
+  } catch {
+    _cachedUserParsed = null;
+  }
+  return _cachedUserParsed;
+}
+
+function getStoredUserServerSnapshot(): User | null {
+  return null;
+}
+
+export function useStoredUser() {
+  return useSyncExternalStore(
+    subscribeStoredUser,
+    getStoredUserSnapshot,
+    getStoredUserServerSnapshot
+  ) as User | null;
 }
 
 async function readErrorDetail(res: Response): Promise<string | null> {
@@ -158,20 +217,6 @@ export async function loginWithUsername(username: string, password: string) {
   if (!res.ok) {
     const detail = await readErrorDetail(res);
     throw new Error(detail ?? "LOGIN_FAILED");
-  }
-  const data = await res.json();
-  return data.user as User;
-}
-
-export async function loginAsGuest(guestName?: string) {
-  const res = await fetch(apiUrl("/api/auth/login/guest"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ guest_name: guestName }),
-  });
-  if (!res.ok) {
-    const detail = await readErrorDetail(res);
-    throw new Error(detail ?? "GUEST_LOGIN_FAILED");
   }
   const data = await res.json();
   return data.user as User;
