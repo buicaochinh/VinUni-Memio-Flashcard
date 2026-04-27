@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str = ""
+
+    # Auth (JWT)
+    JWT_SECRET: str = ""
+    JWT_ACCESS_TOKEN_MINUTES: int = 30
+    JWT_REFRESH_TOKEN_DAYS: int = 30
+
+    # Telegram bot
+    TELEGRAM_BOT_TOKEN: str = ""
     
     # AI Logging (System)
     AI_LOG_SERVER: Optional[str] = None
@@ -40,3 +48,7 @@ OPENROUTER_API_KEY = settings.OPENROUTER_API_KEY
 DEFAULT_MODEL = settings.DEFAULT_MODEL
 LOG_LEVEL = settings.LOG_LEVEL
 DATABASE_URL = settings.DATABASE_URL
+JWT_SECRET = settings.JWT_SECRET
+JWT_ACCESS_TOKEN_MINUTES = settings.JWT_ACCESS_TOKEN_MINUTES
+JWT_REFRESH_TOKEN_DAYS = settings.JWT_REFRESH_TOKEN_DAYS
+TELEGRAM_BOT_TOKEN = settings.TELEGRAM_BOT_TOKEN
