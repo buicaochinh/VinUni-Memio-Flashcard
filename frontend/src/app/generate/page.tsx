@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
 import {
@@ -10,7 +10,6 @@ import {
   getStoredUser,
   previewCards,
   PreviewCard,
-  User,
 } from "../../lib/app-client";
 import {
   Sparkles,
@@ -23,7 +22,6 @@ import {
   Check,
   RotateCcw,
   Save,
-  CheckCircle2,
   FileUp,
   BrainCircuit,
   Pencil,
@@ -42,7 +40,7 @@ type Stage = "setup" | "loading" | "preview" | "saved";
 export default function GeneratePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const user = useMemo(() => getStoredUser(), []);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -55,14 +53,7 @@ export default function GeneratePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    const storedUser = getStoredUser();
-    if (!storedUser) { router.replace("/"); return; }
-    setUser(storedUser);
-    void loadDecks(storedUser.id);
-  }, [router]);
-
-  const loadDecks = async (userId: number) => {
+  const loadDecks = useCallback(async (userId: number) => {
     try {
       const d = await fetchDecks(userId);
       setDecks(d);
@@ -73,7 +64,13 @@ export default function GeneratePage() {
     } catch {
       setMessage("Không tải được danh sách deck.");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!user) { router.replace("/"); return; }
+    const t = setTimeout(() => { void loadDecks(user.id); }, 0);
+    return () => clearTimeout(t);
+  }, [loadDecks, router, user]);
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
