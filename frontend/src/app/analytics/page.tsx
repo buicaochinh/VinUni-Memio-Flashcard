@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
 import {
   AnalyticsData,
   fetchAnalytics,
-  getStoredUser,
+  useStoredUser,
 } from "../../lib/app-client";
 import {
   BarChart3,
@@ -104,7 +104,7 @@ function Heatmap({ data }: { data: Record<string, number> }) {
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const user = useMemo(() => getStoredUser(), []);
+  const user = useStoredUser();
   const [data,    setData]    = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
