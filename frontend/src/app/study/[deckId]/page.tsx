@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   cacheCards,
   Card,
+  ExplainCitation,
+  ExplainHistoryMessage,
   fetchDeckCards,
   flushProgressQueue,
   getCachedCards,
@@ -14,14 +16,11 @@ import {
   queueProgressUpdate,
   updateCardProgress,
   explainCard,
-  User,
 } from "../../../lib/app-client";
 import {
-  ArrowLeft,
   Bot,
   Send,
   CheckCircle2,
-  AlertCircle,
   HelpCircle,
   Zap,
   RotateCcw,
@@ -34,6 +33,7 @@ import {
   ExternalLink,
   Info
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
 function mdToHtml(md: string): string {
@@ -78,7 +78,7 @@ function mdToHtml(md: string): string {
   return out.join("");
 }
 
-const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string; icon: any }> = {
+const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string; icon: LucideIcon }> = {
   0: { label: "Lại",    hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200", icon: RotateCcw },
   1: { label: "Khó",    hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200", icon: HelpCircle },
   2: { label: "Tốt",    hint: "Đúng nhịp",         color: "bg-secondary text-white shadow-teal-200", icon: CheckCircle2 },
@@ -93,28 +93,28 @@ export default function StudyPage() {
   const deckId     = Number(params.deckId);
   const router     = useRouter();
 
-  const [user,         setUser]         = useState<User | null>(null);
+  const user = useMemo(() => getStoredUser(), []);
   const [cards,        setCards]        = useState<Card[]>([]);
   const [idx,          setIdx]          = useState(0);
   const [isFlipped,    setIsFlipped]    = useState(false);
   const [dragX,        setDragX]        = useState(0);
   const [isDragging,   setIsDragging]   = useState(false);
-  const [offline,      setOffline]      = useState(false);
+  const [offline,      setOffline]      = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
   const [msg,          setMsg]          = useState<string | null>(null);
   const [ratingQuality, setRatingQuality] = useState<number | null>(null);
   const [sessionRatings, setSessionRatings] = useState<number[]>([]);
 
   // Explain mode states
   const [isExplainMode, setIsExplainMode] = useState(false);
-  const [chatHistory, setChatHistory] = useState<{role: string, text: string, citations?: any[]}[]>([]);
-  const [activeCitation, setActiveCitation] = useState<{id: number, text: string, source: string} | null>(null);
+  const [chatHistory, setChatHistory] = useState<Array<ExplainHistoryMessage & { citations?: ExplainCitation[] }>>([]);
+  const [activeCitation, setActiveCitation] = useState<ExplainCitation | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [isChatting, setIsChatting] = useState(false);
 
   const pointerStart = useRef<{ x: number; t: number } | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const loadCards = async (userId: number) => {
+  const loadCards = useCallback(async (userId: number) => {
     try {
       let loaded: Card[];
       if (isOnline()) {
@@ -130,26 +130,24 @@ export default function StudyPage() {
       if (cached) { setCards(cached); setMsg("Offline — đang dùng dữ liệu cache."); }
       else         setMsg("Không tải được flashcards.");
     }
-  };
+  }, [deckId]);
 
   useEffect(() => {
-    const storedUser = getStoredUser();
-    if (!storedUser) { router.replace("/"); return; }
-    setUser(storedUser);
-    void loadCards(storedUser.id);
+    if (!user) { router.replace("/"); return; }
+    const t = setTimeout(() => { void loadCards(user.id); }, 0);
 
     const handleOnline  = () => { setOffline(false); void flushProgressQueue(); };
     const handleOffline = () => setOffline(true);
     window.addEventListener("online",  handleOnline);
     window.addEventListener("offline", handleOffline);
-    setOffline(!navigator.onLine);
     return () => {
+      clearTimeout(t);
       window.removeEventListener("online",  handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [router]);
+  }, [loadCards, router, user]);
 
-  const handleRate = async (quality: 0 | 1 | 2 | 3) => {
+  const handleRate = useCallback(async (quality: 0 | 1 | 2 | 3) => {
     if (!user || cards.length === 0) return;
     const card = cards[idx];
 
@@ -180,7 +178,7 @@ export default function StudyPage() {
       setMsg("🎉 Hoàn thành phiên học!");
       setTimeout(() => router.push("/workspace"), 1400);
     }
-  };
+  }, [cards, deckId, idx, router, sessionRatings, user]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!isFlipped) return;
@@ -268,7 +266,7 @@ Explain this topic in more detail.`;
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [idx, cards.length, isFlipped]);
+  }, [cards.length, handleRate, idx, isFlipped]);
 
   const progress = useMemo(
     () => (cards.length === 0 ? 0 : ((idx + 1) / cards.length) * 100),
@@ -390,7 +388,7 @@ Explain this topic in more detail.`;
                             const target = e.target as HTMLElement;
                             if (target.classList.contains('citation-badge')) {
                               const cid = parseInt(target.getAttribute('data-id') || '0');
-                              const cit = m.citations?.find((c: any) => c.id === cid);
+                              const cit = m.citations?.find((c) => c.id === cid);
                               if (cit) setActiveCitation(cit);
                             }
                           }}
