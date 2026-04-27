@@ -1,4 +1,3 @@
-import os
 import psycopg2
 from src.app.core.config import DATABASE_URL
 from src.app.db.session import init_db as _init_db
