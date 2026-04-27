@@ -77,7 +77,7 @@ export default function AppShell({ children, user }: AppShellProps) {
         <div className="pt-5 border-t border-border flex flex-col gap-4">
           <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-surface-muted truncate">
             {user.photo_url && !imgError ? (
-              <img
+              <Image
                 src={user.photo_url}
                 alt={user.name}
                 width={32}
