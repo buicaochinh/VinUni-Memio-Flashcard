@@ -1,8 +1,8 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
+import { useTheme } from "./ThemeProvider";
 
 function useIsClient() {
   return useSyncExternalStore(
