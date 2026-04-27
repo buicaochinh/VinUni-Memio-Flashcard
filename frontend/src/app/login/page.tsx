@@ -7,7 +7,6 @@ import Link from "next/link";
 import {
   decodeGoogleJwt,
   getStoredUser,
-  loginAsGuest,
   loginWithGoogle,
   loginWithUsername,
   saveStoredUser,
@@ -119,20 +118,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGuest = async () => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      const user = await loginAsGuest("Khách");
-      saveStoredUser(user);
-      router.push("/workspace");
-    } catch {
-      setStatus("Không thể đăng nhập khách.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <main className="min-h-screen bg-surface-muted flex flex-col items-center justify-center p-5 relative font-sans">
       <div className="absolute top-6 right-6 z-50">
@@ -193,11 +178,6 @@ export default function LoginPage() {
           </Link>
         </div>
         
-        <div className="mt-4 text-center">
-          <button onClick={handleGuest} disabled={loading} className="text-muted-foreground text-xs hover:text-foreground hover:underline transition-colors">
-            Tiếp tục với tư cách Khách
-          </button>
-        </div>
       </div>
     </main>
   );
