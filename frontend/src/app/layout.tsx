@@ -14,6 +14,13 @@ export const metadata: Metadata = {
   title: "Memio — Học thông minh hơn",
   description: "Nền tảng học tập tối giản, tạo flashcards bằng AI và ôn tập thông minh.",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export const viewport: Viewport = {
