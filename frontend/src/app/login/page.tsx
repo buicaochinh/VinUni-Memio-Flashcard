@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import Link from "next/link";
@@ -45,6 +45,26 @@ export default function LoginPage() {
     if (getStoredUser()) router.replace("/workspace");
   }, [router]);
 
+  const handleGoogleCredential = useCallback(async (response: { credential: string }) => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      const payload = decodeGoogleJwt(response.credential);
+      const user = await loginWithGoogle(
+        payload.sub,
+        payload.name,
+        payload.email,
+        payload.picture
+      );
+      saveStoredUser(user);
+      router.push("/workspace");
+    } catch {
+      setStatus("Đăng nhập thất bại. Hãy kiểm tra kết nối và thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
+
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
 
@@ -81,27 +101,7 @@ export default function LoginPage() {
       }, 100);
       return () => clearInterval(interval);
     }
-  }, [resolvedTheme]);
-
-  const handleGoogleCredential = async (response: { credential: string }) => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      const payload = decodeGoogleJwt(response.credential);
-      const user = await loginWithGoogle(
-        payload.sub,
-        payload.name,
-        payload.email,
-        payload.picture
-      );
-      saveStoredUser(user);
-      router.push("/workspace");
-    } catch {
-      setStatus("Đăng nhập thất bại. Hãy kiểm tra kết nối và thử lại.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [handleGoogleCredential, resolvedTheme]);
 
   const handleUsernameLogin = async (e: React.FormEvent) => {
     e.preventDefault();
