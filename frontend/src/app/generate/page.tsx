@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
 import {
   bulkCreateCards,
   Deck,
   fetchDecks,
-  getStoredUser,
+  useStoredUser,
   previewCards,
   PreviewCard,
 } from "../../lib/app-client";
@@ -40,7 +40,7 @@ type Stage = "setup" | "loading" | "preview" | "saved";
 export default function GeneratePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const user = useMemo(() => getStoredUser(), []);
+  const user = useStoredUser();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [files, setFiles] = useState<File[]>([]);
