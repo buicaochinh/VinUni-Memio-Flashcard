@@ -1,14 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useStoredUser } from "../lib/app-client";
 import Link from "next/link";
 import ThemeToggle from "../components/ThemeToggle";
 import Image from "next/image";
-import { getStoredUser, User } from "../lib/app-client";
 import { Sparkles, Check, Star, FileText, Brain, Activity, Clock, Layers, ArrowRight } from "lucide-react";
 
 export default function Home() {
-  const [user] = useState<User | null>(() => getStoredUser());
+  const user = useStoredUser();
 
   const displayName = user?.name || user?.username || "Người học";
   const initial = displayName.trim().charAt(0).toUpperCase() || "U";
