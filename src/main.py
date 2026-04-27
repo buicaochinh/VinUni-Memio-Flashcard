@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.db.session import init_db
 from src.app.api.api import api_router
+from src.app.worker.celery_app import celery_app  # noqa: F401
 
 app = FastAPI(title="AI Flashcard API", version="1.0.0")
 
