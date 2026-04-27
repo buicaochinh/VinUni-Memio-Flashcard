@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import ThemeToggle from "../components/ThemeToggle";
 import Image from "next/image";
@@ -8,11 +8,7 @@ import { getStoredUser, User } from "../lib/app-client";
 import { Sparkles, Check, Star, FileText, Brain, Activity, Clock, Layers, ArrowRight } from "lucide-react";
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    setUser(getStoredUser());
-  }, []);
+  const [user] = useState<User | null>(() => getStoredUser());
 
   const displayName = user?.name || user?.username || "Người học";
   const initial = displayName.trim().charAt(0).toUpperCase() || "U";
@@ -43,9 +39,11 @@ export default function Home() {
             {user ? (
               <Link href="/workspace" className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-foreground transition-colors hover:bg-surface-muted">
                 {user.photo_url ? (
-                  <img
+                  <Image
                     src={user.photo_url}
                     alt={displayName}
+                    width={28}
+                    height={28}
                     className="h-7 w-7 rounded-full object-cover"
                     referrerPolicy="no-referrer"
                   />
@@ -201,7 +199,7 @@ export default function Home() {
           <Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" />
         </div>
         <p className="font-black text-xl md:text-2xl tracking-tight text-foreground max-w-2xl mx-auto leading-snug">
-          "MEMIO GIÚP TÔI TIẾT KIỆM HÀNG CHỤC GIỜ SOẠN THẺ MỖI TUẦN. THUẬT TOÁN SM-2 RẤT HIỆU QUẢ."
+          &ldquo;MEMIO GIÚP TÔI TIẾT KIỆM HÀNG CHỤC GIỜ SOẠN THẺ MỖI TUẦN. THUẬT TOÁN SM-2 RẤT HIỆU QUẢ.&rdquo;
         </p>
         <p className="text-muted-foreground font-bold mt-4 text-sm uppercase tracking-widest">Hơn 20,000 học sinh đang sử dụng</p>
       </section>
