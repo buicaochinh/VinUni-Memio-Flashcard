@@ -17,16 +17,12 @@ class UsernameRegisterRequest(BaseModel):
     email: Optional[EmailStr] = None
     name: Optional[str] = None
 
-class GuestLoginRequest(BaseModel):
-    guest_name: Optional[str] = "Guest User"
-
 class UserResponse(BaseModel):
     id: int
     username: Optional[str] = None
     name: Optional[str] = None
     email: Optional[str] = None
     auth_type: str
-    is_guest: bool
 
 # Keep for backward compatibility
 LoginRequest = GoogleLoginRequest
