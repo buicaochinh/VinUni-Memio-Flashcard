@@ -60,6 +60,23 @@ export type AnalyticsData = {
   }>;
 };
 
+export type ExplainHistoryMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
+export type ExplainCitation = {
+  id: number;
+  text: string;
+  source: string;
+};
+
+export type ExplainResponse = {
+  answer?: string;
+  response?: string;
+  citations?: ExplainCitation[];
+};
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 export const API_BASE_URL =
@@ -318,16 +335,16 @@ export async function explainCard(
   front: string, 
   back: string, 
   message: string, 
-  history: any[] = [], 
+  history: ExplainHistoryMessage[] = [],
   sourceContext?: string
-) {
+): Promise<ExplainResponse> {
   const res = await fetch(apiUrl("/api/cards/explain"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ front, back, message, history, source_context: sourceContext }),
   });
   if (!res.ok) throw new Error("EXPLAIN_FAILED");
-  return res.json();
+  return res.json() as Promise<ExplainResponse>;
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
