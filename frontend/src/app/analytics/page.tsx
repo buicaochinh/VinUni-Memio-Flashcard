@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
 import {
   AnalyticsData,
   fetchAnalytics,
   getStoredUser,
-  User,
 } from "../../lib/app-client";
 import {
   BarChart3,
@@ -19,7 +18,6 @@ import {
   Share2,
   Calendar,
   AlertTriangle,
-  CheckCircle2,
   TrendingUp,
   ChevronRight,
   ArrowRight
@@ -106,20 +104,18 @@ function Heatmap({ data }: { data: Record<string, number> }) {
 
 export default function AnalyticsPage() {
   const router = useRouter();
-  const [user,    setUser]    = useState<User | null>(null);
+  const user = useMemo(() => getStoredUser(), []);
   const [data,    setData]    = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
   useEffect(() => {
-    const storedUser = getStoredUser();
-    if (!storedUser) { router.replace("/"); return; }
-    setUser(storedUser);
-    void fetchAnalytics(storedUser.id)
+    if (!user) { router.replace("/"); return; }
+    void fetchAnalytics(user.id)
       .then(setData)
       .catch(() => setError("Không tải được analytics. Hãy kiểm tra backend."))
       .finally(() => setLoading(false));
-  }, [router]);
+  }, [router, user]);
 
   if (!user) return null;
 
