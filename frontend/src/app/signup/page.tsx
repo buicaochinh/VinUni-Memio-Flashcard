@@ -8,8 +8,8 @@ import {
   decodeGoogleJwt,
   getStoredUser,
   loginWithGoogle,
+  loginWithUsername,
   registerUser,
-  saveStoredUser,
 } from "../../lib/app-client";
 import ThemeToggle from "../../components/ThemeToggle";
 import Image from "next/image";
@@ -51,13 +51,12 @@ export default function SignupPage() {
     setStatus(null);
     try {
       const payload = decodeGoogleJwt(response.credential);
-      const user = await loginWithGoogle(
+      await loginWithGoogle(
         payload.sub,
         payload.name,
         payload.email,
         payload.picture
       );
-      saveStoredUser(user);
       router.push("/workspace");
     } catch {
       setStatus("Đăng nhập bằng Google thất bại. Hãy kiểm tra kết nối và thử lại.");
@@ -109,13 +108,13 @@ export default function SignupPage() {
     setLoading(true);
     setStatus(null);
     try {
-      const user = await registerUser({
+      await registerUser({
         username: regUsername.trim(),
         password: regPassword,
         email: regEmail.trim() ? regEmail.trim() : undefined,
         name: regName.trim() ? regName.trim() : undefined,
       });
-      saveStoredUser(user);
+      await loginWithUsername(regUsername.trim(), regPassword);
       router.push("/workspace");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Đăng ký thất bại";
