@@ -89,7 +89,14 @@ export function apiUrl(path: string) {
 // ─── Auth (localStorage) ──────────────────────────────────────────────────────
 
 const USER_STORAGE_KEY = "flashcard_user";
+const TOKENS_STORAGE_KEY = "flashcard_tokens";
 const USER_CHANGED_EVENT = "flashcard_user_changed";
+
+export type TokenPair = {
+  access_token: string;
+  refresh_token: string;
+  token_type?: string;
+};
 
 export function getStoredUser(): User | null {
   if (typeof window === "undefined") return null;
@@ -106,8 +113,24 @@ export function saveStoredUser(user: User) {
   window.dispatchEvent(new Event(USER_CHANGED_EVENT));
 }
 
+export function getStoredTokens(): TokenPair | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(TOKENS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as TokenPair) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveTokens(tokens: TokenPair) {
+  window.localStorage.setItem(TOKENS_STORAGE_KEY, JSON.stringify(tokens));
+  window.dispatchEvent(new Event(USER_CHANGED_EVENT));
+}
+
 export function clearStoredUser() {
   window.localStorage.removeItem(USER_STORAGE_KEY);
+  window.localStorage.removeItem(TOKENS_STORAGE_KEY);
   window.dispatchEvent(new Event(USER_CHANGED_EVENT));
 }
 
@@ -115,7 +138,7 @@ function subscribeStoredUser(onStoreChange: () => void) {
   if (typeof window === "undefined") return () => {};
 
   const onStorage = (e: StorageEvent) => {
-    if (e.key === USER_STORAGE_KEY) onStoreChange();
+    if (e.key === USER_STORAGE_KEY || e.key === TOKENS_STORAGE_KEY) onStoreChange();
   };
   window.addEventListener("storage", onStorage);
   window.addEventListener(USER_CHANGED_EVENT, onStoreChange);
@@ -165,7 +188,7 @@ export function useStoredUser() {
   ) as User | null;
 }
 
-async function readErrorDetail(res: Response): Promise<string | null> {
+export async function readErrorDetail(res: Response): Promise<string | null> {
   try {
     const data = await res.json();
     return typeof data?.detail === "string" ? data.detail : null;
@@ -174,16 +197,69 @@ async function readErrorDetail(res: Response): Promise<string | null> {
   }
 }
 
+function getAccessToken(): string | null {
+  return getStoredTokens()?.access_token ?? null;
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function doTokenRefresh(): Promise<boolean> {
+  try {
+    const tokens = getStoredTokens();
+    if (!tokens?.refresh_token) return false;
+    const res = await fetch(apiUrl("/api/auth/session/refresh"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: tokens.refresh_token }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { tokens: TokenPair };
+    saveTokens(data.tokens);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function tryRefreshOnce(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = doTokenRefresh();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
+/** Gọi API có bảo vệ JWT; tự refresh access token khi 401 (một lần). */
+export async function authFetch(path: string, init: RequestInit = {}, retried = false): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const access = getAccessToken();
+  if (access) headers.set("Authorization", `Bearer ${access}`);
+  const res = await fetch(apiUrl(path), { ...init, headers });
+  if (res.status !== 401 || retried) return res;
+  const ok = await tryRefreshOnce();
+  if (!ok) {
+    clearStoredUser();
+    if (typeof window !== "undefined") window.location.href = "/login";
+    return res;
+  }
+  return authFetch(path, init, true);
+}
+
 // ─── Google Sign-In ───────────────────────────────────────────────────────────
 
 export async function loginWithGoogle(googleId: string, name: string, email: string, photoUrl = "") {
-  const res = await fetch(apiUrl("/api/auth/login"), {
+  const res = await fetch(apiUrl("/api/auth/session/login/google"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ google_id: googleId, name, email, photo_url: photoUrl }),
   });
   if (!res.ok) throw new Error("LOGIN_FAILED");
-  const data = await res.json();
+  const data = (await res.json()) as { user: User; tokens: TokenPair };
+  saveStoredUser(data.user);
+  saveTokens(data.tokens);
   return data.user as User;
 }
 
@@ -209,7 +285,7 @@ export async function registerUser(input: UsernameRegisterInput) {
 }
 
 export async function loginWithUsername(username: string, password: string) {
-  const res = await fetch(apiUrl("/api/auth/login/username"), {
+  const res = await fetch(apiUrl("/api/auth/session/login/username"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
@@ -218,7 +294,9 @@ export async function loginWithUsername(username: string, password: string) {
     const detail = await readErrorDetail(res);
     throw new Error(detail ?? "LOGIN_FAILED");
   }
-  const data = await res.json();
+  const data = (await res.json()) as { user: User; tokens: TokenPair };
+  saveStoredUser(data.user);
+  saveTokens(data.tokens);
   return data.user as User;
 }
 
@@ -390,6 +468,72 @@ export async function explainCard(
   });
   if (!res.ok) throw new Error("EXPLAIN_FAILED");
   return res.json() as Promise<ExplainResponse>;
+}
+
+// ─── Integrations (JWT) ───────────────────────────────────────────────────────
+
+export type ChatIntegrationDTO = {
+  id: number;
+  provider: string;
+  provider_user_id: string;
+  dm_chat_id?: string | null;
+  timezone: string;
+  send_window: string;
+  daily_goal: number;
+  created_at: string;
+  last_sent_at?: string | null;
+};
+
+export async function fetchIntegrations(): Promise<ChatIntegrationDTO[]> {
+  const res = await authFetch("/api/integrations/me");
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "FETCH_INTEGRATIONS_FAILED");
+  }
+  return res.json() as Promise<ChatIntegrationDTO[]>;
+}
+
+export async function linkIntegration(code: string): Promise<{
+  message: string;
+  provider: string;
+  provider_user_id: string;
+}> {
+  const res = await authFetch("/api/integrations/link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "LINK_FAILED");
+  }
+  return res.json() as Promise<{ message: string; provider: string; provider_user_id: string }>;
+}
+
+export async function updateIntegration(
+  provider: string,
+  body: { timezone?: string; send_window?: string; daily_goal?: number }
+): Promise<ChatIntegrationDTO> {
+  const res = await authFetch(`/api/integrations/${encodeURIComponent(provider)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "UPDATE_INTEGRATION_FAILED");
+  }
+  return res.json() as Promise<ChatIntegrationDTO>;
+}
+
+export async function deleteIntegration(provider: string): Promise<void> {
+  const res = await authFetch(`/api/integrations/${encodeURIComponent(provider)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "DELETE_INTEGRATION_FAILED");
+  }
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
