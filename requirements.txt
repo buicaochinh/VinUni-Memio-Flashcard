@@ -23,3 +23,4 @@ PyJWT
 celery
 redis
 alembic
+datasketch>=1.6
