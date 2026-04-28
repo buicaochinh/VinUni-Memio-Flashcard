@@ -211,14 +211,14 @@ export default function GeneratePage() {
                   </div>
                   <input
                     type="range"
-                    min={10} max={150} step={10}
+                    min={10} max={500} step={10}
                     value={targetCount}
                     onChange={(e) => setTargetCount(Number(e.target.value))}
                     className="w-full h-2 bg-surface-muted rounded-full appearance-none cursor-pointer accent-primary"
                   />
                   <div className="flex justify-between mt-2 text-[0.75rem] font-bold text-subtle">
                     <span>10</span>
-                    <span>150</span>
+                    <span>500</span>
                   </div>
                 </div>
 

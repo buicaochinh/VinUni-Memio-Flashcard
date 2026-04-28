@@ -14,7 +14,7 @@ db_url = DATABASE_URL
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(db_url)
+engine = create_engine(db_url, pool_pre_ping=True)
 
 def get_session() -> Generator[Session, None, None]:
     with Session(engine) as session:
