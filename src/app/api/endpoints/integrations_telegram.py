@@ -3,7 +3,7 @@ import logging
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session, select
 
 from src.app.db.session import get_session
@@ -117,13 +117,14 @@ async def telegram_webhook(request: Request, session: Session = Depends(get_sess
             code=code,
             provider="telegram",
             provider_user_id=telegram_user_id,
+            dm_chat_id=chat_id,
             expires_at=expires_at,
         )
         session.add(link)
         session.commit()
 
         body = (
-            "Để liên kết Memio với Telegram, hãy nhập mã sau trong mục Automation/Integrations của bạn:\n\n"
+            "Để liên kết Memio với Telegram, hãy nhập mã sau trong mục Liên kết (sidebar) của bạn:\n\n"
             f"{code}\n\n"
             "Mã có hiệu lực trong 10 phút."
         )
