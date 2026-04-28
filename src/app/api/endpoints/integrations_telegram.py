@@ -1,18 +1,30 @@
 import datetime
+import logging
 from typing import Any, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import Session, select
 
 from src.app.db.session import get_session
 from src.app.models.domain import ChatIntegration, LinkCode, Progress, Flashcard
-from src.app.services.telegram_service import send_message
+from src.app.services.telegram_service import TelegramConfigError, send_message
 from src.app.core.sm2 import get_updated_sm2_values
 from src.app.services import card_service
 from src.app.utils.jwt_auth import new_link_code
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _is_start_command(text: str) -> bool:
+    """Nhận /start, /start payload, /start@BotUsername (Telegram hay gửi dạng này trong nhóm)."""
+    if not text:
+        return False
+    first = text.strip().split(maxsplit=1)[0]
+    base = first.split("@", 1)[0].lower()
+    return base == "/start"
 
 
 def _extract_message(update: dict[str, Any]) -> Optional[dict[str, Any]]:
@@ -98,7 +110,7 @@ async def telegram_webhook(request: Request, session: Session = Depends(get_sess
     if not telegram_user_id or not chat_id:
         return {"ok": True}
 
-    if text.startswith("/start"):
+    if _is_start_command(text):
         code = new_link_code()
         expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
         link = LinkCode(
@@ -110,14 +122,23 @@ async def telegram_webhook(request: Request, session: Session = Depends(get_sess
         session.add(link)
         session.commit()
 
-        await send_message(
-            chat_id=chat_id,
-            text=(
-                "Để liên kết Memio với Telegram, hãy nhập mã sau trong mục Automation/Integrations của bạn:\n\n"
-                f"{code}\n\n"
-                "Mã có hiệu lực trong 10 phút."
-            ),
+        body = (
+            "Để liên kết Memio với Telegram, hãy nhập mã sau trong mục Automation/Integrations của bạn:\n\n"
+            f"{code}\n\n"
+            "Mã có hiệu lực trong 10 phút."
         )
+        try:
+            await send_message(chat_id=chat_id, text=body)
+        except TelegramConfigError as e:
+            logger.error("Telegram /start: không gửi được tin — %s", e)
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "Telegram /start: sendMessage lỗi HTTP %s — %s",
+                e.response.status_code,
+                e.response.text[:500] if e.response else "",
+            )
+        except httpx.RequestError as e:
+            logger.error("Telegram /start: lỗi kết nối tới api.telegram.org — %s", e)
         return {"ok": True}
 
     return {"ok": True}
