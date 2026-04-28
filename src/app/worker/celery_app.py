@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 
 
 celery_app = Celery(
@@ -20,4 +21,10 @@ celery_app.conf.update(
 def setup_periodic_tasks(sender, **kwargs):
     # Run every 5 minutes (starter).
     sender.add_periodic_task(300.0, "src.app.worker.tasks.send_due_cards", name="send_due_cards")
+    # Weekly report: Monday 08:00 (worker timezone)
+    sender.add_periodic_task(
+        crontab(minute=0, hour=8, day_of_week=1),
+        "src.app.worker.tasks.send_weekly_report",
+        name="send_weekly_report",
+    )
 
