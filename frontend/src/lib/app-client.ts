@@ -517,7 +517,7 @@ export async function linkIntegration(code: string): Promise<{
 
 export async function updateIntegration(
   provider: string,
-  body: { timezone?: string; send_window?: string; daily_goal?: number }
+  body: { timezone?: string; send_window?: string; daily_goal?: number; group_target_id?: string }
 ): Promise<ChatIntegrationDTO> {
   const res = await authFetch(`/api/integrations/${encodeURIComponent(provider)}`, {
     method: "PATCH",
