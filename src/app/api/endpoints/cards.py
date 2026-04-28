@@ -7,8 +7,13 @@ from aiofiles import open as aio_open
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 from sqlmodel import Session
+
+import asyncio
+from src.app.utils.card_pipeline import (
+    get_pipeline_config, run_pipeline_filter
+)
 
 from src.app.db.session import get_session
 from src.app.services import card_service
@@ -26,19 +31,16 @@ load_dotenv()
 
 router = APIRouter()
 
-# Model configurable via env var; default to gpt-3.5-turbo (proven to work)
-_ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20240620")
-
-
 def get_llm():
-    raw_key = os.getenv("ANTHROPIC_API_KEY")
+    raw_key = os.getenv("OPENAI_API_KEY")
     api_key = raw_key.strip() if raw_key else ""
+    if not api_key:
+        raise HTTPException(status_code=503, detail="OPENAI_API_KEY chưa được cấu hình trong .env")
 
-    return ChatAnthropic(
-        model=_ANTHROPIC_MODEL,
+    return ChatOpenAI(
+        model="gpt-4o-mini",
         temperature=0.7,
-        anthropic_api_key=api_key,
-        base_url="https://api.shopaikey.com"
+        openai_api_key=api_key,
     )
 
 
@@ -110,24 +112,70 @@ async def _load_document_context(temp_path: Path, max_chars: int = 6000) -> tupl
 
 
 async def _generate_cards_chunked(pages: list, target_count: int) -> list[dict]:
-    llm = get_llm()
-    chunk_size = 4
-    cards_per_chunk = max(8, min(30, target_count // max(1, len(pages) // chunk_size + 1)))
+    cfg = get_pipeline_config(target_count)
 
-    all_cards: list[dict] = []
+    # Zone SMALL — 1 call duy nhất
+    if target_count <= 50:
+        llm = get_llm()
+        context = "\n\n".join(p.page_content for p in pages)[:8000]
+        response = await (CARD_PROMPT | llm).ainvoke({
+            "context": context,
+            "count": target_count
+        })
+        return _parse_llm_json(response.content)[:target_count]
+
+    # Zone MEDIUM + LARGE — parallel async
+    chunk_size = 4
     chunks = [pages[i:i + chunk_size] for i in range(0, len(pages), chunk_size)]
 
-    for chunk in chunks:
-        if len(all_cards) >= target_count:
-            break
-        context = "\n\n".join(p.page_content for p in chunk)[:5000]
-        prompt = CARD_PROMPT
-        chain = prompt | llm
-        response = chain.invoke({"context": context, "count": cards_per_chunk})
-        chunk_cards = _parse_llm_json(response.content)
-        all_cards.extend(chunk_cards)
+    # Phân phối đều generate_count vào các chunks, tối thiểu cfg.cards_per_chunk,
+    # tối đa 50 để tránh LLM trả JSON quá dài bị truncate
+    generate_count = int(target_count * cfg.overflow_ratio)
+    n_chunks = max(len(chunks), 1)
+    cards_per_chunk = min(
+        max(-(-generate_count // n_chunks), cfg.cards_per_chunk),
+        50
+    )
 
-    return all_cards[:target_count]
+    sem = asyncio.Semaphore(cfg.semaphore_limit)
+
+    async def process_chunk(chunk):
+        async with sem:
+            context = "\n\n".join(p.page_content for p in chunk)[:5000]
+            llm = get_llm()
+            r = await (CARD_PROMPT | llm).ainvoke({
+                "context": context,
+                "count": cards_per_chunk
+            })
+            return _parse_llm_json(r.content)
+
+    results = await asyncio.gather(
+        *[process_chunk(c) for c in chunks],
+        return_exceptions=True
+    )
+
+    # Re-raise nếu toàn bộ chunks đều thất bại (không im lặng trả [])
+    if not any(isinstance(r, list) for r in results):
+        first_error = next((r for r in results if isinstance(r, Exception)), None)
+        if first_error:
+            raise first_error
+
+    all_cards = [
+        c for batch in results
+        if isinstance(batch, list)
+        for c in batch
+    ]
+
+    # Filter pipeline
+    filtered = run_pipeline_filter(all_cards, cfg)
+
+    # Fallback nới lỏng nếu thiếu cards sau filter
+    if len(filtered) < target_count and len(all_cards) > len(filtered):
+        from src.app.utils.card_pipeline import exact_dedup, prefilter
+        relaxed = exact_dedup([c for c in all_cards if prefilter(c)])
+        filtered = relaxed
+
+    return filtered[:target_count]
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +239,14 @@ async def preview_cards(
     try:
         cards = await _generate_cards_chunked(all_pages, count)
         return {"cards": cards, "total": len(cards)}
+    except HTTPException:
+        raise
     except Exception as e:
+        err = str(e).lower()
+        if "429" in str(e):
+            if "invalid" in err or "new_api_error" in err:
+                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra ANTHROPIC_API_KEY trong file .env") from e
+            raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
 
 
@@ -232,7 +287,14 @@ async def generate_cards(
         cards_data = await _generate_cards_chunked(all_pages, count)
         card_service.bulk_add_flashcards(session, deck_id, cards_data)
         return {"message": "success", "generated": len(cards_data)}
+    except HTTPException:
+        raise
     except Exception as e:
+        err = str(e).lower()
+        if "429" in str(e):
+            if "invalid" in err or "new_api_error" in err:
+                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra ANTHROPIC_API_KEY trong file .env") from e
+            raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
 
 
