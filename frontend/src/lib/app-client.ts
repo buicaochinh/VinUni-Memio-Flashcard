@@ -477,11 +477,16 @@ export type ChatIntegrationDTO = {
   provider: string;
   provider_user_id: string;
   dm_chat_id?: string | null;
+  group_target_id?: string | null;
   timezone: string;
   send_window: string;
   daily_goal: number;
   created_at: string;
   last_sent_at?: string | null;
+  sent_today?: number;
+  sent_today_date?: string | null;
+  weekly_report_week?: string | null;
+  weekly_report_sent_at?: string | null;
 };
 
 export async function fetchIntegrations(): Promise<ChatIntegrationDTO[]> {
@@ -533,6 +538,22 @@ export async function deleteIntegration(provider: string): Promise<void> {
   if (!res.ok) {
     const detail = await readErrorDetail(res);
     throw new Error(detail ?? "DELETE_INTEGRATION_FAILED");
+  }
+}
+
+export async function testWeeklyReport(): Promise<void> {
+  const res = await authFetch("/api/integrations/weekly_report/test", { method: "POST" });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "TEST_WEEKLY_REPORT_FAILED");
+  }
+}
+
+export async function testSendDueCards(): Promise<void> {
+  const res = await authFetch("/api/integrations/due/test", { method: "POST" });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "TEST_DUE_FAILED");
   }
 }
 
