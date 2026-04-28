@@ -26,6 +26,14 @@ def _is_start_command(text: str) -> bool:
     base = first.split("@", 1)[0].lower()
     return base == "/start"
 
+def _is_cmd(text: str, cmd: str) -> bool:
+    """Match /cmd or /cmd@BotName (Telegram groups)."""
+    if not text:
+        return False
+    first = text.strip().split(maxsplit=1)[0]
+    base = first.split("@", 1)[0].lower()
+    return base == cmd.lower()
+
 
 def _extract_message(update: dict[str, Any]) -> Optional[dict[str, Any]]:
     return update.get("message") or update.get("edited_message")
@@ -140,6 +148,50 @@ async def telegram_webhook(request: Request, session: Session = Depends(get_sess
             )
         except httpx.RequestError as e:
             logger.error("Telegram /start: lỗi kết nối tới api.telegram.org — %s", e)
+        return {"ok": True}
+
+    # Group report routing: set/unset target group for weekly report
+    if _is_cmd(text, "/setgroup") or _is_cmd(text, "/setreport"):
+        integ = session.exec(
+            select(ChatIntegration).where(
+                ChatIntegration.provider == "telegram",
+                ChatIntegration.provider_user_id == telegram_user_id,
+            )
+        ).first()
+        if not integ:
+            await send_message(
+                chat_id=chat_id,
+                text=(
+                    "Chưa liên kết Memio với Telegram.\n\n"
+                    "Hãy nhắn bot trong DM bằng lệnh /start để lấy mã, rồi liên kết trong mục Liên kết trên web."
+                ),
+            )
+            return {"ok": True}
+
+        integ.group_target_id = chat_id
+        session.add(integ)
+        session.commit()
+        await send_message(
+            chat_id=chat_id,
+            text="✅ Đã bật Weekly Report cho nhóm này. (Có thể dùng /unsetgroup để tắt.)",
+        )
+        return {"ok": True}
+
+    if _is_cmd(text, "/unsetgroup") or _is_cmd(text, "/unsetreport"):
+        integ = session.exec(
+            select(ChatIntegration).where(
+                ChatIntegration.provider == "telegram",
+                ChatIntegration.provider_user_id == telegram_user_id,
+            )
+        ).first()
+        if not integ:
+            await send_message(chat_id=chat_id, text="Bạn chưa liên kết Memio với Telegram.")
+            return {"ok": True}
+
+        integ.group_target_id = None
+        session.add(integ)
+        session.commit()
+        await send_message(chat_id=chat_id, text="🛑 Đã tắt Weekly Report cho nhóm này.")
         return {"ok": True}
 
     return {"ok": True}
