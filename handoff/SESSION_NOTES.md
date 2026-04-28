@@ -2,6 +2,69 @@
 
 Mục tiêu: Learning Automation “Study Buddy Bot” (Telegram/Discord) + JWT auth + worker scheduler + chuẩn bị billing/quota (MoMo/ZaloPay) + chuyển migrations sang Alembic.
 
+## Update — 2026-04-28
+
+### Backend
+- **Fix Telegram /start + liên kết để worker gửi được**:
+  - `LinkCode` lưu thêm `dm_chat_id` (chat id Telegram) để copy sang `ChatIntegration.dm_chat_id` lúc link.
+  - `/start` hiện nhận cả dạng `/start@BotName` và có log lỗi khi `sendMessage` fail.
+  - Thêm commands trong Telegram để set nơi nhận weekly report:
+    - `/setgroup` hoặc `/setreport`: set `ChatIntegration.group_target_id = chat_id` (group hiện tại)
+    - `/unsetgroup` hoặc `/unsetreport`: unset `group_target_id`
+  - File: `src/app/api/endpoints/integrations_telegram.py`
+
+- **Integrations API (JWT)**:
+  - `GET /api/integrations/me` (list integrations của user hiện tại)
+  - `PATCH /api/integrations/{provider}` (update `timezone`, `send_window`, `daily_goal`, `group_target_id`)
+  - `DELETE /api/integrations/{provider}` (hủy liên kết)
+  - `POST /api/integrations/link` đã được cập nhật để copy `dm_chat_id` từ `LinkCode` sang `ChatIntegration`
+  - Thêm debug endpoints:
+    - `POST /api/integrations/weekly_report/test`: gửi test weekly report (tới `group_target_id` hoặc `dm_chat_id`)
+    - `POST /api/integrations/due/test`: gửi test 1–3 thẻ đến hạn vào DM (không spam group)
+  - File: `src/app/api/endpoints/integrations.py`
+
+- **Alembic migrations bổ sung (cho DB cũ thiếu bảng/cột)**:
+  - `alembic/versions/0002_integ`: tạo `link_codes`, `chat_integrations` nếu thiếu
+  - `alembic/versions/0003_dm_chat`: thêm `link_codes.dm_chat_id`
+  - `alembic/versions/0004_auth_sess`: tạo `auth_sessions` (để login session không lỗi `relation auth_sessions does not exist`)
+  - `alembic/versions/0005_integ_counters`: thêm counters `sent_today/sent_today_date` trong `chat_integrations` để worker không spam và tôn trọng `daily_goal`
+  - `alembic/versions/0006_weekly_report`: tracking weekly report (`weekly_report_week/weekly_report_sent_at`) trong `chat_integrations`
+
+- **Docker backend**:
+  - `Dockerfile.backend` copy thêm `alembic.ini` + thư mục `alembic/` để chạy migrations trong container.
+
+- **Worker / scheduling (Telegram Study Buddy)**:
+  - `send_due_cards` tôn trọng `timezone`, `send_window`, `daily_goal`, có cooldown và gửi tối đa N thẻ/lần chạy.
+  - Ưu tiên thẻ overdue/hard hơn: sort theo `next_review` rồi `ease_factor`.
+  - `send_weekly_report` gửi report 7 ngày gần nhất dựa trên `study_sessions` → `group_target_id` (fallback `dm_chat_id`) và idempotent theo tuần.
+    - Nội dung đã nâng cấp: active_days/7, best_day, backlog due, trend bar 7 ngày.
+  - Beat schedule: thêm weekly report (Thứ Hai 08:00).
+  - Files: `src/app/worker/tasks.py`, `src/app/worker/celery_app.py`
+
+### Frontend
+- **UI Liên kết Telegram**:
+  - Trang mới: `frontend/src/app/integrations/page.tsx` (nhập mã, xem trạng thái, cấu hình `timezone/send_window/daily_goal`, hủy liên kết).
+  - Sidebar thêm mục “Liên kết”: `frontend/src/components/AppShell.tsx`
+  - Hiển thị progress “tiến độ hôm nay” (sent_today/daily_goal) dạng progress bar và empty state tốt hơn.
+  - Thêm input cấu hình `group_target_id` (weekly report) ngay trên UI.
+  - Thêm onboarding “Hướng dẫn nhanh” (start/link, /setgroup, cách bấm rating).
+  - Thêm nút “Test weekly report” và “Test gửi thẻ” để debug routing/bot.
+
+- **Chuyển login sang JWT sessions**:
+  - `frontend/src/lib/app-client.ts`:
+    - login gọi `/api/auth/session/login/*`, lưu `flashcard_tokens` (access + refresh)
+    - thêm `authFetch()` tự refresh 1 lần khi 401
+    - thêm client functions: `fetchIntegrations/linkIntegration/updateIntegration/deleteIntegration`
+  - `frontend/src/app/login/page.tsx`, `frontend/src/app/signup/page.tsx` cập nhật để dùng flow mới
+
+### Dọn bảng DB thừa (orphan tables)
+- Đã dùng script ad-hoc để liệt kê bảng không thuộc schema Memio và DROP các bảng thừa.
+- Ghi chú: thư mục `scratch/` đã gitignored, nên script này nên đặt local trong `scratch/` (không commit).
+- Gợi ý chạy (local):
+  - `python scratch/db_orphan_tables.py` (dry-run)
+  - `python scratch/db_orphan_tables.py --execute --yes` (chỉ DROP bảng rỗng)
+  - `python scratch/db_orphan_tables.py --execute --yes --allow-non-empty` (DROP cả bảng có dữ liệu — backup trước)
+
 ### Tóm tắt những thay đổi chính
 
 #### Backend
@@ -79,7 +142,14 @@ Mục tiêu: Learning Automation “Study Buddy Bot” (Telegram/Discord) + JWT 
   - `alembic upgrade head`
 
 ### Việc còn dang dở / cần làm tiếp
-- **UI Automation/Integrations** (frontend) để nhập code và gọi `POST /api/integrations/link` (JWT).
-- `ChatIntegration.dm_chat_id` hiện worker cần để gửi; cần đảm bảo được set đúng (hiện link endpoint mới set `provider_user_id`).
-- Discord integration + Weekly report + Billing/Quota (MoMo/ZaloPay) chưa triển khai.
+- `ChatIntegration.dm_chat_id` là bắt buộc để worker gửi; nếu user đã link từ trước mà thiếu `dm_chat_id` thì gõ `/start` và link lại bằng mã mới.
+- Discord/Slack: bỏ qua (theo quyết định hiện tại).
+- **Weekly report**:
+  - Nội dung report dựa trên `study_sessions` → cần đảm bảo mọi flow học đều ghi session ổn định.
+  - Đã có “Test weekly report” (button/API).
+- **Reminder thông minh**:
+  - Hiện mới ưu tiên overdue + ease_factor; chưa có logic “bù nhịp” khi user bỏ lỡ nhiều ngày, chưa có rate-limit theo user ngoài cooldown đơn giản.
+- **Bảo mật/Auth**:
+  - Frontend dùng JWT cho integrations; các endpoint legacy vẫn dùng `user_id` query (chưa migrate hết).
+- Billing/Quota (MoMo/ZaloPay) chưa triển khai.
 

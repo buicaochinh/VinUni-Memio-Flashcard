@@ -43,6 +43,10 @@ class ChatIntegration(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_sent_at: Optional[datetime] = None
+    sent_today: int = 0
+    sent_today_date: Optional[str] = None  # local YYYY-MM-DD (based on timezone)
+    weekly_report_week: Optional[str] = None  # ISO week key: YYYY-WW
+    weekly_report_sent_at: Optional[datetime] = None
 
 
 class LinkCode(SQLModel, table=True):

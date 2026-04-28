@@ -3,16 +3,16 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-
 from src.app.api.deps import get_current_user_id
 from src.app.db.session import get_session
-from src.app.models.domain import ChatIntegration, LinkCode
+from src.app.models.domain import ChatIntegration, LinkCode, StudySession, Progress, Flashcard
 from src.app.schemas.integrations import (
     IntegrationItem,
     LinkIntegrationRequest,
     LinkIntegrationResponse,
     UpdateIntegrationRequest,
 )
+from src.app.services.telegram_service import send_message_sync
 
 
 router = APIRouter()
@@ -104,6 +104,9 @@ def update_integration(
         row.send_window = sw
     if payload.daily_goal is not None:
         row.daily_goal = payload.daily_goal
+    if payload.group_target_id is not None:
+        gt = payload.group_target_id.strip()
+        row.group_target_id = gt or None
 
     session.add(row)
     session.commit()
@@ -128,3 +131,118 @@ def delete_integration(
     session.delete(row)
     session.commit()
     return {"message": "success", "provider": provider}
+
+
+@router.post("/weekly_report/test")
+def test_weekly_report(
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Send a one-off weekly report preview to the configured target:
+    - uses Telegram integration for current user
+    - sends to group_target_id if set, else dm_chat_id
+    """
+    integ = session.exec(
+        select(ChatIntegration).where(
+            ChatIntegration.user_id == user_id,
+            ChatIntegration.provider == "telegram",
+        )
+    ).first()
+    if not integ:
+        raise HTTPException(status_code=404, detail="Telegram integration not found")
+
+    target = integ.group_target_id or integ.dm_chat_id
+    if not target:
+        raise HTTPException(status_code=400, detail="Missing target chat id (setgroup or link DM)")
+
+    now_utc = datetime.datetime.utcnow()
+    end = now_utc.date()
+    start = end - datetime.timedelta(days=6)
+    day_keys = [(start + datetime.timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+
+    rows = session.exec(
+        select(StudySession).where(
+            StudySession.user_id == user_id,
+            StudySession.session_date.in_(day_keys),
+        )
+    ).all()
+
+    total_cards = sum(int(r.cards_reviewed or 0) for r in rows)
+    denom = sum(int(r.cards_reviewed or 0) for r in rows) or 0
+    if denom > 0:
+        avg_q = sum(float(r.avg_quality or 0) * int(r.cards_reviewed or 0) for r in rows) / denom
+    else:
+        avg_q = 0.0
+
+    msg = (
+        "🧪 Test Weekly report (7 ngày gần nhất)\n\n"
+        f"- Tổng thẻ đã ôn: {total_cards}\n"
+        f"- Điểm trung bình: {avg_q:.2f} / 3.00\n"
+        f"- Khung thời gian: {day_keys[0]} → {day_keys[-1]}\n"
+    )
+    send_message_sync(chat_id=str(target), text=msg)
+    return {"message": "sent", "target": str(target)}
+
+
+@router.post("/due/test")
+def test_send_due_cards(
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user_id),
+):
+    """
+    Send 1-3 due cards immediately (debug):
+    - uses Telegram integration for current user
+    - sends to dm_chat_id (not group) to avoid spamming groups
+    """
+    integ = session.exec(
+        select(ChatIntegration).where(
+            ChatIntegration.user_id == user_id,
+            ChatIntegration.provider == "telegram",
+        )
+    ).first()
+    if not integ:
+        raise HTTPException(status_code=404, detail="Telegram integration not found")
+    if not integ.dm_chat_id:
+        raise HTTPException(status_code=400, detail="Missing dm_chat_id (DM bot /start then link again)")
+
+    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    due_rows = session.exec(
+        select(Progress)
+        .where(
+            Progress.user_id == user_id,
+            Progress.next_review.is_not(None),
+            Progress.next_review <= today,
+        )
+        .order_by(Progress.next_review.asc(), Progress.ease_factor.asc(), Progress.id.asc())
+        .limit(3)
+    ).all()
+    if not due_rows:
+        raise HTTPException(status_code=404, detail="No due cards")
+
+    sent = 0
+    for due in due_rows:
+        card = session.get(Flashcard, due.card_id)
+        if not card:
+            continue
+        card_id = due.card_id
+        reply_markup = {
+            "inline_keyboard": [
+                [
+                    {"text": "0 Lại", "callback_data": f"rate:{card_id}:0"},
+                    {"text": "1 Khó", "callback_data": f"rate:{card_id}:1"},
+                ],
+                [
+                    {"text": "2 Tốt", "callback_data": f"rate:{card_id}:2"},
+                    {"text": "3 Dễ", "callback_data": f"rate:{card_id}:3"},
+                ],
+            ]
+        }
+        send_message_sync(
+            chat_id=str(integ.dm_chat_id),
+            text=f"🧪 Test due card\n\nQ: {card.front}\n\nA: {card.back}\n\nChấm điểm để tiếp tục:",
+            reply_markup=reply_markup,
+        )
+        sent += 1
+
+    return {"message": "sent", "sent": sent}

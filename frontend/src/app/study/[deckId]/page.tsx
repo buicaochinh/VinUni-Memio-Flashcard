@@ -169,6 +169,11 @@ export default function StudyPage() {
       setIsFlipped(false);
       setDragX(0);
       setMsg(null);
+      // Persist lightweight session stats periodically so weekly report has data
+      if (isOnline() && newRatings.length % 5 === 0) {
+        const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
+        void logStudySession(user.id, deckId, newRatings.length, avg);
+      }
       setTimeout(() => setIdx((i) => i + 1), 220);
     } else {
       const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
