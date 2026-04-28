@@ -1,89 +1,84 @@
 """
-Basic agent loop using the Anthropic Claude API.
+Basic agent loop using the OpenAI API.
 Receives user input, calls tools as needed, and returns results.
 """
 
+import json
 import logging
-from anthropic import Anthropic
-from .config import ANTHROPIC_API_KEY, DEFAULT_MODEL, LOG_LEVEL
+import os
+from openai import OpenAI
 from .tools import get_tool_schemas, execute_tool
 
-logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s [%(levelname)s] %(message)s")
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+logging.basicConfig(level=_LOG_LEVEL, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 SYSTEM_PROMPT = """You are an intelligent AI assistant.
 You can use the provided tools to complete tasks.
 Think step by step and use tools when necessary."""
 
 
-def create_agent():
-    """Create an agent with the Anthropic client."""
-    if not ANTHROPIC_API_KEY:
-        raise ValueError("ANTHROPIC_API_KEY is not configured. Check your .env file")
-    return Anthropic(api_key=ANTHROPIC_API_KEY)
+def create_agent() -> OpenAI:
+    """Create an agent with the OpenAI client."""
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("OPENAI_API_KEY is not configured. Check your .env file")
+    return OpenAI(api_key=api_key)
 
 
-def run_agent_loop(client: Anthropic, user_input: str, max_turns: int = 10) -> str:
+def run_agent_loop(client: OpenAI, user_input: str, max_turns: int = 10) -> str:
     """
     Run the agent loop: send message -> receive response -> call tool -> repeat.
 
     Args:
-        client: Anthropic client
+        client: OpenAI client
         user_input: User's question or request
         max_turns: Maximum number of tool-calling turns
 
     Returns:
         The agent's final response
     """
-    messages = [{"role": "user", "content": user_input}]
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_input},
+    ]
     tools = get_tool_schemas()
 
     for turn in range(max_turns):
         logger.info(f"Turn {turn + 1}/{max_turns}")
 
-        response = client.messages.create(
-            model=DEFAULT_MODEL,
+        response = client.chat.completions.create(
+            model=_MODEL,
             max_tokens=4096,
-            system=SYSTEM_PROMPT,
             tools=tools,
             messages=messages,
         )
 
-        # If agent stops (no more tool calls)
-        if response.stop_reason == "end_turn":
-            final_text = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    final_text += block.text
-            return final_text
+        choice = response.choices[0]
+
+        # Agent stops — no more tool calls
+        if choice.finish_reason == "stop":
+            return choice.message.content or ""
 
         # Handle tool calls
-        tool_results = []
-        has_tool_use = False
+        if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
+            messages.append(choice.message)
 
-        for block in response.content:
-            if block.type == "tool_use":
-                has_tool_use = True
-                logger.info(f"Calling tool: {block.name}({block.input})")
-                result = execute_tool(block.name, block.input)
+            for tool_call in choice.message.tool_calls:
+                name = tool_call.function.name
+                args = json.loads(tool_call.function.arguments)
+                logger.info(f"Calling tool: {name}({args})")
+                result = execute_tool(name, args)
                 logger.info(f"Result: {result[:200]}")
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
                     "content": result,
                 })
-
-        if not has_tool_use:
-            # No tool calls, return text
-            final_text = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    final_text += block.text
-            return final_text
-
-        # Add assistant response and tool results to messages
-        messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": tool_results})
+        else:
+            return choice.message.content or ""
 
     return "Agent reached the maximum number of processing turns."
 
