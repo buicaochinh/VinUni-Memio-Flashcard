@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {usePathname, useRouter} from "next/navigation";
 import {clearStoredUser, User} from "../lib/app-client";
-import {BarChart3, LibraryBig, LogOut, Sparkles, User as UserIcon} from "lucide-react";
+import {BarChart3, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon} from "lucide-react";
 import {cn} from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
 
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/workspace",  label: "Bộ thẻ",      icon: LibraryBig },
   { href: "/generate",   label: "Tạo thẻ",     icon: Sparkles },
   { href: "/analytics",  label: "Thống kê",    icon: BarChart3 },
+  { href: "/integrations", label: "Liên kết", icon: Plug },
 ];
 
 export default function AppShell({ children, user }: AppShellProps) {
