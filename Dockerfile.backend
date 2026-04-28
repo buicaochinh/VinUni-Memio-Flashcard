@@ -30,6 +30,8 @@ RUN apk add --no-cache \
     libpq
 
 COPY --from=builder /opt/venv /opt/venv
+COPY alembic.ini .
+COPY alembic ./alembic
 COPY src ./src
 
 EXPOSE 8000
