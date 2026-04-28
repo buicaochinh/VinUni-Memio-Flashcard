@@ -56,6 +56,7 @@ class LinkCode(SQLModel, table=True):
     code: str = Field(index=True)
     provider: str  # "telegram" | "discord"
     provider_user_id: str
+    dm_chat_id: Optional[str] = None  # Telegram chat id when linking (for worker sendMessage)
     expires_at: datetime
     consumed_at: Optional[datetime] = None
     consumed_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
