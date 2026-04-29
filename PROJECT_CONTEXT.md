@@ -168,15 +168,13 @@ Base: `/api` (mounted in `src/main.py`)
   - User chạy deploy thuộc group `docker`.
 - **Pilot deploy flow (server 2GB RAM / 2 vCPU / 30GB SSD):**
   - One-time bootstrap: `sudo bash scripts/bootstrap.sh` — kiểm tra Docker đã có, ghi `/etc/docker/daemon.json` (BuildKit GC `defaultKeepStorage: 8GB` + log rotation `max-size 10m, max-file 3`), bật swap 2GB (`vm.swappiness=10`), mở UFW 80/443, `docker swarm init` nếu chưa init.
-  - Mỗi lần deploy hằng ngày: `bash scripts/redeploy.sh` — KHÔNG cần sudo. Flow: pre-check disk, pull image từ GHCR theo `GHCR_NAMESPACE` + `IMAGE_TAG`, rồi `docker stack deploy --with-registry-auth -c docker-stack.yml memio`. Swarm tự rolling update theo `update_config` (`start-first` cho stateless, `stop-first` cho `beat`).
+  - Mỗi lần deploy hằng ngày: SSH vào server rồi chạy `bash scripts/redeploy.sh` — KHÔNG cần sudo. Flow: pre-check disk, build local image qua `docker compose build backend frontend`, rồi `docker stack deploy -c docker-stack.yml memio`. Swarm tự rolling update theo `update_config` (`start-first` cho stateless, `stop-first` cho `beat`).
   - Wrapper cũ `sudo bash scripts/deploy.sh` vẫn dùng được (tự bootstrap nếu cần rồi gọi redeploy bằng user thường).
-  - GitHub Actions secrets bắt buộc để auto deploy: `GHCR_TOKEN`, `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_PORT`.
 - **Files chính:**
-  - `docker-compose.yml`: vẫn dùng cho local/dev build path, không còn là bước bắt buộc khi deploy production.
-  - `docker-stack.yml`: file deploy cho Swarm — dùng image GHCR `ghcr.io/${GHCR_NAMESPACE}/a20-{backend,frontend}:${IMAGE_TAG:-pilot-latest}`, cùng `deploy.resources.limits.{memory,cpus}` và `update_config` rolling.
-  - `.github/workflows/ghcr-build-deploy.yml`: workflow CI/CD build + push GHCR + SSH deploy server.
+  - `docker-compose.yml`: dùng để build local images (`a20-app-001-backend:pilot`, `a20-app-001-frontend:pilot`).
+  - `docker-stack.yml`: file deploy cho Swarm — dùng local image tags, cùng `deploy.resources.limits.{memory,cpus}` và `update_config` rolling.
 - **Resource limits (đặt trong `docker-stack.yml > deploy.resources.limits`):** `backend 512M/1.0`, `frontend 384M/0.75`, `worker 384M/0.75`, `beat 128M/0.25`, `caddy 128M/0.25`, `redis 128M/0.25`. Tổng ~1.7GB, vừa với RAM 2GB + swap 2GB.
-- **Image pipeline hiện tại:** GHCR auto build + auto deploy. Push `main` sẽ build/push image (SHA + `pilot-latest`) rồi SSH vào server chạy `scripts/redeploy.sh`.
+- **Image pipeline hiện tại:** build trực tiếp trên server (không CI/CD). Quy trình: `git pull --ff-only` rồi `bash scripts/redeploy.sh`.
 
 | Service | Image | Port |
 |---|---|---|
