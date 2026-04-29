@@ -4,56 +4,33 @@
 - Scope: triển khai thật cho nhóm người dùng kiểm soát, ưu tiên ổn định + thu phản hồi.
 - Khi AI agent đọc lại file này, mặc định coi sản phẩm ở giai đoạn Pilot (không tự gán Prototype/MVP/Production-ready nếu chưa có quyết định mới).
 
-## Update — 2026-04-29 (GHCR auto build + auto deploy Swarm)
+## Update — 2026-04-29 (Swarm build local, deploy tay qua SSH)
 
-Bối cảnh: server `2GB RAM / 2 vCPU / 30GB SSD`, build local trên server làm tăng RAM peak và dễ treo. Theo quyết định mới, chuyển sang **GHCR pull-only**: GitHub Actions build/push image, server chỉ pull + stack deploy.
+Bối cảnh: server `2GB RAM / 2 vCPU / 30GB SSD`. Quyết định hiện tại: không dùng CI/CD auto deploy, chỉ deploy thủ công trên server để dễ kiểm soát.
 
 ### Files chính
-- `.github/workflows/ghcr-build-deploy.yml` (mới):
-  - Trigger `push main` + `workflow_dispatch`.
-  - Build/push `backend` và `frontend` lên GHCR với 2 tag: `${GITHUB_SHA}` và `pilot-latest`.
-  - Sau khi push xong, SSH vào server deploy.
-- `docker-stack.yml` (mới): file deploy cho Swarm.
-  - `backend/worker/beat` dùng `ghcr.io/${GHCR_NAMESPACE}/a20-backend:${IMAGE_TAG:-pilot-latest}`.
-  - `frontend` dùng `ghcr.io/${GHCR_NAMESPACE}/a20-frontend:${IMAGE_TAG:-pilot-latest}`.
-  - `deploy.resources.limits.memory/cpus` thay cho `mem_limit`/`cpus`: `backend 512M/1.0`, `frontend 384M/0.75`, `worker 384M/0.75`, `beat 128M/0.25`, `caddy 128M/0.25`, `redis 128M/0.25`.
-  - `update_config.order: start-first` cho `caddy/backend/frontend/worker`, `stop-first` cho `beat` (chỉ 1 instance).
-  - `restart_policy.condition: any` cho mọi service.
-  - `caddy` publish ports `80/443` ở `mode: host` (giữ IP gốc cho Let's Encrypt).
-  - Healthcheck giữ ở `backend`.
-- `scripts/bootstrap.sh` (rewrite, cần sudo, chạy 1 lần / khi đổi cấu hình):
-  - **KHÔNG còn cài Docker** — fail có hướng dẫn nếu Docker chưa sẵn.
-  - Ghi `/etc/docker/daemon.json`: `log-driver json-file` (`max-size 10m`, `max-file 3`) + BuildKit GC (`defaultKeepStorage 8GB`).
-  - Bật swap `/swapfile` 2GB + `vm.swappiness=10`.
-  - Mở UFW 80/443.
-  - `docker swarm init --advertise-addr <eth0>` nếu chưa active.
-  - Restart Docker khi thay daemon.json.
-- `scripts/redeploy.sh` (rewrite, KHÔNG cần sudo):
-  - Pre-check disk: prune build cache khi free `<6GB`.
-  - Pull image GHCR theo `GHCR_NAMESPACE` + `IMAGE_TAG` (`pilot-latest` mặc định).
-  - `set -a; . .env; set +a` để export env cho stack expand.
-  - `docker stack deploy --with-registry-auth -c docker-stack.yml memio`.
-  - Chờ stack converge (timeout 180s) bằng cách đọc `docker stack services <name> --format '{{.Name}} {{.Replicas}}'`.
-  - In `docker stack services` + `docker stack ps` cuối cùng.
-- `scripts/deploy.sh`: wrapper — phát hiện thiếu daemon.json/swap/swarm thì gọi bootstrap, rồi hạ quyền user thường gọi `redeploy.sh`.
+- `docker-stack.yml`: dùng local image tags:
+  - `backend/worker/beat`: `a20-app-001-backend:pilot`
+  - `frontend`: `a20-app-001-frontend:pilot`
+- `scripts/bootstrap.sh`: giữ nguyên vai trò bootstrap (daemon.json, swap, UFW, swarm init), không cài Docker.
+- `scripts/redeploy.sh`:
+  - pre-check disk
+  - build local image: `docker compose build backend frontend`
+  - deploy stack: `docker stack deploy -c docker-stack.yml memio`
+  - chờ converge + in trạng thái service/task
+- `scripts/deploy.sh`: wrapper gọi bootstrap khi cần rồi chạy redeploy.
 
-### Quy trình deploy mới (Pilot)
-- Tiền điều kiện: Docker engine + compose plugin do **user tự cài** (xem hướng dẫn tại docs.docker.com).
-- Lần đầu trên server: `sudo bash scripts/bootstrap.sh`.
-- Trên GitHub UI: tạo secrets `GHCR_TOKEN`, `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_PORT`.
-- Mỗi lần push `main`: workflow tự build/push GHCR và tự SSH deploy server.
-- Nếu deploy tay: export `GHCR_NAMESPACE` + `IMAGE_TAG` rồi chạy `bash scripts/redeploy.sh`.
+### Quy trình deploy hiện tại
+- Lần đầu trên server: `sudo bash scripts/bootstrap.sh`
+- Mỗi lần update code:
+  - `cd ~/A20-App-001`
+  - `git pull --ff-only`
+  - `bash scripts/redeploy.sh`
 
-### Checklist thao tác tay bắt buộc (GitHub UI + server)
-- GitHub repo -> `Settings` -> `Secrets and variables` -> `Actions`:
-  - `GHCR_TOKEN` (PAT có `read:packages`, `write:packages`, và `repo` nếu repo private).
-  - `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`, `SERVER_PORT` (nếu dùng port 22 vẫn nên set rõ).
-- Server: login GHCR một lần để kiểm tra credential:
-  - `docker login ghcr.io -u <github_username>`
-- Smoke test sau khi workflow chạy:
-  - `docker stack services memio` phải về `1/1`.
-  - `docker service logs --tail=80 memio_backend` không lỗi pull/auth.
-  - `curl -I https://mem.io.vn` và `curl -I https://api.mem.io.vn/` trả HTTP hợp lệ.
+### Checklist thao tác tay bắt buộc (server)
+- `docker stack services memio` về `1/1`
+- `docker service logs --tail=80 memio_backend` không lỗi runtime
+- `curl -I https://mem.io.vn` và `curl -I https://api.mem.io.vn/` trả HTTP hợp lệ
 
 ### Lệnh quan sát/quản trị Swarm hữu ích
 - `docker stack services memio` — trạng thái replicas.
@@ -65,7 +42,6 @@ Bối cảnh: server `2GB RAM / 2 vCPU / 30GB SSD`, build local trên server là
 ### Việc còn để pha sau (theo quyết định)
 - B: tối ưu image backend (đổi base, multi-stage gọn) — chưa làm.
 - G: đo lại baseline 5 lần liên tiếp để xác nhận downtime ngắn (Swarm rolling update với `start-first` thường downtime <5s cho stateless).
-- Hardening CI: thêm cleanup tag GHCR cũ + rollback input `IMAGE_TAG` trên `workflow_dispatch`.
 
 Mục tiêu: Learning Automation “Study Buddy Bot” (Telegram/Discord) + JWT auth + worker scheduler + chuẩn bị billing/quota (MoMo/ZaloPay) + chuyển migrations sang Alembic.
 
