@@ -1,92 +1,57 @@
 #!/bin/bash
-# Deploy script cho Debian 12
-# HDSD: sudo bash scripts/deploy.sh
+# Wrapper deploy cho A20-App-001 (Pilot, Docker Swarm)
+# HDSD:
+#   sudo bash scripts/deploy.sh   # tự bootstrap nếu chưa init swarm/daemon.json/swap, rồi redeploy
+#
+# Quy trình mới (Pilot, Swarm):
+#   - Docker engine + compose plugin: NGƯỜI DÙNG TỰ CÀI trước khi chạy script.
+#   - scripts/bootstrap.sh : ghi daemon.json, bật swap, UFW, init swarm (cần sudo, chạy 1 lần / khi đổi cấu hình hệ thống).
+#   - scripts/redeploy.sh  : build image local + docker stack deploy (không sudo, dùng hằng ngày).
+#
+# Khuyến nghị dùng trực tiếp:
+#   sudo bash scripts/bootstrap.sh    (lần đầu)
+#   bash scripts/redeploy.sh          (các lần sau)
 set -euo pipefail
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
-# ── 1. Root check ─────────────────────────────────────────────────────────────
-[[ $EUID -eq 0 ]] || error "Cần quyền sudo: sudo bash scripts/deploy.sh"
-
-# ── 2. Cài đặt Docker (Debian 12) ─────────────────────────────────────────────
-install_docker() {
-    info "Đang cài đặt Docker cho Debian 12..."
-    apt-get update
-    apt-get install -y ca-certificates curl gnupg
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-
-    echo \
-      "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-      "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-      tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    apt-get update
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    systemctl enable --now docker
-    info "Cài đặt Docker thành công: $(docker --version)"
-}
-
-if ! command -v docker &>/dev/null; then
-    install_docker
-else
-    info "Docker đã được cài đặt: $(docker --version)"
-    docker compose version &>/dev/null || install_docker
-fi
-
-# ── 3. Cấu hình Firewalld/UFW (Tuỳ chọn) ──────────────────────────────────────
-if command -v ufw &>/dev/null; then
-    info "Cấu hình UFW firewall cho Web App..."
-    ufw allow 80/tcp
-    ufw allow 443/tcp
-    info "Đã mở port 80 và 443 (HTTP/HTTPS) trên UFW"
-fi
-
-# ── 4. Set up .env ────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
-info "Thư mục làm việc: $PROJECT_DIR"
 
-if [ ! -f .env ]; then
-    if [ -f .env.example ]; then
-        cp .env.example .env
-        warn "Đã tạo file .env từ .env.example. Vui lòng cập nhật thông tin trước khi deploy."
-        exit 1
-    else
-        error "Không tìm thấy .env hoặc .env.example."
+if ! command -v docker >/dev/null 2>&1; then
+    error "Docker chưa cài. Vui lòng cài Docker engine + compose plugin theo:
+  https://docs.docker.com/engine/install/
+Sau đó chạy lại script này."
+fi
+if ! docker compose version >/dev/null 2>&1; then
+    error "Thiếu docker compose plugin. Cài thêm theo:
+  https://docs.docker.com/compose/install/linux/"
+fi
+
+# Kiểm tra điều kiện cần bootstrap
+NEED_BOOTSTRAP=0
+[ -f /etc/docker/daemon.json ] || NEED_BOOTSTRAP=1
+swapon --show | grep -q '^/' || NEED_BOOTSTRAP=1
+SWARM_STATE=$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || echo "unknown")
+[ "$SWARM_STATE" = "active" ] || NEED_BOOTSTRAP=1
+
+if [ "$NEED_BOOTSTRAP" = "1" ]; then
+    if [ "$EUID" -ne 0 ]; then
+        error "Cần bootstrap (daemon.json/swap/swarm) nhưng đang không phải root.
+Chạy: sudo bash scripts/bootstrap.sh"
     fi
+    info "Phát hiện chưa bootstrap, chạy bootstrap..."
+    bash "$SCRIPT_DIR/bootstrap.sh"
 fi
 
-# Đảm bảo frontend có đường dẫn API backend (dùng tên miền)
-if ! grep -q "^NEXT_PUBLIC_API_URL" .env; then
-    echo "NEXT_PUBLIC_API_URL=https://api.mem.io.vn" >> .env
-    info "Đã thêm NEXT_PUBLIC_API_URL=https://api.mem.io.vn vào .env"
+# Hạ quyền về user thường nếu đang chạy bằng sudo
+if [ "$EUID" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    info "Hạ quyền sang $SUDO_USER cho redeploy..."
+    exec sudo -u "$SUDO_USER" -E bash "$SCRIPT_DIR/redeploy.sh"
 fi
 
-mkdir -p data
-
-# ── 5. Build & Deployment ─────────────────────────────────────────────────────
-info "Deploying hệ thống bằng Docker Compose..."
-docker compose pull --ignore-buildable || true
-docker compose build --no-cache
-docker compose down --remove-orphans || true
-docker compose up -d
-
-info "Chờ các service khởi động..."
-sleep 5
-docker compose ps
-
-# ── Kết thúc ──────────────────────────────────────────────────────────────────
-SERVER_IP=$(hostname -I | awk '{print $1}')
-echo ""
-info "Deploy thành công ứng dụng Memio!"
-info "Đồng thời đảm bảo bạn đã trỏ 2 bản ghi A (mem.io.vn và api.mem.io.vn) trên cấu hình DNS về IP: ${SERVER_IP}"
-echo -e "  ${GREEN}Frontend  (Next.js)  ${NC}→  https://mem.io.vn"
-echo -e "  ${GREEN}Backend API (FastAPI)${NC}→  https://api.mem.io.vn"
-echo ""
-info "Kiểm tra log: docker compose logs -f"
+bash "$SCRIPT_DIR/redeploy.sh"
