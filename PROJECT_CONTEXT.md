@@ -2,6 +2,9 @@
 
 > **Read this FIRST** before making any code change. It summarises the product, architecture, file layout, DB schema, API surface, design system, deployment, and known pitfalls so you don't have to explore the codebase from scratch.
 
+> **Product Stage: PILOT (team decision, effective 2026-04-29).**
+> Treat this project as a pilot deployment: usable by a controlled group of real users, with known limitations, and prioritized stability/feedback before broad production scale.
+
 ## 1. Product Overview
 
 **Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (Anthropic Claude) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
@@ -159,8 +162,19 @@ Base: `/api` (mounted in `src/main.py`)
 
 ## 9. Deployment
 
-- **Topology:** App server runs Docker Compose (`caddy` + `backend` + `frontend`); DB server runs PostgreSQL via `db_deploy/`.
-- **Deploy:** `sudo bash scripts/deploy.sh` (auto-installs Docker, configures UFW, builds & starts containers).
+- **Topology:** App server chạy **Docker Swarm single-node** (`caddy` + `backend` + `frontend` + `worker` + `beat` + `redis`); DB server chạy PostgreSQL riêng qua `db_deploy/`.
+- **Tiền điều kiện trên server (do user tự cài, KHÔNG nằm trong script):**
+  - Docker engine + compose plugin: cài theo https://docs.docker.com/engine/install/ và https://docs.docker.com/compose/install/linux/.
+  - User chạy deploy thuộc group `docker`.
+- **Pilot deploy flow (server 2GB RAM / 2 vCPU / 30GB SSD):**
+  - One-time bootstrap: `sudo bash scripts/bootstrap.sh` — kiểm tra Docker đã có, ghi `/etc/docker/daemon.json` (BuildKit GC `defaultKeepStorage: 8GB` + log rotation `max-size 10m, max-file 3`), bật swap 2GB (`vm.swappiness=10`), mở UFW 80/443, `docker swarm init` nếu chưa init.
+  - Mỗi lần deploy hằng ngày: `bash scripts/redeploy.sh` — KHÔNG cần sudo. Flow: pre-check disk (prune build cache nếu free `<6GB`), build local image qua `docker compose build backend frontend` (không `--no-cache`), `docker stack deploy --resolve-image=never -c docker-stack.yml memio`. Swarm tự rolling update theo `update_config` (`start-first` cho stateless, `stop-first` cho `beat`).
+  - Wrapper cũ `sudo bash scripts/deploy.sh` vẫn dùng được (tự bootstrap nếu cần rồi gọi redeploy bằng user thường).
+- **Files chính:**
+  - `docker-compose.yml`: chỉ dùng để **build image local** (gắn `image: a20-app-001-{backend,frontend}:pilot`), worker/beat tái dùng image backend.
+  - `docker-stack.yml`: file deploy cho Swarm — `deploy.resources.limits.{memory,cpus}`, `replicas: 1`, `update_config` rolling.
+- **Resource limits (đặt trong `docker-stack.yml > deploy.resources.limits`):** `backend 512M/1.0`, `frontend 384M/0.75`, `worker 384M/0.75`, `beat 128M/0.25`, `caddy 128M/0.25`, `redis 128M/0.25`. Tổng ~1.7GB, vừa với RAM 2GB + swap 2GB.
+- **Image pipeline hiện tại:** build local trên chính server (chưa dùng GHCR). Có thể chuyển sang GHCR pull-only sau khi cần giảm RAM peak khi deploy.
 
 | Service | Image | Port |
 |---|---|---|
