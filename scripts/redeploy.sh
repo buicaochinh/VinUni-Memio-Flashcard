@@ -3,8 +3,8 @@
 # HDSD: bash scripts/redeploy.sh
 # Mục đích: deploy hằng ngày, KHÔNG cần sudo, dùng Swarm rolling update.
 #   - Pre-check disk để tránh đầy ổ.
-#   - Pull image từ GHCR theo GHCR_NAMESPACE/IMAGE_TAG.
-#   - docker stack deploy --with-registry-auth để Swarm pull private image.
+#   - Build image local qua docker compose (không --no-cache).
+#   - docker stack deploy từ local images (không dùng registry auth).
 #   - Chờ stack converge ở trạng thái healthy.
 set -euo pipefail
 
@@ -31,18 +31,6 @@ SWARM_STATE=$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || ec
 [ -f "$STACK_FILE" ]  || error "Thiếu $STACK_FILE tại $PROJECT_DIR"
 [ -f .env ]            || error "Thiếu .env tại $PROJECT_DIR"
 
-# Export biến từ .env để dùng chung cho script + stack expand
-set -a
-# shellcheck disable=SC1091
-. "./.env"
-set +a
-
-GHCR_NAMESPACE="${GHCR_NAMESPACE:-}"
-IMAGE_TAG="${IMAGE_TAG:-pilot-latest}"
-if [ -z "$GHCR_NAMESPACE" ]; then
-    error "Thiếu GHCR_NAMESPACE. Ví dụ: export GHCR_NAMESPACE=<github_username>"
-fi
-
 # ── 1. Pre-check disk: prune build cache khi free < 6GB ───────────────────────
 DISK_FREE_GB=$(df --output=avail -BG / | tail -n1 | tr -dc '0-9')
 DISK_THRESHOLD_GB=${DISK_THRESHOLD_GB:-6}
@@ -53,19 +41,13 @@ if [ "${DISK_FREE_GB:-0}" -lt "$DISK_THRESHOLD_GB" ]; then
     docker image prune -f   || true
 fi
 
-# ── 2. Pull image từ GHCR ──────────────────────────────────────────────────────
-BACKEND_IMAGE="ghcr.io/${GHCR_NAMESPACE}/a20-backend:${IMAGE_TAG}"
-FRONTEND_IMAGE="ghcr.io/${GHCR_NAMESPACE}/a20-frontend:${IMAGE_TAG}"
-
-info "Pull image GHCR:"
-info "  - $BACKEND_IMAGE"
-info "  - $FRONTEND_IMAGE"
-docker pull "$BACKEND_IMAGE"
-docker pull "$FRONTEND_IMAGE"
+# ── 2. Build image local ───────────────────────────────────────────────────────
+info "Build local images: backend + frontend"
+docker compose build backend frontend
 
 # ── 3. Deploy stack lên Swarm ─────────────────────────────────────────────────
 info "Deploy stack '$STACK_NAME' từ $STACK_FILE..."
-docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
+docker stack deploy -c "$STACK_FILE" "$STACK_NAME"
 
 # ── 4. Chờ stack converge ─────────────────────────────────────────────────────
 info "Chờ các service đạt replicas mong muốn (timeout ${CONVERGE_TIMEOUT}s)..."

@@ -1,9 +1,9 @@
 # Docker Swarm stack cho A20-App-001 (Pilot)
-# Cách dùng (GHCR pull-only):
-#   1) Export biến: GHCR_NAMESPACE + IMAGE_TAG
-#   2) Deploy: docker stack deploy --with-registry-auth -c docker-stack.yml memio
+# Cách dùng (build local trên server):
+#   1) Build image local: docker compose build backend frontend
+#   2) Deploy: docker stack deploy -c docker-stack.yml memio
 # Lưu ý:
-#   - Image pull từ GHCR thay vì build local trên server.
+#   - Image dùng local tag, không phụ thuộc GHCR/CI.
 #   - Postgres tự host KHÔNG nằm trong stack này (chạy riêng).
 #   - update_config: start-first cho service stateless, stop-first cho beat (chỉ 1 instance).
 version: "3.8"
@@ -38,7 +38,7 @@ services:
         failure_action: rollback
 
   backend:
-    image: ghcr.io/${GHCR_NAMESPACE}/a20-backend:${IMAGE_TAG:-pilot-latest}
+    image: a20-app-001-backend:pilot
     env_file:
       - .env
     volumes:
@@ -79,7 +79,7 @@ services:
           cpus: "0.25"
 
   worker:
-    image: ghcr.io/${GHCR_NAMESPACE}/a20-backend:${IMAGE_TAG:-pilot-latest}
+    image: a20-app-001-backend:pilot
     env_file:
       - .env
     command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "worker", "-l", "INFO"]
@@ -98,7 +98,7 @@ services:
         order: start-first
 
   beat:
-    image: ghcr.io/${GHCR_NAMESPACE}/a20-backend:${IMAGE_TAG:-pilot-latest}
+    image: a20-app-001-backend:pilot
     env_file:
       - .env
     command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "beat", "-l", "INFO"]
@@ -117,7 +117,7 @@ services:
         order: stop-first
 
   frontend:
-    image: ghcr.io/${GHCR_NAMESPACE}/a20-frontend:${IMAGE_TAG:-pilot-latest}
+    image: a20-app-001-frontend:pilot
     deploy:
       replicas: 1
       restart_policy:
