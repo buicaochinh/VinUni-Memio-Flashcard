@@ -2,9 +2,9 @@
 # Redeploy A20-App-001 (Pilot, Docker Swarm)
 # HDSD: bash scripts/redeploy.sh
 # Mục đích: deploy hằng ngày, KHÔNG cần sudo, dùng Swarm rolling update.
-#   - Pre-check disk: prune build cache khi free < ngưỡng.
-#   - Build image local qua docker compose (không --no-cache).
-#   - docker stack deploy -> Swarm tự rolling update theo update_config.
+#   - Pre-check disk để tránh đầy ổ.
+#   - Pull image từ GHCR theo GHCR_NAMESPACE/IMAGE_TAG.
+#   - docker stack deploy --with-registry-auth để Swarm pull private image.
 #   - Chờ stack converge ở trạng thái healthy.
 set -euo pipefail
 
@@ -20,8 +20,6 @@ info "Thư mục làm việc: $PROJECT_DIR"
 
 STACK_NAME="${STACK_NAME:-memio}"
 STACK_FILE="${STACK_FILE:-docker-stack.yml}"
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
-BUILD_SERVICES="${BUILD_SERVICES:-backend frontend}"
 CONVERGE_TIMEOUT="${CONVERGE_TIMEOUT:-180}"
 
 command -v docker >/dev/null 2>&1 || error "Chưa có docker. Hãy cài Docker rồi chạy: sudo bash scripts/bootstrap.sh"
@@ -31,8 +29,19 @@ SWARM_STATE=$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || ec
 [ "$SWARM_STATE" = "active" ] || error "Swarm chưa init. Hãy chạy: sudo bash scripts/bootstrap.sh"
 
 [ -f "$STACK_FILE" ]  || error "Thiếu $STACK_FILE tại $PROJECT_DIR"
-[ -f "$COMPOSE_FILE" ] || error "Thiếu $COMPOSE_FILE tại $PROJECT_DIR"
 [ -f .env ]            || error "Thiếu .env tại $PROJECT_DIR"
+
+# Export biến từ .env để dùng chung cho script + stack expand
+set -a
+# shellcheck disable=SC1091
+. "./.env"
+set +a
+
+GHCR_NAMESPACE="${GHCR_NAMESPACE:-}"
+IMAGE_TAG="${IMAGE_TAG:-pilot-latest}"
+if [ -z "$GHCR_NAMESPACE" ]; then
+    error "Thiếu GHCR_NAMESPACE. Ví dụ: export GHCR_NAMESPACE=<github_username>"
+fi
 
 # ── 1. Pre-check disk: prune build cache khi free < 6GB ───────────────────────
 DISK_FREE_GB=$(df --output=avail -BG / | tail -n1 | tr -dc '0-9')
@@ -44,20 +53,19 @@ if [ "${DISK_FREE_GB:-0}" -lt "$DISK_THRESHOLD_GB" ]; then
     docker image prune -f   || true
 fi
 
-# ── 2. Build image local qua compose (tag đã đặt trong docker-compose.yml) ────
-info "Build local: $BUILD_SERVICES (không --no-cache)"
-# shellcheck disable=SC2086
-docker compose -f "$COMPOSE_FILE" build $BUILD_SERVICES
+# ── 2. Pull image từ GHCR ──────────────────────────────────────────────────────
+BACKEND_IMAGE="ghcr.io/${GHCR_NAMESPACE}/a20-backend:${IMAGE_TAG}"
+FRONTEND_IMAGE="ghcr.io/${GHCR_NAMESPACE}/a20-frontend:${IMAGE_TAG}"
+
+info "Pull image GHCR:"
+info "  - $BACKEND_IMAGE"
+info "  - $FRONTEND_IMAGE"
+docker pull "$BACKEND_IMAGE"
+docker pull "$FRONTEND_IMAGE"
 
 # ── 3. Deploy stack lên Swarm ─────────────────────────────────────────────────
-# Export biến từ .env để docker stack deploy expand được
-set -a
-# shellcheck disable=SC1091
-. "./.env"
-set +a
-
 info "Deploy stack '$STACK_NAME' từ $STACK_FILE..."
-docker stack deploy --resolve-image=never -c "$STACK_FILE" "$STACK_NAME"
+docker stack deploy --with-registry-auth -c "$STACK_FILE" "$STACK_NAME"
 
 # ── 4. Chờ stack converge ─────────────────────────────────────────────────────
 info "Chờ các service đạt replicas mong muốn (timeout ${CONVERGE_TIMEOUT}s)..."
