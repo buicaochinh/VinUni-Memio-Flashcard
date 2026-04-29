@@ -3,6 +3,8 @@ services:
     image: caddy:2-alpine
     container_name: caddy
     restart: always
+    mem_limit: 128m
+    cpus: 0.25
     ports:
       - "80:80"
       - "443:443"
@@ -15,6 +17,7 @@ services:
       - backend
 
   backend:
+    image: a20-app-001-backend:pilot
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -23,6 +26,8 @@ services:
     volumes:
       - ./data:/app/data
     restart: always
+    mem_limit: 512m
+    cpus: 1.0
     command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
@@ -34,30 +39,35 @@ services:
     image: redis:7-alpine
     container_name: redis
     restart: always
+    mem_limit: 128m
+    cpus: 0.25
 
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
+    image: a20-app-001-backend:pilot
     env_file:
       - .env
     depends_on:
       - redis
+      - backend
     restart: always
+    mem_limit: 384m
+    cpus: 0.75
     command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "worker", "-l", "INFO"]
 
   beat:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
+    image: a20-app-001-backend:pilot
     env_file:
       - .env
     depends_on:
       - redis
+      - backend
     restart: always
+    mem_limit: 128m
+    cpus: 0.25
     command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "beat", "-l", "INFO"]
 
   frontend:
+    image: a20-app-001-frontend:pilot
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -67,6 +77,8 @@ services:
       backend:
         condition: service_healthy
     restart: always
+    mem_limit: 384m
+    cpus: 0.75
 
 volumes:
   caddy_data:
