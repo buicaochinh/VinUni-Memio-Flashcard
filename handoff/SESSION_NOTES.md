@@ -1,5 +1,58 @@
 ## Handoff Notes (Memio) — 2026-04-27
 
+**Product stage decision (2026-04-29): PILOT.**
+- Scope: triển khai thật cho nhóm người dùng kiểm soát, ưu tiên ổn định + thu phản hồi.
+- Khi AI agent đọc lại file này, mặc định coi sản phẩm ở giai đoạn Pilot (không tự gán Prototype/MVP/Production-ready nếu chưa có quyết định mới).
+
+## Update — 2026-04-29 (Deploy Quick Wins -> Docker Swarm, build local)
+
+Bối cảnh: server `2GB RAM / 2 vCPU / 30GB SSD`, hay treo khi deploy nếu không `docker compose down` trước. Build cache từng phình tới 18GB do `--no-cache`. Theo quyết định ngày 2026-04-29, chuyển deploy sang **Docker Swarm single-node** + **người dùng tự cài Docker** (script không tự cài nữa). Image **build local trên server**, chưa dùng registry.
+
+### Files chính
+- `docker-compose.yml`: chỉ dùng để **build image local**.
+  - `backend` được gán `image: a20-app-001-backend:pilot`.
+  - `worker` và `beat` tái dùng cùng image `a20-app-001-backend:pilot` (bỏ `build:` để không build trùng).
+  - `frontend` được gán `image: a20-app-001-frontend:pilot`.
+- `docker-stack.yml` (mới): file deploy cho Swarm.
+  - `deploy.resources.limits.memory/cpus` thay cho `mem_limit`/`cpus`: `backend 512M/1.0`, `frontend 384M/0.75`, `worker 384M/0.75`, `beat 128M/0.25`, `caddy 128M/0.25`, `redis 128M/0.25`.
+  - `update_config.order: start-first` cho `caddy/backend/frontend/worker`, `stop-first` cho `beat` (chỉ 1 instance).
+  - `restart_policy.condition: any` cho mọi service.
+  - `caddy` publish ports `80/443` ở `mode: host` (giữ IP gốc cho Let's Encrypt).
+  - Healthcheck giữ ở `backend`.
+- `scripts/bootstrap.sh` (rewrite, cần sudo, chạy 1 lần / khi đổi cấu hình):
+  - **KHÔNG còn cài Docker** — fail có hướng dẫn nếu Docker chưa sẵn.
+  - Ghi `/etc/docker/daemon.json`: `log-driver json-file` (`max-size 10m`, `max-file 3`) + BuildKit GC (`defaultKeepStorage 8GB`).
+  - Bật swap `/swapfile` 2GB + `vm.swappiness=10`.
+  - Mở UFW 80/443.
+  - `docker swarm init --advertise-addr <eth0>` nếu chưa active.
+  - Restart Docker khi thay daemon.json.
+- `scripts/redeploy.sh` (rewrite, KHÔNG cần sudo):
+  - Pre-check disk: prune build cache khi free `<6GB`.
+  - `docker compose build backend frontend` (không `--no-cache`).
+  - `set -a; . .env; set +a` để export env cho stack expand.
+  - `docker stack deploy --resolve-image=never -c docker-stack.yml memio`.
+  - Chờ stack converge (timeout 180s) bằng cách đọc `docker stack services <name> --format '{{.Name}} {{.Replicas}}'`.
+  - In `docker stack services` + `docker stack ps` cuối cùng.
+- `scripts/deploy.sh`: wrapper — phát hiện thiếu daemon.json/swap/swarm thì gọi bootstrap, rồi hạ quyền user thường gọi `redeploy.sh`.
+
+### Quy trình deploy mới (Pilot)
+- Tiền điều kiện: Docker engine + compose plugin do **user tự cài** (xem hướng dẫn tại docs.docker.com).
+- Lần đầu trên server: `sudo bash scripts/bootstrap.sh`.
+- Mỗi lần update code: `bash scripts/redeploy.sh` (user thường, đã thuộc group `docker`).
+- Wrapper cũ: `sudo bash scripts/deploy.sh` vẫn dùng được.
+
+### Lệnh quan sát/quản trị Swarm hữu ích
+- `docker stack services memio` — trạng thái replicas.
+- `docker stack ps memio --no-trunc` — task gần nhất, lý do restart.
+- `docker service logs -f memio_backend` — log realtime 1 service.
+- `docker stack rm memio` — gỡ stack (image vẫn còn).
+- `docker swarm leave --force` — rời swarm (thận trọng).
+
+### Việc còn để pha sau (theo quyết định)
+- B: tối ưu image backend (đổi base, multi-stage gọn) — chưa làm.
+- F: CI build + GHCR pull-only — chưa làm; khi cần giảm RAM peak deploy thì chuyển từ build local sang pull GHCR.
+- G: đo lại baseline 5 lần liên tiếp để xác nhận downtime ngắn (Swarm rolling update với `start-first` thường downtime <5s cho stateless).
+
 Mục tiêu: Learning Automation “Study Buddy Bot” (Telegram/Discord) + JWT auth + worker scheduler + chuẩn bị billing/quota (MoMo/ZaloPay) + chuyển migrations sang Alembic.
 
 ## Update — 2026-04-28
