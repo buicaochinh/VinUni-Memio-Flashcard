@@ -12,6 +12,7 @@ import {
   fetchDeckCards,
   fetchDecks,
   getStoredUser,
+  useClientReady,
   User,
 } from "../../lib/app-client";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -28,6 +29,7 @@ function shareUrl(token: string) {
 
 export default function WorkspacePage() {
   const router = useRouter();
+  const clientReady = useClientReady();
   const [user, setUser] = useState<User | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [cardCounts, setCardCounts] = useState<Record<number, number>>({});
@@ -48,11 +50,12 @@ export default function WorkspacePage() {
   };
 
   useEffect(() => {
+    if (!clientReady) return;
     const storedUser = getStoredUser();
     if (!storedUser) { router.replace("/"); return; }
     setUser(storedUser);
     void hydrate(storedUser.id);
-  }, [router]);
+  }, [clientReady, router]);
 
   const hydrate = async (userId: number) => {
     try {
@@ -165,14 +168,14 @@ export default function WorkspacePage() {
           "before:bg-[radial-gradient(900px_circle_at_20%_-10%,hsl(var(--primary)/0.10),transparent_45%),radial-gradient(700px_circle_at_85%_0%,hsl(var(--primary)/0.06),transparent_40%)]"
         )}
       >
-        <header className="px-6 sm:px-8 pt-7 pb-6 max-w-4xl animate-in fade-in slide-in-from-bottom-3 duration-500">
+        <header className="px-6 sm:px-8 pt-7 pb-6 max-w-4xl">
           <p className="text-[0.8rem] font-semibold text-muted-foreground mb-3 flex items-center gap-2">
             <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-border/70">
               <FolderKanban className="w-4 h-4 text-primary shrink-0" aria-hidden />
             </span>
             Bộ thẻ
           </p>
-          <h1 className="text-[clamp(1.65rem,3.8vw,2.75rem)] font-bold tracking-tight text-balance mb-4">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance mb-4">
             Xin chào, {user.name}
           </h1>
           <p className="text-muted-foreground text-[0.98rem] leading-relaxed">
