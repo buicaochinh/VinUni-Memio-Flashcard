@@ -45,12 +45,28 @@ fi
 info "Build local images: backend + frontend"
 docker compose build backend frontend
 
+# ── 2.1 Tag theo deploy-id để Swarm luôn rollout ──────────────────────────────
+# Docker Swarm không tự biết tag local `:pilot` đã đổi nội dung (không có digest từ registry),
+# nên nếu image name không đổi, service có thể KHÔNG update. Giải pháp: retag theo deploy-id.
+GIT_SHA="nogit"
+if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo nogit)"
+fi
+DEPLOY_ID="${DEPLOY_ID:-${GIT_SHA}-$(date +%Y%m%d%H%M%S)}"
+
+BACKEND_IMAGE="a20-app-001-backend:pilot-${DEPLOY_ID}"
+FRONTEND_IMAGE="a20-app-001-frontend:pilot-${DEPLOY_ID}"
+
+info "Retag images -> BACKEND_IMAGE=$BACKEND_IMAGE, FRONTEND_IMAGE=$FRONTEND_IMAGE"
+docker tag a20-app-001-backend:pilot "$BACKEND_IMAGE"
+docker tag a20-app-001-frontend:pilot "$FRONTEND_IMAGE"
+
 # ── 3. Deploy stack lên Swarm ─────────────────────────────────────────────────
 info "Deploy stack '$STACK_NAME' từ $STACK_FILE..."
 # Stack này cố ý dùng local images (không registry), nên không cần Swarm resolve/pin digest.
 # `--resolve-image=never` sẽ tránh cảnh báo "could not be accessed on a registry to record its digest".
 # `--detach=false` để hành vi rõ ràng (và tránh warning về default trong tương lai).
-docker stack deploy \
+BACKEND_IMAGE="$BACKEND_IMAGE" FRONTEND_IMAGE="$FRONTEND_IMAGE" docker stack deploy \
   --detach=false \
   --resolve-image=never \
   -c "$STACK_FILE" \

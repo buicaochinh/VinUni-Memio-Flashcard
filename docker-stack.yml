@@ -40,7 +40,7 @@ services:
         failure_action: rollback
 
   backend:
-    image: a20-app-001-backend:pilot
+    image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
     env_file:
       - .env
     volumes:
@@ -81,7 +81,7 @@ services:
           cpus: "0.25"
 
   worker:
-    image: a20-app-001-backend:pilot
+    image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
     env_file:
       - .env
     command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "worker", "-l", "INFO"]
@@ -100,7 +100,7 @@ services:
         order: start-first
 
   beat:
-    image: a20-app-001-backend:pilot
+    image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
     env_file:
       - .env
     command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "beat", "-l", "INFO"]
@@ -119,7 +119,7 @@ services:
         order: stop-first
 
   frontend:
-    image: a20-app-001-frontend:pilot
+    image: ${FRONTEND_IMAGE:-a20-app-001-frontend:pilot}
     deploy:
       replicas: 1
       restart_policy:
