@@ -17,6 +17,8 @@ import {
 } from "../../lib/app-client";
 import { Link2, Loader2, Send, Trash2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 
 const SEND_WINDOW_RE = /^\d{2}:\d{2}-\d{2}:\d{2}$/;
 
@@ -185,27 +187,33 @@ export default function IntegrationsPage() {
   return (
     <AppShell user={user}>
       <div className="mb-10">
-        <h1 className="text-3xl font-black tracking-tight mb-2 flex items-center gap-3">
+        <h1 className="text-[clamp(1.65rem,3.8vw,2.25rem)] font-bold tracking-tight mb-2 flex items-center gap-3">
           <Link2 className="w-8 h-8 text-primary" />
           Liên kết Telegram
         </h1>
-        <p className="text-muted-foreground text-sm max-w-xl leading-relaxed">
-          Mở Telegram, tìm bot Memio, gõ <code className="px-1.5 py-0.5 rounded bg-surface-muted border border-border text-xs font-mono">/start</code> để nhận mã 8 ký tự, rồi dán vào ô bên dưới (mã có hiệu lực 10 phút).
+        <p className="text-muted-foreground text-[0.95rem] max-w-xl leading-relaxed">
+          Mở Telegram, tìm bot Memio, gõ{" "}
+          <code className="px-1.5 py-0.5 rounded bg-muted/60 ring-1 ring-border/60 text-xs font-mono">
+            /start
+          </code>{" "}
+          để nhận mã 8 ký tự, rồi dán vào ô bên dưới (mã có hiệu lực 10 phút).
         </p>
       </div>
 
-      <section className="rounded-[24px] border border-border bg-surface-raised p-6 shadow-[0_16px_60px_-30px_rgba(0,0,0,0.25)] mb-6">
+      <section className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm mb-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">Bước 1</p>
-            <h2 className="text-lg font-black tracking-tight">Nhập mã liên kết</h2>
+            <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              Bước 1
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight">Nhập mã liên kết</h2>
           </div>
           <p className="text-xs text-muted-foreground">
             Tip: bạn có thể dán thẳng mã, hệ thống sẽ tự viết hoa.
           </p>
         </div>
-        <div className="mb-4 rounded-2xl border border-border bg-surface p-4">
-          <p className="text-sm font-black mb-1">Hướng dẫn nhanh</p>
+        <div className="mb-4 rounded-2xl border border-border/70 bg-[hsl(var(--acrylic))] backdrop-blur-md p-4">
+          <p className="text-sm font-semibold mb-1">Hướng dẫn nhanh</p>
           <ol className="list-decimal pl-5 text-sm text-muted-foreground space-y-1">
             <li>Mở chat riêng với bot trên Telegram và gõ <span className="font-mono font-bold text-foreground">/start</span>.</li>
             <li>Dán mã 8 ký tự vào ô dưới để liên kết.</li>
@@ -214,7 +222,7 @@ export default function IntegrationsPage() {
           </ol>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 border border-border bg-surface-muted rounded-xl p-1 shadow-inner">
+          <div className="flex-1 border border-border/70 bg-[hsl(var(--acrylic))] backdrop-blur-md rounded-xl p-1 shadow-sm">
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12))}
@@ -224,50 +232,45 @@ export default function IntegrationsPage() {
               disabled={linking}
             />
           </div>
-          <button
+          <Button
             type="button"
+            variant="primary"
             onClick={() => void onLink()}
             disabled={linking || !code.trim()}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-bold text-[0.92rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+            className="sm:min-w-[140px]"
           >
             {linking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             Liên kết
-          </button>
+          </Button>
         </div>
       </section>
 
       {msg && (
-        <p className="mb-4 text-sm font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded-xl px-4 py-3">
+        <p className="mb-4 text-sm font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 rounded-2xl px-4 py-3">
           {msg}
         </p>
       )}
       {err && (
-        <p className="mb-4 text-sm font-bold text-destructive border border-destructive/30 bg-destructive/10 rounded-xl px-4 py-3">
+        <p className="mb-4 text-sm font-semibold text-destructive border border-destructive/30 bg-destructive/10 rounded-2xl px-4 py-3">
           {err}
         </p>
       )}
 
-      <section className="rounded-[24px] border border-border bg-surface p-6 shadow-sm">
+      <section className="rounded-2xl border border-border bg-background p-6 shadow-sm">
         <div className="flex items-end justify-between gap-3 mb-6">
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">Bước 2</p>
-            <h2 className="text-lg font-black tracking-tight">Đã liên kết</h2>
+            <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              Bước 2
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight">Đã liên kết</h2>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void onTestWeekly()}
-              className="px-4 py-2 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-[0.82rem] hover:-translate-y-px active:translate-y-0 transition-transform shadow-xs"
-            >
+            <Button type="button" size="sm" variant="secondary" onClick={() => void onTestWeekly()}>
               Test weekly report
-            </button>
-            <button
-              type="button"
-              onClick={() => void onTestDue()}
-              className="px-4 py-2 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-[0.82rem] hover:-translate-y-px active:translate-y-0 transition-transform shadow-xs"
-            >
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => void onTestDue()}>
               Test gửi thẻ
-            </button>
+            </Button>
             <p className="hidden md:block text-xs text-muted-foreground">
               Cấu hình giờ gửi và mục tiêu để bot nhắc học đúng nhịp.
             </p>
@@ -278,8 +281,10 @@ export default function IntegrationsPage() {
             <Loader2 className="w-8 h-8 animate-spin" />
           </div>
         ) : rows.length === 0 ? (
-          <div className="border border-dashed border-border rounded-[22px] p-8 bg-surface-muted/30">
-            <p className="text-foreground font-black text-lg tracking-tight mb-1">Chưa có liên kết nào</p>
+          <div className="border border-dashed border-border/80 rounded-2xl p-8 bg-[hsl(var(--acrylic))] backdrop-blur-md">
+            <p className="text-foreground font-semibold text-lg tracking-tight mb-1">
+              Chưa có liên kết nào
+            </p>
             <p className="text-muted-foreground text-sm leading-relaxed max-w-xl">
               Hãy mở Telegram và gõ <span className="font-mono font-bold">/start</span> để lấy mã. Dán mã vào ô bên trên để liên kết.
             </p>
@@ -293,12 +298,17 @@ export default function IntegrationsPage() {
                 daily_goal: String(r.daily_goal),
               };
               return (
-                <li key={r.provider} className="border border-border rounded-[22px] bg-surface-muted/30 overflow-hidden">
+                <li
+                  key={r.provider}
+                  className="border border-border rounded-2xl bg-[hsl(var(--acrylic-strong))] backdrop-blur-md overflow-hidden shadow-sm"
+                >
                   <div className="p-5 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2.5">
-                        <p className="font-black text-lg tracking-tight">{providerLabel(r.provider)}</p>
-                        <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-border bg-surface text-muted-foreground">
+                        <p className="font-semibold text-lg tracking-tight">
+                          {providerLabel(r.provider)}
+                        </p>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-border/70 bg-[hsl(var(--acrylic))] text-muted-foreground">
                           Active
                         </span>
                       </div>
@@ -312,7 +322,7 @@ export default function IntegrationsPage() {
                         </div>
                         <div className="w-full h-2 rounded-full bg-surface-muted overflow-hidden">
                           <div
-                            className="h-full rounded-full transition-[width] duration-400 ease-in-out bg-gradient-to-r from-secondary to-[#34d399]"
+                            className="h-full rounded-full transition-[width] duration-400 ease-in-out bg-[linear-gradient(90deg,hsl(var(--primary))_0%,hsl(var(--success))_100%)]"
                             style={{ width: `${Math.round(sentRatio(r) * 100)}%` }}
                           />
                         </div>
@@ -339,54 +349,57 @@ export default function IntegrationsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 self-start">
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="danger"
                         onClick={() => void onUnlink(r.provider)}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-danger bg-[#fff1f2] dark:bg-danger/10 border border-danger/15 font-bold hover:-translate-y-px active:translate-y-0 transition-all text-xs"
                       >
                         <Trash2 className="w-4 h-4" />
                         Hủy liên kết
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
                   <div className="px-5 pb-5">
                     <div className="grid md:grid-cols-4 gap-3">
-                      <label className="flex flex-col gap-1.5 text-[11px] font-black text-muted-foreground uppercase tracking-wider">
+                      <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                         Múi giờ
-                        <input
+                        <Input
                           value={f.timezone}
                           onChange={(e) => updateForm(r.provider, { timezone: e.target.value })}
-                          className="px-4 py-3 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm font-semibold normal-case text-foreground"
+                          className="font-medium"
                           placeholder="Asia/Ho_Chi_Minh"
                         />
                       </label>
-                      <label className="flex flex-col gap-1.5 text-[11px] font-black text-muted-foreground uppercase tracking-wider">
+                      <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                         Khung giờ (HH:MM-HH:MM)
-                        <input
+                        <Input
                           value={f.send_window}
                           onChange={(e) => updateForm(r.provider, { send_window: e.target.value })}
                           className={cn(
-                            "px-4 py-3 rounded-xl border bg-surface outline-none focus:border-primary transition-colors text-sm font-semibold normal-case text-foreground font-mono",
-                            SEND_WINDOW_RE.test(f.send_window.trim()) ? "border-border" : "border-amber-500"
+                            "font-mono",
+                            SEND_WINDOW_RE.test(f.send_window.trim())
+                              ? ""
+                              : "border-amber-500 focus-visible:outline-amber-500/50"
                           )}
                           placeholder="19:00-22:00"
                         />
                       </label>
-                      <label className="flex flex-col gap-1.5 text-[11px] font-black text-muted-foreground uppercase tracking-wider">
+                      <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                         Mục tiêu mỗi ngày
-                        <input
+                        <Input
                           type="number"
                           min={1}
                           max={500}
                           value={f.daily_goal}
                           onChange={(e) => updateForm(r.provider, { daily_goal: e.target.value })}
-                          className="px-4 py-3 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm font-semibold normal-case text-foreground"
+                          className="font-medium"
                         />
                       </label>
-                      <label className="flex flex-col gap-1.5 text-[11px] font-black text-muted-foreground uppercase tracking-wider">
+                      <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                         Group chat id (weekly report)
-                        <input
+                        <Input
                           defaultValue={r.group_target_id ?? ""}
                           onBlur={(e) => {
                             const v = e.currentTarget.value.trim();
@@ -394,7 +407,7 @@ export default function IntegrationsPage() {
                               .then(() => load())
                               .catch((er) => setErr(er instanceof Error ? er.message : "Không lưu được."));
                           }}
-                          className="px-4 py-3 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm font-semibold normal-case text-foreground font-mono"
+                          className="font-mono"
                           placeholder="-100xxxxxxxxxx"
                         />
                       </label>
@@ -404,15 +417,16 @@ export default function IntegrationsPage() {
                       <p className="text-xs text-muted-foreground">
                         Bot sẽ gửi tối đa <span className="font-mono font-bold text-foreground">{r.daily_goal}</span> thẻ/ngày trong khung giờ trên.
                       </p>
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
                         disabled={saving === r.provider}
                         onClick={() => void onSave(r.provider)}
-                        className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-0 font-bold text-[0.92rem] transition-all text-white bg-foreground shadow-xs hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        className="sm:min-w-[160px]"
                       >
                         {saving === r.provider ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                         Lưu cấu hình
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
