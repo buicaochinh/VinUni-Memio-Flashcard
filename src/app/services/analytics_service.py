@@ -1,6 +1,6 @@
 import datetime
 from sqlmodel import Session, select, func, case
-from src.app.models.domain import Deck, Flashcard, Progress, StudySession
+from src.app.models.domain import Deck, Flashcard, Progress, StudySession, User
 
 def get_analytics(session: Session, user_id: int):
     # 1. Streak
@@ -16,6 +16,39 @@ def get_analytics(session: Session, user_id: int):
     ).group_by(StudySession.session_date)
     heatmap_results = session.exec(heatmap_statement).all()
     heatmap = {row[0]: row[1] for row in heatmap_results}
+
+    # 2.5 Predicted mastery timeline (30 ngày tới)
+    # Ý tưởng: "mastery" ~ % các thẻ mà SM-2 dự đoán sẽ đến hạn ôn trong khoảng tới ngày đó.
+    today = datetime.datetime.now().date()
+    next_review_statement = select(Progress.next_review).where(
+        Progress.user_id == user_id,
+        Progress.repetition > 0,
+        Progress.next_review.is_not(None),
+    )
+    next_review_rows = session.exec(next_review_statement).all()
+    next_review_dates = []
+    # SQLModel may return either scalar values or 1-tuples depending on backend/driver.
+    for row in next_review_rows:
+        nr = row[0] if isinstance(row, (tuple, list)) else row
+        if not nr:
+            continue
+        try:
+            next_review_dates.append(datetime.datetime.strptime(nr, "%Y-%m-%d").date())
+        except Exception:
+            continue
+
+    timeline_total = len(next_review_dates)
+    predicted_mastery_timeline = []
+    for i in range(1, 31):
+        threshold = today + datetime.timedelta(days=i)
+        if timeline_total > 0:
+            reached = sum(1 for d in next_review_dates if d <= threshold)
+            mastery_pct = round((reached / timeline_total) * 100, 1)
+        else:
+            mastery_pct = 0
+        predicted_mastery_timeline.append(
+            {"date": (today + datetime.timedelta(days=i)).strftime("%Y-%m-%d"), "mastery": mastery_pct}
+        )
 
     # 3. Hardest cards
     hardest_statement = select(Flashcard, Progress).join(Progress).where(
@@ -68,6 +101,56 @@ def get_analytics(session: Session, user_id: int):
             "hard_count": row[4] if row[4] else 0
         })
 
+    # 6. Weak areas recommendations (B: top decks yếu + top cards yếu EF thấp)
+    weak_decks = []
+    for ds in deck_stats:
+        reviewed_count = ds.get("reviewed_count", 0) or 0
+        hard_count = ds.get("hard_count", 0) or 0
+        weak_ratio = (hard_count / reviewed_count) if reviewed_count > 0 else 0
+        weak_decks.append({**ds, "weak_ratio": round(weak_ratio * 100, 1)})
+    weak_decks = sorted(weak_decks, key=lambda x: x["weak_ratio"], reverse=True)[:3]
+
+    weak_cards = hardest_cards[:5]
+
+    # 7. Anonymous peers comparison (A: forgetting_rate + avg reviews/day)
+    # - Your metrics
+    user_cards_stmt = select(func.sum(StudySession.cards_reviewed)).where(
+        StudySession.user_id == user_id,
+        StudySession.session_date >= since_date,
+    )
+    user_cards_sum = session.exec(user_cards_stmt).one() or 0
+    user_avg_reviews_per_day = round((float(user_cards_sum) / 35) if user_cards_sum else 0, 2)
+
+    # - Peer metrics across non-guest users
+    peer_hard_stmt = select(func.count(Progress.id)).join(User, User.id == Progress.user_id).where(
+        User.is_guest == False,
+        Progress.repetition > 0,
+        Progress.ease_factor < 2.0,
+    )
+    peer_total_stmt = select(func.count(Progress.id)).join(User, User.id == Progress.user_id).where(
+        User.is_guest == False,
+        Progress.repetition > 0,
+    )
+    peer_hard_cards = session.exec(peer_hard_stmt).one() or 0
+    peer_total_cards = session.exec(peer_total_stmt).one() or 0
+    peer_forgetting_rate = round(
+        (float(peer_hard_cards) / float(peer_total_cards) * 100) if peer_total_cards > 0 else 0,
+        1,
+    )
+
+    peer_user_sums_stmt = select(StudySession.user_id, func.sum(StudySession.cards_reviewed)).join(
+        User, User.id == StudySession.user_id
+    ).where(
+        User.is_guest == False,
+        StudySession.session_date >= since_date,
+    ).group_by(StudySession.user_id)
+    peer_user_sums = session.exec(peer_user_sums_stmt).all()
+    if peer_user_sums:
+        peer_avg_sum = sum(float(row[1] or 0) for row in peer_user_sums) / len(peer_user_sums)
+        peer_avg_reviews_per_day = round(peer_avg_sum / 35, 2)
+    else:
+        peer_avg_reviews_per_day = 0
+
     return {
         "streak": streak,
         "heatmap": heatmap,
@@ -75,6 +158,17 @@ def get_analytics(session: Session, user_id: int):
         "forgetting_rate": forgetting_rate,
         "total_reviewed": total_reviewed,
         "deck_stats": deck_stats,
+        "predicted_mastery_timeline": predicted_mastery_timeline,
+        "weak_areas": {
+            "weak_decks": weak_decks,
+            "weak_cards": weak_cards,
+        },
+        "peers_comparison": {
+            "your_forgetting_rate": forgetting_rate,
+            "peer_forgetting_rate": peer_forgetting_rate,
+            "your_avg_reviews_per_day": user_avg_reviews_per_day,
+            "peer_avg_reviews_per_day": peer_avg_reviews_per_day,
+        },
     }
 
 
