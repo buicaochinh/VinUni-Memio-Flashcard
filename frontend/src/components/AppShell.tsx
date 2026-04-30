@@ -1,12 +1,12 @@
 "use client";
 
-import {useState} from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {usePathname, useRouter} from "next/navigation";
-import {clearStoredUser, User} from "../lib/app-client";
-import {BarChart3, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon} from "lucide-react";
-import {cn} from "../lib/utils";
+import { usePathname, useRouter } from "next/navigation";
+import { clearStoredUser, User } from "../lib/app-client";
+import { BarChart3, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon } from "lucide-react";
+import { cn } from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
 import { Button } from "./ui/button";
 
@@ -35,7 +35,7 @@ export default function AppShell({ children, user }: AppShellProps) {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-transparent">
       {/* ── Sidebar (Desktop) ── */}
-      <aside className="hidden md:flex flex-col w-[280px] sticky top-0 h-screen border-r border-border bg-[hsl(var(--surface))] shadow-[6px_0_32px_rgba(0,0,0,0.05)] dark:shadow-[6px_0_32px_rgba(0,0,0,0.30)] p-6 gap-8 z-50">
+      <aside className="hidden md:flex flex-col w-[280px] sticky top-0 h-screen border-r border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md shadow-[6px_0_32px_rgba(0,0,0,0.05)] dark:shadow-[6px_0_32px_rgba(0,0,0,0.30)] p-6 gap-8 z-50">
         <div className="px-2 flex items-center justify-between gap-3">
           <Link href="/workspace" className="flex items-center gap-3 overflow-hidden outline-none">
             <div className="relative h-[42px] w-[42px]">
@@ -48,9 +48,8 @@ export default function AppShell({ children, user }: AppShellProps) {
                 priority
               />
             </div>
-            <span className="text-2xl font-bold tracking-tight">
-              <span className="text-primary">Mem</span>
-              <span className="text-foreground">io</span>
+            <span className="text-2xl font-extrabold tracking-tight text-foreground">
+              Memio
             </span>
           </Link>
         </div>
@@ -119,7 +118,7 @@ export default function AppShell({ children, user }: AppShellProps) {
         <ThemeToggle />
       </div>
 
-      <nav className="md:hidden flex fixed bottom-0 left-0 right-0 h-[68px] bg-[hsl(var(--acrylic-strong))] border-t border-border backdrop-blur-xl z-[100] pb-[env(safe-area-inset-bottom)] items-stretch shadow-[0_-6px_28px_rgba(0,0,0,0.06)]">
+      <nav className="md:hidden flex fixed bottom-0 left-0 right-0 h-[68px] bg-[hsl(var(--acrylic-strong))] border-t border-border backdrop-blur-md z-[100] pb-[env(safe-area-inset-bottom)] items-stretch shadow-[0_-6px_28px_rgba(0,0,0,0.06)]">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -140,7 +139,7 @@ export default function AppShell({ children, user }: AppShellProps) {
         <button
           type="button"
           onClick={handleLogout}
-          className="flex-1 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors outline-none text-muted-foreground hover:text-foreground"
+          className="flex-1 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors outline-none text-muted-foreground hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
         >
           <LogOut className="w-[22px] h-[22px]" strokeWidth={2} />
           <span className="text-[11px] font-bold">Thoát</span>
