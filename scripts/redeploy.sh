@@ -47,7 +47,14 @@ docker compose build backend frontend
 
 # ── 3. Deploy stack lên Swarm ─────────────────────────────────────────────────
 info "Deploy stack '$STACK_NAME' từ $STACK_FILE..."
-docker stack deploy -c "$STACK_FILE" "$STACK_NAME"
+# Stack này cố ý dùng local images (không registry), nên không cần Swarm resolve/pin digest.
+# `--resolve-image=never` sẽ tránh cảnh báo "could not be accessed on a registry to record its digest".
+# `--detach=false` để hành vi rõ ràng (và tránh warning về default trong tương lai).
+docker stack deploy \
+  --detach=false \
+  --resolve-image=never \
+  -c "$STACK_FILE" \
+  "$STACK_NAME"
 
 # ── 4. Chờ stack converge ─────────────────────────────────────────────────────
 info "Chờ các service đạt replicas mong muốn (timeout ${CONVERGE_TIMEOUT}s)..."
