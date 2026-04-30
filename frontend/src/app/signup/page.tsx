@@ -13,6 +13,8 @@ import {
 } from "../../lib/app-client";
 import ThemeToggle from "../../components/ThemeToggle";
 import Image from "next/image";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 
 declare global {
   interface Window {
@@ -125,7 +127,7 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-muted flex flex-col items-center justify-center p-5 relative font-sans">
+    <main className="min-h-screen bg-background flex flex-col items-center justify-center p-5 relative font-sans">
       <div className="absolute top-6 right-6 z-50">
         <ThemeToggle />
       </div>
@@ -134,62 +136,83 @@ export default function SignupPage() {
         <div className="relative h-10 w-10">
           <Image src="/icon.svg" alt="Memio Logo" fill className="object-contain" priority />
         </div>
-        <span className="text-2xl font-black tracking-tight text-foreground">
+        <span className="text-2xl font-bold tracking-tight text-foreground">
           Mem<span className="text-primary">io</span>
         </span>
       </Link>
 
-      <div className="w-full max-w-md bg-surface border border-border shadow-2xl shadow-primary/5 rounded-[2rem] p-8">
+      <div className="w-full max-w-md bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border shadow-sm rounded-2xl p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-black tracking-tight mb-2">Đăng ký tài khoản</h1>
-          <p className="text-muted-foreground text-sm">Tham gia cùng hàng ngàn sinh viên sử dụng Memio.</p>
+          <h1 className="text-2xl font-bold tracking-tight mb-2">Tạo tài khoản</h1>
+          <p className="text-muted-foreground text-sm">
+            Thiết lập bộ thẻ đầu tiên và bắt đầu ôn theo nhịp.
+          </p>
         </div>
 
         <div className="flex flex-col items-center gap-4 mb-6">
           {GOOGLE_CLIENT_ID ? (
             <div ref={googleBtnRef} className="min-h-[44px] flex justify-center w-full" />
           ) : (
-            <p className="text-sm text-danger font-bold">Thiếu cấu hình Google Client ID.</p>
+            <p className="text-sm text-rose-700 dark:text-rose-300 font-semibold">
+              Thiếu cấu hình Google Client ID.
+            </p>
           )}
         </div>
 
         <div className="flex items-center gap-4 mb-6">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Hoặc đăng ký bằng email</span>
+          <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+            Hoặc đăng ký bằng tài khoản
+          </span>
           <div className="h-px flex-1 bg-border" />
         </div>
 
         <form onSubmit={handleRegister} className="flex flex-col gap-4">
-          <input
-            value={regUsername} onChange={(e) => setRegUsername(e.target.value)} disabled={loading}
+          <Input
+            value={regUsername}
+            onChange={(e) => setRegUsername(e.target.value)}
+            disabled={loading}
             placeholder="Tên đăng nhập *" required
-            className="w-full px-5 py-3.5 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm"
           />
-          <input
-            value={regPassword} onChange={(e) => setRegPassword(e.target.value)} disabled={loading} type="password"
+          <Input
+            value={regPassword}
+            onChange={(e) => setRegPassword(e.target.value)}
+            disabled={loading}
+            type="password"
             placeholder="Mật khẩu (tối thiểu 6 ký tự) *" required minLength={6}
-            className="w-full px-5 py-3.5 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm"
           />
-          <input
-            value={regEmail} onChange={(e) => setRegEmail(e.target.value)} disabled={loading} type="email"
+          <Input
+            value={regEmail}
+            onChange={(e) => setRegEmail(e.target.value)}
+            disabled={loading}
+            type="email"
             placeholder="Email (không bắt buộc)"
-            className="w-full px-5 py-3.5 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm"
           />
-          <input
-            value={regName} onChange={(e) => setRegName(e.target.value)} disabled={loading}
+          <Input
+            value={regName}
+            onChange={(e) => setRegName(e.target.value)}
+            disabled={loading}
             placeholder="Tên hiển thị (không bắt buộc)"
-            className="w-full px-5 py-3.5 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm"
           />
-          <button type="submit" disabled={loading} className="w-full py-3.5 mt-2 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-opacity shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)]">
+          <Button
+            type="submit"
+            disabled={loading}
+            variant="primary"
+            className="w-full mt-2"
+          >
             {loading ? "Đang xử lý..." : "Tạo tài khoản miễn phí"}
-          </button>
+          </Button>
         </form>
 
-        {status && <p className="text-danger text-sm font-bold text-center mt-4">{status}</p>}
+        {status && (
+          <p className="text-rose-700 dark:text-rose-300 text-sm font-semibold text-center mt-4">
+            {status}
+          </p>
+        )}
 
         <div className="mt-8 text-center text-sm font-medium">
           Đã có tài khoản?{" "}
-          <Link href="/login" className="text-primary hover:underline font-bold">
+          <Link href="/login" className="text-primary hover:underline font-semibold">
             Đăng nhập
           </Link>
         </div>
