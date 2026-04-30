@@ -15,8 +15,11 @@ import {
   User,
 } from "../../lib/app-client";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Copy, FolderKanban, Link2, Plus, Sparkles, Trash, X, Lock, Globe2, Repeat } from "lucide-react";
+import { Check, Copy, FolderKanban, Link2, Plus, SlidersHorizontal, Sparkles, Trash, X, Lock, Globe2, Repeat } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 function shareUrl(token: string) {
   if (typeof window === "undefined") return "";
@@ -31,9 +34,18 @@ export default function WorkspacePage() {
   const [newDeckName, setNewDeckName] = useState("");
   const [newDeckDesc, setNewDeckDesc] = useState("");
   const [creating, setCreating] = useState(false);
+  const [q, setQ] = useState("");
+  const [showReadyOnly, setShowReadyOnly] = useState(false);
+  const [sort, setSort] = useState<"activity" | "name">("activity");
   const [shareModal, setShareModal] = useState<Deck | null>(null);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const setRevealVars = (e: React.PointerEvent<HTMLElement>) => {
+    const el = e.currentTarget as HTMLElement;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--x", `${e.clientX - r.left}px`);
+    el.style.setProperty("--y", `${e.clientY - r.top}px`);
+  };
 
   useEffect(() => {
     const storedUser = getStoredUser();
@@ -64,6 +76,30 @@ export default function WorkspacePage() {
 
   const totalCards = useMemo(() => Object.values(cardCounts).reduce((s, n) => s + n, 0), [cardCounts]);
   const readyDecks = useMemo(() => decks.filter((d) => (cardCounts[d.id] ?? 0) > 0).length, [decks, cardCounts]);
+  const maxCardsInAnyDeck = useMemo(() => {
+    const vals = Object.values(cardCounts);
+    return vals.length ? Math.max(...vals) : 0;
+  }, [cardCounts]);
+  const decksByActivity = useMemo(() => {
+    return [...decks].sort((a, b) => (cardCounts[b.id] ?? 0) - (cardCounts[a.id] ?? 0));
+  }, [decks, cardCounts]);
+  const firstReadyDeckId = useMemo(() => {
+    const d = decksByActivity.find((x) => (cardCounts[x.id] ?? 0) > 0);
+    return d?.id ?? null;
+  }, [decksByActivity, cardCounts]);
+  const filteredDecks = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    const base = sort === "activity"
+      ? decksByActivity
+      : [...decks].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "", "vi"));
+
+    return base.filter((d) => {
+      if (showReadyOnly && (cardCounts[d.id] ?? 0) <= 0) return false;
+      if (!query) return true;
+      const hay = `${d.name ?? ""} ${d.description ?? ""}`.toLowerCase();
+      return hay.includes(query);
+    });
+  }, [q, sort, decks, decksByActivity, showReadyOnly, cardCounts]);
 
   const handleCreateDeck = async () => {
     if (!user || !newDeckName.trim()) return;
@@ -121,179 +157,391 @@ export default function WorkspacePage() {
 
   return (
     <AppShell user={user}>
-      {/* ── Summary hero ── */}
-      <section className="grid grid-cols-1 md:grid-cols-[1.4fr_0.75fr] gap-5 mb-5 items-start">
-        <div className="p-8 relative overflow-hidden bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
-            <FolderKanban className="w-4 h-4 text-primary" /> Quản lý bộ thẻ
-          </div>
-          <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-bold tracking-[-0.05em] mb-2.5">
-            Xin chào, {user.name} 👋
-          </h1>
-          <p className="max-w-[54ch] text-muted-foreground text-base leading-[1.7] mb-0">
-            Mỗi deck là một chủ đề học độc lập. Tạo deck, upload tài liệu rồi học với Smart Review.
+      <section
+        className={cn(
+          "relative overflow-hidden rounded-2xl border border-border bg-background/55 backdrop-blur-xl",
+          "shadow-[0_14px_50px_rgba(0,0,0,0.05)] dark:shadow-[0_14px_50px_rgba(0,0,0,0.35)]",
+          "before:pointer-events-none before:absolute before:inset-0 before:opacity-100",
+          "before:bg-[radial-gradient(900px_circle_at_20%_-10%,hsl(var(--primary)/0.10),transparent_45%),radial-gradient(700px_circle_at_85%_0%,hsl(var(--primary)/0.06),transparent_40%)]"
+        )}
+      >
+        <header className="px-6 sm:px-8 pt-7 pb-6 max-w-4xl animate-in fade-in slide-in-from-bottom-3 duration-500">
+          <p className="text-[0.8rem] font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-border/70">
+              <FolderKanban className="w-4 h-4 text-primary shrink-0" aria-hidden />
+            </span>
+            Bộ thẻ
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-6">
-            <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
-              <div className="text-muted-foreground text-[0.82rem] mb-1 font-medium">Tổng deck</div>
-              <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{decks.length}</div>
-            </div>
-            <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
-              <div className="text-muted-foreground text-[0.82rem] mb-1 font-medium">Tổng flashcards</div>
-              <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{totalCards}</div>
-            </div>
-            <div className="py-3 px-4 bg-surface/60 border border-border rounded-2xl">
-              <div className="text-muted-foreground text-[0.82rem] mb-1 font-medium">Deck sẵn sàng</div>
-              <div className="text-[1.7rem] font-extrabold tracking-[-0.04em]">{readyDecks}</div>
+          <h1 className="text-[clamp(1.65rem,3.8vw,2.75rem)] font-bold tracking-tight text-balance mb-4">
+            Xin chào, {user.name}
+          </h1>
+          <p className="text-muted-foreground text-[0.98rem] leading-relaxed">
+            Tạo deck theo chủ đề, thêm tài liệu để sinh thẻ, rồi ôn đều mỗi ngày.
+          </p>
+        </header>
+
+        {/* Summary + Create */}
+        <section className="grid grid-cols-1 lg:grid-cols-[1fr_360px] items-start gap-6 px-6 sm:px-8 pb-8">
+        <section
+          aria-label="Tóm tắt"
+          className="self-start rounded-2xl ring-1 ring-border/80 bg-background/70 overflow-hidden shadow-sm"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border">
+            {[
+              { label: "Deck", value: decks.length, hint: "tổng số" },
+              { label: "Flashcards", value: totalCards, hint: "đã tạo" },
+              { label: "Sẵn sàng", value: readyDecks, hint: "deck có thẻ" },
+            ].map((m) => (
+              <div
+                key={m.label}
+                className="px-6 py-6 flex flex-col gap-2 hover:bg-muted/40 transition-colors duration-200"
+              >
+                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {m.label}
+                </p>
+                <p className="text-2xl sm:text-[1.65rem] font-bold tabular-nums tracking-tight">
+                  {m.value}
+                </p>
+                <p className="text-[0.8rem] text-muted-foreground leading-snug">{m.hint}</p>
+              </div>
+            ))}
+          </div>
+          <div className="px-6 py-5 border-t border-border bg-muted/20">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[0.82rem] font-semibold text-foreground">
+                  Bước tiếp theo
+                </p>
+                <p className="text-[0.85rem] text-muted-foreground leading-relaxed">
+                  {readyDecks > 0
+                    ? "Bạn có deck đã sẵn sàng. Ôn một phiên ngắn để giữ nhịp."
+                    : decks.length > 0
+                      ? "Deck đang trống. Thêm tài liệu để sinh flashcards trước khi ôn."
+                      : "Tạo deck đầu tiên, sau đó thêm tài liệu để sinh flashcards."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 sm:justify-end">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 border border-border bg-background/70 text-foreground font-semibold text-[0.9rem] hover:bg-muted/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-colors"
+                  onClick={() => router.push("/generate")}
+                >
+                  <Sparkles className="w-4 h-4 text-primary" aria-hidden />
+                  Tạo thẻ
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 font-semibold text-[0.9rem] text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] shadow-sm hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => firstReadyDeckId && router.push(`/study/${firstReadyDeckId}`)}
+                  disabled={!firstReadyDeckId}
+                >
+                  <Repeat className="w-4 h-4" aria-hidden />
+                  Ôn nhanh
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <aside className="grid gap-4">
-          <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
-            <h3 className="mb-3.5 font-bold text-lg">Tạo deck mới</h3>
-            <input
-              className="w-full rounded-xl border border-border-strong bg-surface text-foreground px-4 py-3 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] mb-2.5"
+        <section
+          aria-label="Tạo deck mới"
+          className="rounded-2xl border border-border/80 bg-background/70 px-6 py-6 shadow-sm"
+        >
+          <h2 className="text-base font-semibold tracking-tight mb-4">Tạo deck mới</h2>
+
+          <div className="space-y-3">
+            <label className="sr-only" htmlFor="new-deck-name">
+              Tên deck
+            </label>
+            <Input
+              id="new-deck-name"
               value={newDeckName}
               onChange={(e) => setNewDeckName(e.target.value)}
-              placeholder="Tên deck (VD: IELTS Writing…)"
+              placeholder="Tên deck (ví dụ: IELTS Writing)"
               onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
             />
-            <input
-              className="w-full rounded-xl border border-border-strong bg-surface text-foreground px-4 py-3 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] mb-3.5"
+            <label className="sr-only" htmlFor="new-deck-desc">
+              Mô tả deck
+            </label>
+            <Input
+              id="new-deck-desc"
               value={newDeckDesc}
               onChange={(e) => setNewDeckDesc(e.target.value)}
-              placeholder="Mô tả ngắn (tuỳ chọn)"
+              placeholder="Mô tả ngắn (tùy chọn)"
               onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
             />
-            <button
-              className="flex items-center justify-center gap-2 w-full appearance-none border-0 rounded-xl px-5 py-3.5 cursor-pointer font-bold text-[0.92rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
+
+            <Button
+              type="button"
+              variant="primary"
+              className="w-full"
               onClick={handleCreateDeck}
+              onPointerMove={setRevealVars}
               disabled={creating || !newDeckName.trim()}
             >
               {creating ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Đang tạo…
+                  Đang tạo
                 </>
               ) : (
-                <><Plus className="w-5 h-5" /> Tạo deck</>
+                <>
+                  <Plus className="w-5 h-5" aria-hidden /> Tạo deck
+                </>
               )}
-            </button>
-            {msg && <p className="text-danger text-[0.88rem] leading-[1.5] mt-2.5">{msg}</p>}
-          </section>
+            </Button>
 
-          <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
-            <h3 className="mb-3 font-bold text-lg">Quy trình học</h3>
-            <div className="grid gap-3">
-              {[
-                { n: "1", t: "Tạo deck tại Bộ thẻ" },
-                { n: "2", t: "Tải tài liệu ở Tạo thẻ" },
-                { n: "3", t: "Ôn tập tại Học" },
-                { n: "4", t: "Theo dõi tiến độ ở Thống kê" },
-              ].map((s) => (
-                <div key={s.n} className="flex gap-3 items-start">
-                  <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-primary/10 text-primary">
-                    {s.n}
-                  </div>
-                  <div className="pt-1.5"><strong className="text-sm font-semibold text-foreground">{s.t}</strong></div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </aside>
+            {msg && (
+              <p className="text-danger text-[0.88rem] leading-[1.5]">{msg}</p>
+            )}
+          </div>
+        </section>
+        </section>
       </section>
 
-      {/* ── Deck list ── */}
-      <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
-        <div className="flex justify-between items-end gap-3 mb-4">
-          <div>
-            <h2 className="mb-1 font-bold text-xl">Danh sách Deck</h2>
-            <p className="text-muted-foreground text-[0.9rem] mb-0">
-              {decks.length === 0 ? "Chưa có deck nào — hãy tạo deck đầu tiên ở trên." : `${decks.length} deck`}
+      {/* Deck list */}
+      <section className="rounded-2xl border border-border bg-background/70 backdrop-blur-md mt-6 shadow-[0_10px_36px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_36px_rgba(0,0,0,0.30)]">
+        <div className="px-6 sm:px-8 py-6 border-b border-border flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="font-semibold text-lg tracking-tight">Deck của bạn</h2>
+            <p className="text-muted-foreground text-[0.9rem]">
+              {decks.length === 0 ? "Chưa có deck nào. Tạo một deck để bắt đầu." : `${decks.length} deck`}
             </p>
+          </div>
+          <div className="text-[0.85rem] text-muted-foreground">
+            {readyDecks} sẵn sàng
           </div>
         </div>
 
-        {decks.length > 0 && (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-            {decks.map((deck) => {
-              const count = cardCounts[deck.id] ?? 0;
-              const isReady = count > 0;
-              const barW = isReady ? Math.min(100, 15 + count * 4) : 5;
-              return (
-                <article key={deck.id} className="p-[22px] grid gap-3.5 bg-surface-raised border border-border rounded-2xl shadow-sm">
-                  {/* Meta */}
-                  <div className="flex gap-1.5 flex-wrap">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.82rem] font-semibold",
-                      deck.is_public ? "bg-secondary/10 text-secondary" : "bg-primary/10 text-primary-strong dark:text-primary"
-                    )}>
-                      {deck.is_public ? <Globe2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                      {deck.is_public ? "Công khai" : "Riêng tư"}
-                    </span>
-                  </div>
+        {decks.length === 0 ? (
+          <div className="px-6 sm:px-8 py-10">
+            <div className="rounded-2xl bg-muted/40 ring-1 ring-border/60 px-6 py-7 max-w-2xl">
+              <p className="font-medium text-foreground mb-2">Bắt đầu từ một deck</p>
+              <p className="text-muted-foreground text-[0.9rem] leading-relaxed">
+                Đặt tên theo chủ đề bạn đang học. Sau đó sang “Tạo thẻ” để tải tài liệu và sinh flashcards.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 sm:p-8 space-y-5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label className="sr-only" htmlFor="deck-search">
+                    Tìm deck
+                  </label>
+                  <Input
+                    id="deck-search"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Tìm deck"
+                    className="bg-background/70"
+                  />
+                </div>
 
-                  {/* Title + desc */}
-                  <div>
-                    <h3 className="text-[1.2rem] font-bold tracking-[-0.03em] mb-1">{deck.name}</h3>
-                    {deck.description && (
-                      <p className="text-muted-foreground text-[0.88rem] leading-[1.5] m-0">{deck.description}</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[0.9rem] font-semibold",
+                      "ring-1 ring-border/80 bg-background/70 hover:bg-muted/35 transition-colors",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]",
+                      showReadyOnly ? "text-primary" : "text-muted-foreground"
                     )}
-                  </div>
+                    onClick={() => setShowReadyOnly((v) => !v)}
+                    aria-pressed={showReadyOnly}
+                  >
+                    <SlidersHorizontal className="w-4 h-4" aria-hidden />
+                    Sẵn sàng
+                    {showReadyOnly && <Check className="w-4 h-4" aria-hidden />}
+                  </button>
 
-                  {/* Progress */}
-                  <div>
-                    <div className="flex justify-between items-center gap-2 text-[0.85rem] font-medium mb-1.5 text-muted-foreground">
-                      <span>{count} flashcards</span>
-                      <span className={isReady ? "text-success" : "text-muted-foreground"}>
-                        {isReady ? "Sẵn sàng" : "Trống"}
-                      </span>
+                  <label className="sr-only" htmlFor="deck-sort">
+                    Sắp xếp deck
+                  </label>
+                  <Select value={sort} onValueChange={(v) => setSort(v as "activity" | "name")}>
+                    <SelectTrigger id="deck-sort" aria-label="Sắp xếp deck" className="bg-background/70">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="activity">Hoạt động</SelectItem>
+                      <SelectItem value="name">Tên</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="text-[0.85rem] text-muted-foreground">
+                {filteredDecks.length}/{decks.length}
+              </div>
+            </div>
+
+            {filteredDecks.length === 0 ? (
+              <div className="rounded-2xl bg-muted/40 ring-1 ring-border/60 px-6 py-7 max-w-2xl">
+                <p className="font-medium text-foreground mb-2">Không có kết quả</p>
+                <p className="text-muted-foreground text-[0.9rem] leading-relaxed">
+                  Thử đổi từ khóa, tắt lọc “Sẵn sàng”, hoặc tạo thêm deck mới.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredDecks.map((deck, idx) => {
+                const count = cardCounts[deck.id] ?? 0;
+                const isReady = count > 0;
+                const progressW =
+                  maxCardsInAnyDeck > 0 ? Math.max(6, Math.round((count / maxCardsInAnyDeck) * 100)) : 6;
+                const isFeatured = sort === "activity" && idx === 0 && filteredDecks.length >= 3;
+
+                return (
+                  <article
+                    key={deck.id}
+                    className={cn(
+                      "group relative overflow-hidden rounded-2xl border border-border/70 bg-background/55 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow",
+                      "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200 group-hover:before:opacity-100",
+                      "motion-reduce:before:transition-none motion-reduce:transition-none",
+                      "before:bg-[radial-gradient(600px_circle_at_var(--x,50%)_var(--y,30%),hsl(var(--primary)/0.10),transparent_40%)]",
+                      isFeatured ? "md:col-span-2" : ""
+                    )}
+                    onPointerMove={setRevealVars}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-[1.05rem] font-semibold tracking-tight truncate">
+                          {deck.name}
+                        </h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.78rem] font-semibold ring-1 ring-border/80",
+                              deck.is_public ? "bg-muted text-foreground" : "bg-primary/10 text-primary"
+                            )}
+                          >
+                            {deck.is_public ? (
+                              <Globe2 className="w-3.5 h-3.5" aria-hidden />
+                            ) : (
+                              <Lock className="w-3.5 h-3.5" aria-hidden />
+                            )}
+                            {deck.is_public ? "Công khai" : "Riêng tư"}
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2.5 py-1 text-[0.78rem] font-semibold ring-1 ring-border/70",
+                              isReady
+                                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/25 dark:text-emerald-200"
+                                : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {isReady ? "Sẵn sàng" : "Chưa có thẻ"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-xl px-3 py-2 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-950/25 text-rose-700 dark:text-rose-300 font-semibold hover:opacity-90 transition-opacity"
+                        onClick={() => handleDeleteDeck(deck.id)}
+                        aria-label="Xóa deck"
+                        title="Xóa deck"
+                      >
+                        <Trash className="w-4 h-4" aria-hidden />
+                      </button>
                     </div>
-                    <div className="w-full h-2 rounded-full bg-surface-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-[width] duration-400 ease-in-out bg-gradient-to-r from-secondary to-[#34d399]"
-                        style={{ width: `${barW}%` }}
-                      />
+
+                    <div className="mt-4">
+                      {deck.description ? (
+                        <p className="text-muted-foreground text-[0.9rem] leading-relaxed line-clamp-3">
+                          {deck.description}
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground text-[0.9rem] leading-relaxed italic">
+                          Thêm mô tả ngắn để dễ nhận diện deck khi có nhiều chủ đề.
+                        </p>
+                      )}
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-[0.92rem] hover:-translate-y-px active:translate-y-0 transition-transform shadow-xs"
-                      onClick={() => router.push(`/generate?deckId=${deck.id}`)}
-                    >
-                      <Sparkles className="w-4 h-4 text-primary" /> Tạo thẻ
-                    </button>
-                    <button
-                      className="flex items-center justify-center gap-2 px-4 py-3 border-0 rounded-xl font-bold text-[0.92rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-                      onClick={() => router.push(`/study/${deck.id}`)}
-                      disabled={!isReady}
-                    >
-                      <Repeat className="w-4 h-4" /> Học ngay
-                    </button>
-                  </div>
+                    <div className="mt-4 flex items-center justify-between gap-4">
+                      <div className="space-y-2 min-w-0">
+                        <div className="flex items-baseline gap-2 text-[0.85rem] text-muted-foreground">
+                          <span className="tabular-nums font-medium text-foreground/90">
+                            {count}
+                          </span>
+                          <span>flashcards</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="flex-1 h-1.5 rounded-full bg-muted ring-1 ring-border/60 overflow-hidden">
+                            <span
+                              className={cn(
+                                "block h-full rounded-full transition-[width] duration-500 ease-out",
+                                isReady ? "bg-primary" : "bg-muted-foreground/35"
+                              )}
+                              style={{ width: `${progressW}%` }}
+                            />
+                          </span>
+                          <span className="text-[0.78rem] tabular-nums text-muted-foreground w-[3ch] text-right">
+                            {Math.min(100, progressW)}%
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* Share + Delete */}
-                  <div className="flex gap-2 -mt-1">
-                    <button
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-border-strong bg-transparent text-muted-foreground font-bold text-[0.82rem] hover:bg-surface-muted hover:-translate-y-px active:translate-y-0 transition-all"
-                      onClick={() => handleShare(deck)}
-                    >
-                      <Link2 className="w-3.5 h-3.5" />
-                      {deck.share_token ? "Chia sẻ" : "Bật chia sẻ"}
-                    </button>
-                    <button
-                      className="flex items-center justify-center px-3 py-2 rounded-xl text-danger bg-[#fff1f2] dark:bg-danger/10 border border-danger/15 font-bold hover:-translate-y-px active:translate-y-0 transition-all"
-                      onClick={() => handleDeleteDeck(deck.id)}
-                    >
-                      <Trash className="w-4 h-4" />
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+                      <button
+                        type="button"
+                        className={cn(
+                          "group/reveal relative overflow-hidden inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5",
+                          "ring-1 ring-border/70 hover:bg-muted/50 transition-colors text-[0.85rem] text-muted-foreground",
+                          "active:translate-y-px",
+                          "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200 group-hover/reveal:before:opacity-100",
+                          "motion-reduce:before:transition-none motion-reduce:transition-none",
+                          "before:bg-[radial-gradient(460px_circle_at_var(--x,50%)_var(--y,50%),hsl(var(--primary)/0.10),transparent_45%)]"
+                        )}
+                        onClick={() => handleShare(deck)}
+                        onPointerMove={setRevealVars}
+                      >
+                        <Link2 className="w-4 h-4" aria-hidden />
+                        {deck.share_token ? "Link" : "Chia sẻ"}
+                      </button>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className={cn(
+                          "group/reveal relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3",
+                          "border border-border/80 bg-background/70 text-foreground font-semibold text-[0.92rem] shadow-sm",
+                          "hover:bg-muted/35 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-[color,background-color,transform] duration-150",
+                          "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200 group-hover/reveal:before:opacity-100",
+                          "motion-reduce:before:transition-none motion-reduce:transition-none",
+                          "before:bg-[radial-gradient(520px_circle_at_var(--x,50%)_var(--y,50%),hsl(var(--primary)/0.08),transparent_55%)]"
+                        )}
+                        onClick={() => router.push(`/generate?deckId=${deck.id}`)}
+                        onPointerMove={setRevealVars}
+                      >
+                        <Sparkles className="w-4 h-4 text-primary" aria-hidden /> Tạo thẻ
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(
+                          "group/reveal relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3",
+                          "font-semibold text-[0.92rem] text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] shadow-sm",
+                          "hover:opacity-95 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-[opacity,transform] duration-150",
+                          "disabled:opacity-50 disabled:cursor-not-allowed",
+                          "disabled:active:translate-y-0",
+                          "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200 group-hover/reveal:before:opacity-100",
+                          "motion-reduce:before:transition-none motion-reduce:transition-none",
+                          "before:bg-[radial-gradient(560px_circle_at_var(--x,50%)_var(--y,50%),rgba(255,255,255,0.20),transparent_45%)]"
+                        )}
+                        onClick={() => router.push(`/study/${deck.id}`)}
+                        onPointerMove={setRevealVars}
+                        disabled={!isReady}
+                      >
+                        <Repeat className="w-4 h-4" aria-hidden /> Ôn
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            )}
           </div>
         )}
       </section>
@@ -301,8 +549,8 @@ export default function WorkspacePage() {
       {/* ── Radix UI Share Modal ── */}
       <Dialog.Root open={!!shareModal} onOpenChange={(open) => !open && setShareModal(null)}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="fixed left-[50%] top-[50%] z-[201] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-surface-raised p-6 shadow-xl sm:rounded-[24px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] outline-none">
+          <Dialog.Overlay className="fixed inset-0 bg-black/40 z-[200] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-[50%] top-[50%] z-[201] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-6 shadow-xl sm:rounded-[24px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] outline-none">
             <div className="flex justify-between items-center mb-1">
               <Dialog.Title className="text-xl font-bold">Chia sẻ deck</Dialog.Title>
               <Dialog.Close asChild>
@@ -327,7 +575,8 @@ export default function WorkspacePage() {
                     value={shareUrl(shareModal.share_token)}
                   />
                   <button
-                    className="flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 font-bold text-sm transition-all text-white bg-primary shadow-sm hover:-translate-y-px active:translate-y-0 cursor-pointer"
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 font-semibold text-sm text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] shadow-sm hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-opacity cursor-pointer"
                     onClick={() => copyLink(shareModal.share_token!)}
                   >
                     <Copy className="w-4 h-4" /> {copied ? "Đã chép" : "Chép"}
@@ -335,13 +584,14 @@ export default function WorkspacePage() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    className="flex-1 px-4 py-2.5 rounded-xl text-danger bg-[#fff1f2] dark:bg-danger/10 border border-danger/15 font-bold hover:opacity-90 transition-all cursor-pointer text-sm"
+                    type="button"
+                    className="flex-1 px-4 py-2.5 rounded-xl text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 font-semibold hover:opacity-90 transition-opacity cursor-pointer text-sm"
                     onClick={() => handleUnshare(shareModal.id)}
                   >
                     Tắt chia sẻ
                   </button>
                   <Dialog.Close asChild>
-                    <button className="flex-1 px-4 py-2.5 rounded-xl border border-border-strong bg-surface text-foreground font-bold text-sm cursor-pointer hover:bg-surface-muted transition-all">
+                    <button className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background text-foreground font-semibold text-sm cursor-pointer hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-colors">
                       Đóng
                     </button>
                   </Dialog.Close>
@@ -350,7 +600,8 @@ export default function WorkspacePage() {
             ) : (
               <div className="mt-3">
                 <button
-                  className="flex items-center justify-center gap-2 w-full appearance-none border-0 rounded-xl px-5 py-3.5 cursor-pointer font-bold text-[0.92rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px"
+                  type="button"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-[0.92rem] font-semibold text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] shadow-sm hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-opacity"
                   onClick={() => handleShare(shareModal!)}
                 >
                   <Globe2 className="w-5 h-5" /> Kích hoạt chia sẻ
