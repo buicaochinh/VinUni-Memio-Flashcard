@@ -4,30 +4,44 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
-    --primary: 221 83% 53%; /* Bright Blue */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 30%;
-    --accent: 221 83% 53%;
-    --accent-foreground: 0 0% 100%;
+    /* Bold modern, tinted neutrals (no pure white/black) */
+    --background: 220 25% 98.5%;
+    --foreground: 222 35% 12%;
+
+    --card: 220 25% 99%;
+    --card-foreground: 222 35% 12%;
+
+    --popover: 220 25% 99%;
+    --popover-foreground: 222 35% 12%;
+
+    /* Accent: vivid, clean blue (Friendly Royal → slightly more modern) */
+    --primary: 221 90% 56%;
+    --primary-foreground: 220 20% 98%;
+
+    --secondary: 220 18% 95%;
+    --secondary-foreground: 222 35% 12%;
+
+    --muted: 220 18% 96%;
+    --muted-foreground: 222 16% 40%;
+
+    --accent: 221 90% 56%;
+    --accent-foreground: 220 20% 98%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 80%;
-    --input: 0 0% 80%;
-    --ring: 221 83% 53%;
+    --destructive-foreground: 220 20% 98%;
+
+    --border: 222 18% 86%;
+    --input: 222 18% 86%;
+    --ring: 221 90% 56%;
     --radius: 1rem;
-    --surface: 0 0% 100%;
-    --surface-muted: 0 0% 98%;
-    --surface-raised: 0 0% 100%;
-    --border-strong: 0 0% 0% / 0.1;
+
+    --surface: 220 25% 99%;
+    --surface-muted: 220 18% 96%;
+    --surface-raised: 220 25% 99.4%;
+    --border-strong: 222 20% 10% / 0.10;
+
+    /* Acrylic helpers (used sparingly) */
+    --acrylic: 220 25% 99% / 0.72;
+    --acrylic-strong: 220 25% 99% / 0.86;
 
     /* Legacy mapping for compatibility if needed */
     --primary-hex: #2563eb;
@@ -39,33 +53,44 @@
     --danger: 0 72% 51%;
     --warning: 38 92% 50%;
     --info: 221 83% 53%;
-    --subtle: 0 0% 60%;
+    --subtle: 222 10% 55%;
   }
 
   .dark {
-    --background: 0 0% 5%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 8%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 13%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 0 0% 13%;
-    --muted-foreground: 0 0% 70%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    --background: 222 35% 6%;
+    --foreground: 220 20% 96%;
+
+    --card: 222 32% 8%;
+    --card-foreground: 220 20% 96%;
+
+    --popover: 222 32% 8%;
+    --popover-foreground: 220 20% 96%;
+
+    --primary: 221 92% 62%;
+    --primary-foreground: 222 35% 6%;
+
+    --secondary: 222 22% 14%;
+    --secondary-foreground: 220 20% 96%;
+
+    --muted: 222 22% 14%;
+    --muted-foreground: 220 12% 72%;
+
+    --accent: 221 92% 62%;
+    --accent-foreground: 222 35% 6%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 25%;
-    --input: 0 0% 25%;
-    --ring: 217 91% 60%;
-    --surface: 0 0% 9%;
-    --surface-muted: 0 0% 13%;
-    --surface-raised: 0 0% 11%;
-    --border-strong: 0 0% 90% / 0.15;
+    --border: 222 16% 22%;
+    --input: 222 16% 22%;
+    --ring: 221 92% 62%;
+
+    --surface: 222 32% 9%;
+    --surface-muted: 222 22% 14%;
+    --surface-raised: 222 30% 11%;
+    --border-strong: 220 18% 96% / 0.16;
+
+    --acrylic: 222 32% 9% / 0.68;
+    --acrylic-strong: 222 32% 9% / 0.82;
+
     --primary-hex: #3b82f6;
     --secondary-hex: #1f2937;
     --primary-glow: rgba(59, 130, 246, 0.2);
@@ -75,7 +100,7 @@
     --danger: 0 84% 60%;
     --warning: 38 92% 50%;
     --info: 217 91% 65%;
-    --subtle: 0 0% 50%;
+    --subtle: 220 10% 55%;
   }
 }
 
