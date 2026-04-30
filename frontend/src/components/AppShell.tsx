@@ -8,6 +8,7 @@ import {clearStoredUser, User} from "../lib/app-client";
 import {BarChart3, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon} from "lucide-react";
 import {cn} from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
+import { Button } from "./ui/button";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -34,7 +35,7 @@ export default function AppShell({ children, user }: AppShellProps) {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-transparent">
       {/* ── Sidebar (Desktop) ── */}
-      <aside className="hidden md:flex flex-col w-[260px] sticky top-0 h-screen border-r border-border bg-surface shadow-[4px_0_24px_rgba(0,0,0,0.03)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.15)] p-6 gap-8 z-50">
+      <aside className="hidden md:flex flex-col w-[280px] sticky top-0 h-screen border-r border-border bg-[hsl(var(--surface))] shadow-[6px_0_32px_rgba(0,0,0,0.05)] dark:shadow-[6px_0_32px_rgba(0,0,0,0.30)] p-6 gap-8 z-50">
         <div className="px-2 flex items-center justify-between gap-3">
           <Link href="/workspace" className="flex items-center gap-3 overflow-hidden outline-none">
             <div className="relative h-[42px] w-[42px]">
@@ -47,8 +48,9 @@ export default function AppShell({ children, user }: AppShellProps) {
                 priority
               />
             </div>
-            <span className="text-2xl font-extrabold tracking-tight">
-              <span className="text-primary">Mem</span><span className="text-foreground">io</span>
+            <span className="text-2xl font-bold tracking-tight">
+              <span className="text-primary">Mem</span>
+              <span className="text-foreground">io</span>
             </span>
           </Link>
         </div>
@@ -64,8 +66,8 @@ export default function AppShell({ children, user }: AppShellProps) {
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold transition-all duration-200 outline-none",
                   isActive
-                    ? "bg-surface text-primary shadow-sm border border-border"
-                    : "text-muted-foreground hover:bg-surface-muted hover:text-foreground hover:translate-x-1"
+                    ? "bg-[hsl(var(--acrylic-strong))] text-foreground shadow-sm border border-border/60"
+                    : "text-muted-foreground hover:bg-[hsl(var(--acrylic))] hover:text-foreground hover:translate-x-0.5"
                 )}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
@@ -76,7 +78,7 @@ export default function AppShell({ children, user }: AppShellProps) {
         </nav>
 
         <div className="pt-5 border-t border-border flex flex-col gap-4">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-surface-muted truncate">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-[hsl(var(--acrylic))] border border-border/60 truncate">
             {user.photo_url && !imgError ? (
               <Image
                 src={user.photo_url}
@@ -88,7 +90,7 @@ export default function AppShell({ children, user }: AppShellProps) {
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-border flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-muted ring-1 ring-border/70 flex items-center justify-center flex-shrink-0">
                 <UserIcon className="w-4 h-4 text-muted-foreground" />
               </div>
             )}
@@ -96,12 +98,14 @@ export default function AppShell({ children, user }: AppShellProps) {
               {user.name}
             </span>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleLogout}
-            className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-lg border border-border bg-transparent text-muted-foreground font-medium text-xs hover:text-foreground hover:bg-surface-muted transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="w-full justify-center text-xs py-2"
           >
-            <LogOut className="w-4 h-4" /> Đăng xuất
-          </button>
+            <LogOut className="w-4 h-4" aria-hidden /> Đăng xuất
+          </Button>
         </div>
       </aside>
 
@@ -115,7 +119,7 @@ export default function AppShell({ children, user }: AppShellProps) {
         <ThemeToggle />
       </div>
 
-      <nav className="md:hidden flex fixed bottom-0 left-0 right-0 h-[68px] bg-surface/95 border-t border-border backdrop-blur-xl z-[100] pb-[env(safe-area-inset-bottom)] items-stretch shadow-[0_-4px_24px_rgba(0,0,0,0.04)]">
+      <nav className="md:hidden flex fixed bottom-0 left-0 right-0 h-[68px] bg-[hsl(var(--acrylic-strong))] border-t border-border backdrop-blur-xl z-[100] pb-[env(safe-area-inset-bottom)] items-stretch shadow-[0_-6px_28px_rgba(0,0,0,0.06)]">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -134,6 +138,7 @@ export default function AppShell({ children, user }: AppShellProps) {
           );
         })}
         <button
+          type="button"
           onClick={handleLogout}
           className="flex-1 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors outline-none text-muted-foreground hover:text-foreground"
         >
