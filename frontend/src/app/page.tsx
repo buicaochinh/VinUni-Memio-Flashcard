@@ -26,17 +26,20 @@ export default function Home() {
               priority
             />
           </div>
-          <span className="text-2xl font-black tracking-tight text-foreground">
+          <span className="text-2xl font-bold tracking-tight text-foreground">
             Mem<span className="text-primary">io</span>
           </span>
         </div>
         <div className="flex items-center gap-4 md:gap-8">
-          <div className="hidden md:flex items-center gap-8 text-sm font-bold text-muted-foreground">
+          <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Tính năng</a>
             <a href="#" className="hover:text-foreground transition-colors">Bảng giá</a>
             <a href="#" className="hover:text-foreground transition-colors">Tài liệu</a>
             {user ? (
-              <Link href="/workspace" className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-foreground transition-colors hover:bg-surface-muted">
+              <Link
+                href="/workspace"
+                className="flex items-center gap-2 rounded-full border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md px-3 py-1.5 text-foreground transition-colors hover:bg-muted/35 shadow-sm"
+              >
                 {user.photo_url ? (
                   <Image
                     src={user.photo_url}
@@ -79,13 +82,13 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8 w-full max-w-md mx-auto relative z-20">
           <Link 
             href={user ? "/workspace" : "/signup"}
-            className="w-full sm:w-auto px-8 py-4 rounded-full bg-primary text-white font-bold text-lg hover:bg-primary/90 transition-all shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)] flex items-center justify-center gap-2"
+            className="w-full sm:w-auto px-8 py-4 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-semibold text-lg hover:opacity-95 transition-[opacity,transform] shadow-sm active:translate-y-px flex items-center justify-center gap-2 relative overflow-hidden"
           >
             {user ? "Vào Workspace" : "Bắt đầu miễn phí"} <ArrowRight className="w-5 h-5" />
           </Link>
           <Link 
             href={user ? "/generate" : "/login"}
-            className="w-full sm:w-auto px-8 py-4 rounded-full bg-surface border border-border text-foreground font-bold text-lg hover:bg-surface-muted transition-colors flex items-center justify-center"
+            className="w-full sm:w-auto px-8 py-4 rounded-full border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md text-foreground font-semibold text-lg hover:bg-muted/35 transition-colors flex items-center justify-center shadow-sm"
           >
             {user ? "Tạo thẻ mới" : "Đăng nhập"}
           </Link>
