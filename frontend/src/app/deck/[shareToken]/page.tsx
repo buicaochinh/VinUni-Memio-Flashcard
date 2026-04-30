@@ -83,9 +83,7 @@ export default function SharedDeckPage() {
                 className="object-contain mix-blend-multiply flex-shrink-0" 
               />
             </div>
-            <span className="text-xl font-extrabold tracking-tight">
-              <span className="text-primary">Mem</span><span className="text-foreground">io</span>
-            </span>
+            <span className="text-xl font-black tracking-tight text-foreground">Memio</span>
           </Link>
         </div>
         <button 
@@ -98,11 +96,11 @@ export default function SharedDeckPage() {
 
       <div className="w-full max-w-[1100px] mx-auto p-4 md:p-8 pb-14">
         {/* ── Deck info ── */}
-        <section className="p-8 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl relative overflow-hidden mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
+        <section className="p-8 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-3xl shadow-sm relative overflow-hidden mb-6">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
             <BookOpen className="w-4 h-4 text-secondary" /> Bộ thẻ được chia sẻ
           </div>
-          <h1 className="text-[clamp(1.6rem,4vw,3rem)] font-bold tracking-tight mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
             {deck.name}
           </h1>
           {deck.description && (
@@ -129,7 +127,7 @@ export default function SharedDeckPage() {
         <div className="relative max-w-md mb-6">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-subtle" />
           <input
-            className="w-full pl-10 pr-4 py-3 rounded-2xl border border-border-strong bg-surface text-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
+            className="w-full pl-10 pr-4 py-3 rounded-2xl border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md text-foreground outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-colors text-sm shadow-sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Tìm kiếm flashcard…"
