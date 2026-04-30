@@ -6,6 +6,46 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ---
 
+## Cập nhật gần đây (Pilot deploy + Docs) — 30/04/2026
+
+### [ADR-6] Chọn Docker Swarm single-node cho pilot deploy — 30/04/2026
+
+- **Bối cảnh**: PILOT, cần deploy ổn định.
+- **Quyết định**: dùng **Docker Swarm (single-node)** để rolling deploy. Compose chỉ dùng để build image.
+- **Hệ quả**: cần bootstrap Swarm; local image cần cách đảm bảo rollout (ADR-7).
+
+---
+
+### [ADR-7] Dùng local images + retag theo `DEPLOY_ID` để đảm bảo Swarm rollout — 30/04/2026
+
+- **Bối cảnh**: build local, không registry → Swarm dễ “không rollout” nếu tag không đổi.
+- **Quyết định**: retag theo `DEPLOY_ID` trong `scripts/redeploy.sh` để Swarm luôn update.
+- **Hệ quả**: nhiều image hơn → cần prune; trace deploy tốt hơn (tag có SHA + time).
+
+---
+
+### [ADR-8] Thêm disk pre-check + prune có ngưỡng trong redeploy script — 30/04/2026
+
+- **Bối cảnh**: server nhỏ, dễ đầy disk.
+- **Quyết định**: nếu free `< 6GB` thì prune trước khi build.
+- **Hệ quả**: ổn định hơn; đôi lúc build lâu hơn do mất cache.
+
+---
+
+### [ADR-9] Caddy làm reverse proxy theo domain (frontend/backend tách host) — 30/04/2026
+
+- **Bối cảnh**: cần HTTPS + route rõ.
+- **Quyết định**: dùng Caddy theo domain (`mem.io.vn` → frontend, `api.mem.io.vn` → backend).
+- **Hệ quả**: DNS đúng; TLS vận hành đơn giản.
+
+---
+
+### [ADR-10] Một “source of truth” cho agent/dev: `PROJECT_CONTEXT.md` + `docs/diagrams.md` — 30/04/2026
+
+- **Bối cảnh**: monorepo + nhiều thay đổi nhanh.
+- **Quyết định**: 1 “source of truth”: `PROJECT_CONTEXT.md` + sơ đồ `docs/diagrams.md`.
+- **Hệ quả**: đổi kiến trúc/endpoint/deploy thì phải cập nhật docs cùng lúc.
+
 ## Template
 
 ### Quyết định kỹ thuật
@@ -13,15 +53,11 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 ```markdown
 ### [ADR-N] Tiêu đề quyết định — DD/MM/YYYY
 
-**Bối cảnh:** Vấn đề cần giải quyết là gì?
+**Bối cảnh:** ...
 
-**Các lựa chọn đã xem xét:**
-- Option A: ...
-- Option B: ...
+**Quyết định:** ...
 
-**Quyết định:** Chọn option nào và tại sao.
-
-**Hệ quả:** Những gì bị ảnh hưởng / trade-off.
+**Hệ quả:** ...
 ```
 
 ### Phân công
@@ -29,9 +65,7 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 ```markdown
 ### Sprint N — DD/MM → DD/MM/YYYY
 
-| Task | Người làm | Deadline | Trạng thái |
-|---|---|---|---|
-| | | | |
+- Task: ... (người làm, deadline, trạng thái)
 ```
 
 ### Brainstorming
@@ -50,109 +84,65 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ---
 
-## Ví dụ
+## Lịch sử thực tế (Memio) — theo mốc git/PR
 
-### [ADR-1] Dùng TypeScript thay vì Python — 30/03/2026
+### Mốc git quan trọng
 
-**Bối cảnh:** Cả nhóm cần chọn 1 ngôn ngữ chính để xây dựng agent. Có 2 thành viên quen Python, 1 thành viên quen TypeScript.
+- **02/04/2026** — Root commit `e49dfbd`: “Initial setup: starter code app with AI logging hooks”
+- **10/04/2026** — Demo 1: commit `13dccb6` (“first_demo”)
+- **10/04/2026** — **Merge pull request #1**: commit `94b102d`
 
-**Các lựa chọn đã xem xét:**
-- **Python**: Ecosystem ML tốt hơn, syntax đơn giản, thành viên quen hơn.
-- **TypeScript**: Type safety, dễ refactor khi project lớn, nhiều library AI mới ra bản TS trước.
-
-**Quyết định:** Chọn TypeScript vì project này focus vào agent architecture, không cần ML library nặng. Type safety sẽ giúp bắt lỗi sớm hơn khi codebase phình ra.
-
-**Hệ quả:** 2 thành viên Python cần học TypeScript cơ bản (ước tính 1 tuần). Sẽ không dùng được `langchain` Python trực tiếp.
+> Ghi chú: Trước **02/04/2026** nhóm chủ yếu brainstorm (không có commit trong repo).
 
 ---
 
-### [ADR-2] Lưu conversation history bằng file JSON — 03/04/2026
+### Sprint theo “tuần học” (Thứ 2 → Chủ nhật; Tuần 1 ngoại lệ 4 ngày)
 
-**Bối cảnh:** Agent cần nhớ context giữa các lần chạy. Cần chọn storage.
+#### Tuần 1 — 02/04 → 05/04/2026 (4 ngày)
 
-**Các lựa chọn đã xem xét:**
-- **In-memory array**: Đơn giản nhất nhưng mất khi restart.
-- **File JSON**: Persistent, không cần setup, dễ inspect bằng tay.
-- **SQLite**: Có thể query, tốt cho production nhưng overkill cho prototype.
-- **Redis**: Fast nhưng cần chạy thêm service.
+- **Mục tiêu**: repo có nền tảng chạy được + setup hook/logging.
+- **Kết quả**:
+  - Root commit `e49dfbd` (02/04).
 
-**Quyết định:** File JSON cho giai đoạn prototype. Thiết kế interface `MemoryStore` để sau này swap sang SQLite không cần sửa logic agent.
+#### Tuần 2 — 06/04 → 12/04/2026
 
-**Hệ quả:** Không query được theo thời gian hay user. Chấp nhận được ở giai đoạn này.
+- **Mục tiêu**: có demo end-to-end đầu tiên + merge PR #1.
+- **Kết quả**:
+  - Demo 1 `13dccb6` (10/04).
+  - Merge PR #1 `94b102d` (10/04).
+  - 11/04: refactor/UI/readme/deploy script (các commit dày để ổn định sau demo).
 
----
+#### Tuần 3 — 13/04 → 19/04/2026
 
-### Sprint 1 — 31/03 → 06/04/2026
+- **Mục tiêu**: chuẩn hoá deploy method, bắt đầu dịch chuyển AI provider và cải tiến UI.
+- **Kết quả nổi bật**:
+  - 15–16/04: deployment method với Caddy + Docker (merge PR #5 ngày 16/04).
+  - 16/04: merge PR #6, #7 (đồng bộ script/requirements/db).
+  - 19/04: merge PR #8, #9 (UI update + các thay đổi liên quan model/provider).
 
-| Task | Người làm | Deadline | Trạng thái |
-|---|---|---|---|
-| Setup TypeScript project + CI | Văn A | 01/04 | ✅ Xong |
-| Implement agent loop cơ bản | Thị B | 02/04 | ✅ Xong |
-| Tool: `search_web` (Brave API) | Văn C | 03/04 | ✅ Xong |
-| Tool: `read_file`, `write_file` | Thị B | 05/04 | ✅ Xong |
-| Conversation memory (JSON) | Văn A | 06/04 | ✅ Xong |
-| README + setup docs | Văn C | 06/04 | ✅ Xong |
+#### Tuần 4 — 20/04 → 26/04/2026
 
----
+- **Mục tiêu**: hoàn thiện các mảng dữ liệu/ORM + deploy + UX, giảm rủi ro multi-tenancy.
+- **Kết quả nổi bật**:
+  - 20–21/04: merge dày PR #10–#19 (tập trung dữ liệu/ORM/deploy + phần tính năng/UX liên quan).
 
-### Sprint 2 — 07/04 → 13/04/2026
+#### Tuần 5 — 27/04 → 03/05/2026 (cập nhật tới 30/04)
 
-| Task | Người làm | Deadline | Trạng thái |
-|---|---|---|---|
-| Fix infinite loop: thêm `max_iterations` | Thị B | 08/04 | 🔄 Đang làm |
-| Tool: `run_tests` (chạy pytest) | Văn C | 10/04 | ⏳ Chờ |
-| Sliding window memory | Văn A | 09/04 | ⏳ Chờ |
-| Demo prep + slides | Cả nhóm | 13/04 | ⏳ Chờ |
-
----
-
-### Brainstorm: Tính năng cho demo — 05/04/2026
-
-**Câu hỏi:** Demo tuần tới nên show gì để ấn tượng nhất trong 5 phút?
-
-**Các ý tưởng:**
-- **Ý tưởng 1 (Văn A):** Cho agent đọc 1 file Python có bug, tự fix, rồi chạy test để verify. Trực quan, dễ hiểu.
-- **Ý tưởng 2 (Thị B):** Agent tự build 1 tính năng nhỏ từ mô tả bằng tiếng Việt. Show khả năng hiểu ngôn ngữ tự nhiên.
-- **Ý tưởng 3 (Văn C):** Agent review PR, comment vào từng dòng code có vấn đề. Gần với use case thực tế nhất.
-
-**Pros/Cons:**
-| Ý tưởng | Pros | Cons |
-|---|---|---|
-| Fix bug | Dễ làm, chắc chắn chạy được | Ít "wow" hơn |
-| Build từ mô tả | Ấn tượng nhất | Có thể fail nếu prompt phức tạp |
-| Review PR | Thực tế, liên quan trực tiếp đến khóa học | Cần setup GitHub webhook |
-
-**Kết luận:** Chọn ý tưởng 1 (fix bug) cho demo chính vì đảm bảo. Nếu còn thời gian sẽ show thêm ý tưởng 2 như bonus.
-
----
-
-### Bug quan trọng: Tool call loop vô hạn — 04/04/2026
-
-**Triệu chứng:** Agent gọi `search_web` liên tục không dừng khi tool trả về lỗi network.
-
-**Root cause:** Không có stop condition khi tool raise exception. Agent nhận `"error": "timeout"` nhưng interpret là cần thử lại.
-
-**Fix:** Thêm 2 điều kiện dừng:
-1. `max_iterations = 10` — hard stop sau 10 vòng
-2. Nếu tool trả về lỗi 3 lần liên tiếp → dừng và báo user
-
-**Code thay đổi:** `src/agent.ts` lines 45-67
-
-**Học được:** Luôn thiết kế stop condition trước khi implement retry logic.
+- **Mục tiêu**: chuyển dự án sang trạng thái PILOT, chuẩn hoá docs + vận hành deploy.
+- **Kết quả nổi bật**:
+  - 27–28/04: merge PR #38–#44 — integrations + worker/pipe cho study-buddy-bot.
+  - 29/04: merge PR #45–#47 — tối ưu deploy + cập nhật `PROJECT_CONTEXT.md`.
+  - 30/04: merge PR #48–#51 — upgrade UI + fix deploy.
+  - 30/04: `2eb16a6` — move doc file to `docs/`.
+  - 29–30/04: chốt ADR pilot deploy (ADR-6 → ADR-10) + chuẩn hoá `docs/diagrams.md`.
 
 ---
 
 ### Bug bảo mật: Rò rỉ dữ liệu Deck (Multi-tenancy Isolation) — 20/04/2026
 
-**Triệu chứng:** Người dùng có thể nhìn thấy danh sách Deck của người khác nếu không lọc theo `user_id`.
-
-**Root cause:** Trong `deck_service.py`, hàm `get_user_decks` ban đầu thiếu ràng buộc `where(Deck.user_id == user_id)`.
-
-**Fix:** 
-- Cập nhật `src/app/services/deck_service.py`: Thêm điều kiện lọc `user_id` vào câu lệnh `select(Deck)`.
-- Cập nhật API endpoint `GET /api/decks/` để bắt buộc truyền `user_id`.
-
-**Học được:** Luôn thiết kế database schema và query với tư duy multi-tenancy từ đầu. Cần bổ sung middleware xác thực (Authentication) để lấy `user_id` từ token thay vì nhận qua query parameter (tiềm ẩn rủi ro thao túng ID).
+- **Triệu chứng**: list deck không filter `user_id` → lộ dữ liệu.
+- **Fix**: mọi query deck/card phải filter `user_id`.
+- **Học**: cần auth đúng nghĩa (lấy `user_id` từ token) để tránh giả mạo.
 
 ---
 
@@ -186,14 +176,12 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ### Sprint 3 — 14/04 → 21/04/2026
 
-| Task | Người làm | Deadline | Trạng thái |
-|---|---|---|---|
-| Cập nhật SQL ORM & Model Mapping | Cao Chinh Bùi | 20/04 | ✅ Xong |
-| Frontend Chatbot (Study Page) | tiensohot | 21/04 | ✅ Xong |
-| Tính năng Explain + Citations | BDT-17 | 21/04 | ✅ Xong |
-| Refactor App-Client (Async/Types) | BDT-17 | 21/04 | ✅ Xong |
-| Tạo survey đánh giá (CSV) | BDT-17 | 21/04 | ✅ Xong |
-| Fix merge conflicts (README/Architecture) | Cao Chinh Bùi | 20/04 | ✅ Xong |
+- Cập nhật SQL ORM & Model Mapping (Cao Chinh Bùi) — 20/04 — ✅
+- Frontend Chatbot (Study Page) (tiensohot) — 21/04 — ✅
+- Explain + Citations (BDT-17) — 21/04 — ✅
+- Refactor App-Client (BDT-17) — 21/04 — ✅
+- Survey đánh giá (CSV) (BDT-17) — 21/04 — ✅
+- Fix merge conflicts (README/Architecture) (Cao Chinh Bùi) — 20/04 — ✅
 
 ---
 
