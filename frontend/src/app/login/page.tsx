@@ -12,6 +12,8 @@ import {
 } from "../../lib/app-client";
 import ThemeToggle from "../../components/ThemeToggle";
 import Image from "next/image";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 
 declare global {
   interface Window {
@@ -116,7 +118,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-surface-muted flex flex-col items-center justify-center p-5 relative font-sans">
+    <main className="min-h-screen bg-background flex flex-col items-center justify-center p-5 relative font-sans">
       <div className="absolute top-6 right-6 z-50">
         <ThemeToggle />
       </div>
@@ -125,52 +127,70 @@ export default function LoginPage() {
         <div className="relative h-10 w-10">
           <Image src="/icon.svg" alt="Memio Logo" fill className="object-contain" priority />
         </div>
-        <span className="text-2xl font-black tracking-tight text-foreground">
+        <span className="text-2xl font-bold tracking-tight text-foreground">
           Mem<span className="text-primary">io</span>
         </span>
       </Link>
 
-      <div className="w-full max-w-md bg-surface border border-border shadow-2xl shadow-primary/5 rounded-[2rem] p-8">
+      <div className="w-full max-w-md bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border shadow-sm rounded-2xl p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-black tracking-tight mb-2">Đăng nhập vào Memio</h1>
-          <p className="text-muted-foreground text-sm">Chào mừng bạn quay trở lại. Hãy tiếp tục học tập!</p>
+          <h1 className="text-2xl font-bold tracking-tight mb-2">Đăng nhập</h1>
+          <p className="text-muted-foreground text-sm">
+            Tiếp tục nhịp học của bạn trong vài giây.
+          </p>
         </div>
 
         <div className="flex flex-col items-center gap-4 mb-6">
           {GOOGLE_CLIENT_ID ? (
             <div ref={googleBtnRef} className="min-h-[44px] flex justify-center w-full" />
           ) : (
-            <p className="text-sm text-danger font-bold">Thiếu cấu hình Google Client ID.</p>
+            <p className="text-sm text-rose-700 dark:text-rose-300 font-semibold">
+              Thiếu cấu hình Google Client ID.
+            </p>
           )}
         </div>
 
         <div className="flex items-center gap-4 mb-6">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-muted-foreground text-xs font-bold uppercase tracking-wider">Hoặc đăng nhập bằng email</span>
+          <span className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+            Hoặc đăng nhập bằng tài khoản
+          </span>
           <div className="h-px flex-1 bg-border" />
         </div>
 
         <form onSubmit={handleUsernameLogin} className="flex flex-col gap-4">
-          <input
-            value={username} onChange={(e) => setUsername(e.target.value)} disabled={loading}
+          <Input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            disabled={loading}
             placeholder="Tên đăng nhập"
-            className="w-full px-5 py-3.5 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm"
           />
-          <input
-            value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} type="password"
+          <Input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+            type="password"
             placeholder="Mật khẩu"
-            className="w-full px-5 py-3.5 rounded-xl border border-border bg-surface outline-none focus:border-primary transition-colors text-sm"
           />
-          <button type="submit" disabled={loading} className="w-full py-3.5 mt-2 rounded-xl bg-foreground text-background font-bold text-sm hover:opacity-90 transition-opacity">
+          <Button
+            type="submit"
+            disabled={loading}
+            variant="primary"
+            className="w-full mt-2"
+          >
             {loading ? "Đang xử lý..." : "Đăng nhập"}
-          </button>
+          </Button>
         </form>
 
-        {status && <p className="text-danger text-sm font-bold text-center mt-4">{status}</p>}
+        {status && (
+          <p className="text-rose-700 dark:text-rose-300 text-sm font-semibold text-center mt-4">
+            {status}
+          </p>
+        )}
 
         <div className="mt-8 text-center text-sm font-medium">
           Chưa có tài khoản?{" "}
-          <Link href="/signup" className="text-primary hover:underline font-bold">
+          <Link href="/signup" className="text-primary hover:underline font-semibold">
             Đăng ký ngay
           </Link>
         </div>
