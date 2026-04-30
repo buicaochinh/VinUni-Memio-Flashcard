@@ -221,9 +221,46 @@ export default function StudyPage() {
     if (chatBottomRef.current) chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
 
+  const openTutor = async () => {
+    setIsExplainMode(true);
+
+    // If chat history already exists, don't regenerate
+    if (chatHistory.length > 0) return;
+
+    // Automatically generate first explanation from system prompt
+    if (!card) return;
+
+    setIsChatting(true);
+    try {
+      const data = await explainCard(
+        card.front,
+        card.back,
+        "", // Empty user message - system will generate initial explanation
+        [],
+        card.source_context
+      );
+      setChatHistory([{
+        role: "assistant",
+        text: data.answer || data.response || "Không tìm thấy giải thích.",
+        citations: data.citations || []
+      }]);
+    } catch {
+      setChatHistory([{
+        role: "assistant",
+        text: "Xin lỗi, có lỗi khi tải giải thích. Vui lòng thử lại!"
+      }]);
+    }
+    setIsChatting(false);
+  };
+
   const handleExplain = async (overrideMessage?: string) => {
     const message = overrideMessage || chatInput;
     if (!message.trim() || !card) return;
+
+    if (chatHistory.length === 0) {
+      openTutor();
+      return;
+    }
 
     if (!overrideMessage) setChatInput("");
     setChatHistory(prev => [...prev, { role: "user", text: message }]);
@@ -245,11 +282,11 @@ export default function StudyPage() {
 
   const handleQuickExplain = () => {
     if (!card) return;
-    const prompt = `you are reviewing flashcards based on the source material and you would like to expand your understanding of one of them.
-On the front it reads: "${card.front}"
-The answer on the back reads: "${card.back}"
-Explain this topic in more detail.`;
-    handleExplain(prompt);
+    if (chatHistory.length === 0) {
+      void openTutor();
+      return;
+    }
+    void handleExplain(`Giải thích kỹ hơn flashcard này dựa trên tài liệu nguồn và cho thêm ngữ cảnh học tập cần thiết.\nFront: "${card.front}"\nBack: "${card.back}"`);
   };
 
   useEffect(() => {
@@ -352,7 +389,10 @@ Explain this topic in more detail.`;
               "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[0.88rem] transition-all",
               isExplainMode ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-[hsl(var(--acrylic))] border border-border/70 text-subtle hover:bg-muted/35"
             )}
-            onClick={() => setIsExplainMode(!isExplainMode)}
+            onClick={() => {
+              if (isExplainMode) setIsExplainMode(false);
+              else openTutor();
+            }}
           >
             <Bot className="w-4 h-4" /> <span className="hidden sm:inline">{isExplainMode ? "Đóng Tutor" : "AI Tutor"}</span>
           </button>

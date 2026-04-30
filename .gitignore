@@ -26,3 +26,4 @@ scratch/
 # Claude Code — personal settings only, project settings.json is tracked
 .claude/settings.local.json
 .claude/
+.codex/
