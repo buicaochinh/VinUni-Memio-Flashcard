@@ -127,9 +127,7 @@ export default function LoginPage() {
         <div className="relative h-10 w-10">
           <Image src="/icon.svg" alt="Memio Logo" fill className="object-contain" priority />
         </div>
-        <span className="text-2xl font-bold tracking-tight text-foreground">
-          Mem<span className="text-primary">io</span>
-        </span>
+        <span className="text-2xl font-extrabold tracking-tight text-foreground">Memio</span>
       </Link>
 
       <div className="w-full max-w-md bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border shadow-sm rounded-2xl p-8">
