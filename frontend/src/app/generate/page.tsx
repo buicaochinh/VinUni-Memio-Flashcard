@@ -11,6 +11,8 @@ import {
   previewCards,
   PreviewCard,
 } from "../../lib/app-client";
+import { Button } from "../../components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import {
   Sparkles,
   Upload,
@@ -192,16 +194,21 @@ export default function GeneratePage() {
               <div className="grid gap-6">
                 <div>
                   <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider mb-2">Chọn deck đích</label>
-                  <select
-                    className="w-full rounded-2xl border border-border-strong bg-surface text-foreground px-4 py-3.5 outline-none transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20 text-[0.95rem] appearance-none cursor-pointer"
-                    value={selectedDeckId ?? ""}
-                    onChange={(e) => setSelectedDeckId(Number(e.target.value))}
+                  <Select
+                    value={selectedDeckId ? String(selectedDeckId) : ""}
+                    onValueChange={(v) => setSelectedDeckId(Number(v) || null)}
                   >
-                    {decks.length === 0 && <option value="">— Chưa có deck —</option>}
-                    {decks.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full justify-between bg-background/70">
+                      <SelectValue placeholder={decks.length ? "Chọn deck" : "Chưa có deck"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {decks.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
@@ -280,13 +287,14 @@ export default function GeneratePage() {
                 )}
 
                 <div className="flex gap-4 mt-2">
-                  <button
-                    className="flex-1 flex items-center justify-center gap-2 appearance-none border-0 rounded-2xl px-6 py-4 cursor-pointer font-extrabold text-[1rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  <Button
+                    variant="primary"
+                    className="w-full"
                     onClick={handleGenerate}
                     disabled={files.length === 0 || !selectedDeckId}
                   >
-                    <Sparkles className="w-5 h-5" /> Sinh {targetCount} flashcards
-                  </button>
+                    <Sparkles className="w-5 h-5" aria-hidden /> Sinh {targetCount} flashcards
+                  </Button>
                 </div>
               </div>
             </section>
@@ -388,24 +396,15 @@ export default function GeneratePage() {
               </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
-              <button
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface text-foreground font-bold text-[0.92rem] hover:-translate-y-px transition-all shadow-xs"
-                onClick={addCard}
-              >
-                <Plus className="w-4 h-4" /> Thêm thẻ
-              </button>
-              <button
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl border border-border-strong bg-surface/70 text-muted-foreground font-bold text-[0.92rem] hover:bg-surface hover:-translate-y-px transition-all"
-                onClick={() => setStage("setup")}
-              >
-                <RotateCcw className="w-4 h-4" /> Làm lại
-              </button>
-              <button
-                className="flex-[1.5] md:flex-none flex items-center justify-center gap-2 px-7 py-3 border-0 rounded-2xl font-bold text-[0.95rem] transition-all text-white bg-primary shadow-[0_0_20px_-5px_rgba(37,99,235,0.4)] hover:bg-primary/90 hover:-translate-y-px active:translate-y-0"
-                onClick={handleSave}
-              >
-                <Save className="w-4 h-4" /> Lưu tất cả
-              </button>
+              <Button variant="secondary" onClick={addCard} className="flex-1 md:flex-none">
+                <Plus className="w-4 h-4" aria-hidden /> Thêm thẻ
+              </Button>
+              <Button variant="ghost" onClick={() => setStage("setup")} className="flex-1 md:flex-none">
+                <RotateCcw className="w-4 h-4" aria-hidden /> Làm lại
+              </Button>
+              <Button variant="primary" onClick={handleSave} className="flex-[1.5] md:flex-none">
+                <Save className="w-4 h-4" aria-hidden /> Lưu tất cả
+              </Button>
             </div>
           </div>
 
@@ -535,20 +534,19 @@ export default function GeneratePage() {
           <h2 className="text-2xl font-extrabold mb-2">Đã lưu thành công!</h2>
           <p className="text-muted-foreground mb-8 italic">Các thẻ flashcards mới đã sẵn sàng để bạn chinh phục.</p>
           <div className="flex justify-center gap-3">
-            <button
-              className="btn btn-primary"
-              style={{ width: "auto" }}
+            <Button
+              variant="primary"
               onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)}
+              disabled={!selectedDeckId}
             >
-              <Repeat className="w-4 h-4" /> Học ngay
-            </button>
-            <button
-              className="btn btn-secondary"
-              style={{ width: "auto" }}
+              <Repeat className="w-4 h-4" aria-hidden /> Học ngay
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => { setStage("setup"); setFiles([]); setCards([]); setMessage(null); }}
             >
-              Upload tài liệu khác
-            </button>
+              Tải tài liệu khác
+            </Button>
           </div>
         </div>
       )}
