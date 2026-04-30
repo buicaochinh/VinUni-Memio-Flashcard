@@ -24,28 +24,28 @@ colors:
   info: "hsl(221 83% 53%)"
 typography:
   display:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
     fontSize: "clamp(1.65rem, 3.8vw, 2.75rem)"
     fontWeight: 700
     lineHeight: 1.15
     letterSpacing: "-0.01em"
   headline:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.25
   title:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: 1.25
   body:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
     fontSize: "0.95rem"
     fontWeight: 400
     lineHeight: 1.55
   label:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
+    fontFamily: "Plus Jakarta Sans, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial"
     fontSize: "0.78rem"
     fontWeight: 600
     lineHeight: 1.1
