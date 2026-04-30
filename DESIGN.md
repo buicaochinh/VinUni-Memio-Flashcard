@@ -126,8 +126,8 @@ Bảng màu trung tính sạch với một màu nhấn xanh “Friendly Royal”
 
 ## 3. Typography
 
-**Display Font:** Inter (fallback hệ thống)  
-**Body Font:** Inter (cùng family để đọc nhanh, không gây “mùi enterprise” bằng serif hoặc mono nặng)
+**Font chính (UI + nội dung): Plus Jakarta Sans** (fallback hệ thống)  
+Một family duy nhất để giữ nhịp đọc nhanh, giảm tải nhận thức khi chuyển ngữ cảnh giữa “thao tác” và “đọc”.
 
 **Character:** rõ, thân thiện, tối giản. Trọng tâm là khả năng đọc nhanh và giữ nhịp học.
 
@@ -141,6 +141,12 @@ Bảng màu trung tính sạch với một màu nhấn xanh “Friendly Royal”
 ### Named Rules
 **The No-Shout Rule.** Tránh in hoa dày đặc và `font-black` làm mặc định, chỉ tăng trọng lượng ở điểm thật sự quan trọng.
 
+### Text System (Low-fatigue)
+Các quy tắc “đọc sâu” được chuẩn hoá ở `globals.css` để toàn app nhất quán:
+- **Headings** cân bằng dòng (balance) và tracking nhẹ, ưu tiên nhịp đọc (không gào).
+- **Đoạn văn** line-height rộng hơn để đọc lâu ít mỏi.
+- **Số liệu** dùng `tabular-nums` ở các chỗ hiển thị %/count quan trọng.
+
 ## 4. Elevation
 
 Hybrid: **ring/viền rõ là cấu trúc**, shadow **rất nhẹ** chỉ để tách lớp khi cần (hover hoặc surface quan trọng). Những bề mặt “premium” dùng **acrylic/mica tiết chế** (nền bán trong, blur giới hạn phạm vi) để tạo cảm giác hiện đại, nhưng không biến toàn bộ UI thành glassmorphism.
@@ -148,6 +154,7 @@ Hybrid: **ring/viền rõ là cấu trúc**, shadow **rất nhẹ** chỉ để 
 ### Named Rules
 **The Ring-First Rule.** Khi cần phân lớp, ưu tiên viền/ring và nền lớp trước, shadow chỉ là phụ trợ.
 **The Acrylic-On-Purpose Rule.** Acrylic chỉ dùng cho vùng điều hướng hoặc vùng tổng quan, không phủ mọi card trong mọi màn hình.
+**The Mica Canvas Rule.** Nền trang có “mica tint” rất nhẹ (radial gradients) để tạo chiều sâu, nhưng content surfaces vẫn ưu tiên rõ và sạch.
 
 ## 5. Components
 
@@ -174,6 +181,7 @@ Hybrid: **ring/viền rõ là cấu trúc**, shadow **rất nhẹ** chỉ để 
 - **Implementation:** ưu tiên `@radix-ui/react-select` để tránh dropdown native bị lệch style trên macOS/Windows.
 - **Trigger:** giống button secondary (acrylic nhẹ + ring).
 - **Menu:** nền `surface` + border; item highlighted dùng `muted`, item selected có indicator (check).
+- **Width behavior:** dropdown **tối thiểu** bằng trigger (`min-width` theo trigger width), nhưng **có thể rộng hơn** nếu option dài để tránh bị cắt chữ.
 
 ### Navigation
 - **Active:** nền surface nhẹ + viền, chữ/biểu tượng theo `primary`.
@@ -191,4 +199,5 @@ Don't:
 - Không dùng blur/glass làm mặc định.
 - Không dựa vào dropdown native cho những điểm cần đồng bộ thẩm mỹ (dùng Radix Select).
 - Không lạm dụng in hoa hoặc font quá nặng như một “thủ thuật” tạo hierarchy.
+- Không dùng “page-load choreography” ở các màn product; motion chỉ nên là phản hồi trạng thái.
 
