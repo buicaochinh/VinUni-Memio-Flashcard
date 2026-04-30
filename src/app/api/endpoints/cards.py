@@ -328,7 +328,35 @@ def get_deck_analytics(deck_id: int, user_id: int, session: Session = Depends(ge
     }
 
 
-EXPLAIN_PROMPT = PromptTemplate.from_template(
+EXPLAIN_PROMPT_INITIAL = PromptTemplate.from_template(
+    """Bạn là một gia sư AI thân thiện, giúp học sinh hiểu rõ hơn về kiến thức trong flashcard này.
+Grounding: Hãy dựa vào nội dung gốc (Source Context) bên dưới để giải thích chính xác.
+
+Source Context: {source_context}
+
+Flashcard:
+- Câu hỏi: {front}
+- Đáp án: {back}
+
+NHIỆM VỤ: Tự động giải thích flashcard này dựa trên tài liệu nguồn (Source Context). Giải thích chi tiết về:
+- Khái niệm chính trong câu hỏi và đáp án
+- Ngữ cảnh và ý nghĩa của kiến thức này
+- Các điểm quan trọng cần lưu ý
+
+YÊU CẦU:
+1. Giải thích chi tiết, chuyên sâu và dễ hiểu dựa trên Source Context.
+2. Sử dụng các trích dẫn [1], [2],... ngay sau các thông tin quan trọng được trích lục hoặc tóm tắt từ Source Context.
+3. Trả về kết quả dưới dạng JSON DUY NHẤT với cấu trúc:
+{{
+  "answer": "Nội dung giải thích (Markdown) có kèm các trích dẫn [1], [2]...",
+  "citations": [
+    {{ "id": 1, "text": "Tóm tắt ngắn gọn ý của trích dẫn 1", "source": "Câu văn/Đoạn văn gốc chính xác từ Source Context" }}
+  ]
+}}
+CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH GÌ THÊM BÊN NGOÀI."""
+)
+
+EXPLAIN_PROMPT_FOLLOWUP = PromptTemplate.from_template(
     """Bạn là một gia sư AI thân thiện, giúp học sinh hiểu rõ hơn về kiến thức trong flashcard này.
 Grounding: Hãy dựa vào nội dung gốc (Source Context) bên dưới để giải thích chính xác.
 
@@ -344,9 +372,10 @@ Lịch sử trò chuyện:
 Câu hỏi của học sinh: {message}
 
 YÊU CẦU:
-1. Giải thích chi tiết, chuyên sâu và dễ hiểu.
-2. Sử dụng các trích dẫn [1], [2],... ngay sau các thông tin quan trọng được trích lục hoặc tóm tắt từ Source Context.
-3. Trả về kết quả dưới dạng JSON DUY NHẤT với cấu trúc:
+1. Trả lời câu hỏi của học sinh dựa trên Source Context.
+2. Giải thích chi tiết, chuyên sâu và dễ hiểu.
+3. Sử dụng các trích dẫn [1], [2],... ngay sau các thông tin quan trọng được trích lục hoặc tóm tắt từ Source Context.
+4. Trả về kết quả dưới dạng JSON DUY NHẤT với cấu trúc:
 {{
   "answer": "Nội dung giải thích (Markdown) có kèm các trích dẫn [1], [2]...",
   "citations": [
@@ -359,16 +388,31 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH GÌ THÊM BÊN NGOÀI."""
 @router.post("/explain")
 def get_explain(payload: ExplainRequest):
     llm = get_llm()
-    history_text = "\n".join([f"{msg.get('role', 'user')}: {msg.get('text', '')}" for msg in payload.history])
-    chain = EXPLAIN_PROMPT | llm
-    response = chain.invoke({
-        "front": payload.front,
-        "back": payload.back,
-        "source_context": payload.source_context or "Flashcard content.",
-        "history": history_text,
-        "message": payload.message
-    })
-    
+    source_context = (payload.source_context or "").strip() or "Flashcard content."
+
+    # Check if this is the initial system prompt (empty message and no history)
+    is_initial = not payload.message.strip() and len(payload.history) == 0
+
+    if is_initial:
+        # Use initial prompt - system automatically explains the flashcard
+        chain = EXPLAIN_PROMPT_INITIAL | llm
+        response = chain.invoke({
+            "front": payload.front,
+            "back": payload.back,
+            "source_context": source_context
+        })
+    else:
+        # Use follow-up prompt - respond to user's question
+        history_text = "\n".join([f"{msg.get('role', 'user')}: {msg.get('text', '')}" for msg in payload.history])
+        chain = EXPLAIN_PROMPT_FOLLOWUP | llm
+        response = chain.invoke({
+            "front": payload.front,
+            "back": payload.back,
+            "source_context": source_context,
+            "history": history_text,
+            "message": payload.message
+        })
+
     # Try to parse as JSON
     content = response.content
     try:
@@ -377,7 +421,7 @@ def get_explain(payload: ExplainRequest):
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:
             content = content.split("```")[1].split("```")[0].strip()
-        
+
         return json.loads(content)
     except:
         return {"answer": response.content, "citations": []}
