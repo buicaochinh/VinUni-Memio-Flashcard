@@ -43,6 +43,7 @@ export type AnalyticsData = {
   streak: number;
   heatmap: Record<string, number>;
   hardest_cards: Array<{
+    id: number;
     front: string;
     back: string;
     ease_factor: number;
@@ -58,6 +59,34 @@ export type AnalyticsData = {
     reviewed_count: number;
     hard_count: number;
   }>;
+  predicted_mastery_timeline: Array<{
+    date: string;
+    mastery: number;
+  }>;
+  weak_areas: {
+    weak_decks: Array<{
+      id: number;
+      name: string;
+      avg_ef: number;
+      reviewed_count: number;
+      hard_count: number;
+      weak_ratio: number;
+    }>;
+    weak_cards: Array<{
+      id: number;
+      front: string;
+      back: string;
+      ease_factor: number;
+      difficulty: string;
+      deck_id: number;
+    }>;
+  };
+  peers_comparison: {
+    your_forgetting_rate: number;
+    peer_forgetting_rate: number;
+    your_avg_reviews_per_day: number;
+    peer_avg_reviews_per_day: number;
+  };
 };
 
 export type ExplainHistoryMessage = {
