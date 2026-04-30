@@ -40,6 +40,8 @@ export const SelectContent = React.forwardRef<
       position={position}
       sideOffset={sideOffset}
       className={cn(
+        // Dropdown is at least trigger width, but can grow for long text.
+        "min-w-[var(--radix-select-trigger-width)]",
         "z-[250] overflow-hidden rounded-xl border border-border bg-background shadow-xl",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
@@ -47,7 +49,9 @@ export const SelectContent = React.forwardRef<
       )}
       {...props}
     >
-      <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+      <SelectPrimitive.Viewport className="w-full p-1">
+        {children}
+      </SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
 ));
