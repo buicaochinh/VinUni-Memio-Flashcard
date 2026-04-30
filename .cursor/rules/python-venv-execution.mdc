@@ -1,0 +1,19 @@
+---
+description: Use the project's virtualenv interpreter for any Python command execution. Never use system/global `python`.
+globs: "**/*.py"
+alwaysApply: true
+---
+
+# Python virtualenv execution
+
+Khi cần chạy lệnh Python trong agent (ví dụ `python -m ...` hoặc `python -c ...`), bắt buộc dùng interpreter trong môi trường ảo ở thư mục gốc dự án:
+
+- Ưu tiên: `./.venv/bin/python` (nếu tồn tại)
+- Nếu không có `.venv/`: dùng `./venv/bin/python`
+
+Không được dùng `python` hệ thống/global.
+
+Ví dụ:
+
+- `./.venv/bin/python -m compileall src`
+- `./venv/bin/python -c "from src.main import app; print('import-ok')"`
