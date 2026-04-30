@@ -34,7 +34,9 @@ services:
       update_config:
         parallelism: 1
         delay: 5s
-        order: start-first
+        # Caddy publish 80/443 với mode=host nên không thể start task mới khi task cũ còn giữ port.
+        # Dùng stop-first để tránh kẹt "host-mode port already in use".
+        order: stop-first
         failure_action: rollback
 
   backend:
