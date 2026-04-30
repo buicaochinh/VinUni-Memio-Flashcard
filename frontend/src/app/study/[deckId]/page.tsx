@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../../../lib/utils";
+import { Button } from "../../../components/ui/button";
 
 function mdToHtml(md: string): string {
   if (!md) return "";
@@ -51,8 +52,8 @@ function mdToHtml(md: string): string {
     const line = raw
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.+?)\*/g, "<em>$1</em>")
-      .replace(/`(.+?)`/g, "<code class='bg-gray-100 px-1 rounded text-sm'>$1</code>")
-      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline text-blue-600">$1</a>');
+      .replace(/`(.+?)`/g, "<code class='bg-muted px-1 rounded text-sm border border-border'>$1</code>")
+      .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="underline text-primary underline-offset-4">$1</a>');
 
     const h3 = line.match(/^#{3}\s+(.+)$/);
     const h2 = line.match(/^#{2}\s+(.+)$/);
@@ -79,10 +80,10 @@ function mdToHtml(md: string): string {
 }
 
 const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string; icon: LucideIcon }> = {
-  0: { label: "Lại",    hint: "Ôn lại sớm",       color: "bg-rose-500 text-white shadow-rose-200", icon: RotateCcw },
-  1: { label: "Khó",    hint: "Giãn cách ngắn",    color: "bg-amber-500 text-white shadow-amber-200", icon: HelpCircle },
-  2: { label: "Tốt",    hint: "Đúng nhịp",         color: "bg-secondary text-white shadow-teal-200", icon: CheckCircle2 },
-  3: { label: "Dễ",     hint: "Nắm chắc rồi",      color: "bg-primary text-white shadow-amber-200", icon: Zap },
+  0: { label: "Lại",    hint: "Ôn lại sớm",       color: "bg-[hsl(var(--danger))] text-white shadow-rose-200", icon: RotateCcw },
+  1: { label: "Khó",    hint: "Giãn cách ngắn",    color: "bg-[hsl(var(--warning))] text-white shadow-amber-200", icon: HelpCircle },
+  2: { label: "Tốt",    hint: "Đúng nhịp",         color: "bg-[hsl(var(--success))] text-white shadow-emerald-200", icon: CheckCircle2 },
+  3: { label: "Dễ",     hint: "Nắm chắc rồi",      color: "bg-primary text-white shadow-blue-200", icon: Zap },
 };
 
 const SWIPE_THRESHOLD = 80;  // px
@@ -180,7 +181,7 @@ export default function StudyPage() {
       if (isOnline()) {
         void logStudySession(user.id, deckId, newRatings.length, avg);
       }
-      setMsg("🎉 Hoàn thành phiên học!");
+      setMsg("Hoàn thành phiên học!");
       setTimeout(() => router.push("/workspace"), 1400);
     }
   }, [cards, deckId, idx, router, sessionRatings, user]);
@@ -292,18 +293,20 @@ Explain this topic in more detail.`;
           <h2 className="text-2xl font-extrabold tracking-tight mb-3">Deck này chưa có flashcards</h2>
           <p className="text-muted-foreground mb-10 leading-relaxed">Hãy sang Generator để tạo nội dung trước.</p>
           <div className="grid gap-3">
-            <button
-              className="w-full flex items-center justify-center gap-2 py-4 px-6 rounded-2xl font-extrabold text-white bg-primary shadow-lg hover:shadow-xl hover:-translate-y-px transition-all"
+            <Button
+              variant="primary"
+              className="w-full"
               onClick={() => router.push(`/generate?deckId=${deckId}`)}
             >
-              <Sparkles className="w-5 h-5" /> Tạo thẻ
-            </button>
-            <button
-              className="w-full py-4 px-6 rounded-2xl font-bold text-muted-foreground border border-border-strong bg-surface/50 hover:bg-surface hover:-translate-y-px transition-all"
+              <Sparkles className="w-5 h-5" aria-hidden /> Tạo thẻ
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
               onClick={() => router.push("/workspace")}
             >
               Về Bộ thẻ
-            </button>
+            </Button>
           </div>
         </section>
       </main>
@@ -329,7 +332,7 @@ Explain this topic in more detail.`;
         <div className="flex items-center gap-4 overflow-hidden">
           <button
             onClick={() => router.push("/workspace")}
-            className="w-10 h-10 rounded-xl flex items-center justify-center border border-border-strong hover:bg-surface-muted transition-all"
+            className="w-10 h-10 rounded-xl flex items-center justify-center border border-border hover:bg-muted/35 transition-colors"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
@@ -344,7 +347,7 @@ Explain this topic in more detail.`;
           <button
             className={cn(
               "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[0.88rem] transition-all",
-              isExplainMode ? "bg-primary text-white shadow-md shadow-amber-200" : "bg-surface border border-border-strong text-subtle hover:bg-surface-muted"
+              isExplainMode ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-[hsl(var(--acrylic))] border border-border/70 text-subtle hover:bg-muted/35"
             )}
             onClick={() => setIsExplainMode(!isExplainMode)}
           >
@@ -354,12 +357,12 @@ Explain this topic in more detail.`;
       </header>
 
       <div className={cn(
-        "flex-1 flex flex-col md:flex-row gap-6 p-4 md:p-8 max-w-[1400px] mx-auto w-full h-[calc(100vh-80px)]",
+        "flex-1 min-h-0 flex flex-col md:flex-row gap-6 p-4 md:p-8 max-w-[1400px] mx-auto w-full h-[calc(100vh-80px)]",
         isExplainMode ? "overflow-hidden" : ""
       )}>
         {/* ── Explain Sidebar ── */}
         {isExplainMode && (
-          <aside className="w-full md:w-[380px] flex flex-col bg-surface-raised border border-border rounded-[28px] shadow-sm backdrop-blur-xl animate-in slide-in-from-left-4 duration-500 overflow-hidden">
+          <aside className="w-full md:w-[380px] min-h-0 flex flex-col bg-surface-raised border border-border rounded-[28px] shadow-sm backdrop-blur-xl animate-in slide-in-from-left-4 duration-500 overflow-hidden">
             <div className="p-6 border-b border-border bg-surface/50">
               <div className="flex justify-between items-center mb-1">
                 <h3 className="font-extrabold text-lg flex items-center gap-2">
@@ -370,7 +373,7 @@ Explain this topic in more detail.`;
               <p className="text-muted-foreground text-[0.88rem] underline decoration-primary/30 decoration-2 underline-offset-4">Hỏi thêm về kiến thức trong thẻ này</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4 custom-scrollbar">
               {chatHistory.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center opacity-40 text-center px-4">
                   <Sparkles className="w-12 h-12 mb-4" />
@@ -382,7 +385,7 @@ Explain this topic in more detail.`;
                     "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%] relative group/msg",
                     m.role === "user"
                       ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm"
-                      : "mr-auto bg-surface border border-border text-text font-medium rounded-tl-none shadow-sm"
+                      : "mr-auto bg-surface border border-border text-foreground font-medium rounded-tl-none shadow-sm"
                   )}>
                     {m.role === "user" ? m.text : (
                       <div className="space-y-2">
@@ -434,7 +437,7 @@ Explain this topic in more detail.`;
                     {activeCitation.text}
                   </p>
                   <div className="space-y-4">
-                    <div className="p-5 rounded-2xl bg-surface-muted/50 border border-border-strong/10">
+                    <div className="p-5 rounded-2xl bg-surface-muted/50 border border-border/60">
                       <div className="text-[0.7rem] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
                         <Info className="w-3.5 h-3.5" /> Tài liệu nguồn
                       </div>
@@ -453,7 +456,7 @@ Explain this topic in more detail.`;
             <div className="p-4 bg-surface/50 border-t border-border mt-auto">
               <div className="relative group">
                 <input
-                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border-strong bg-surface text-text font-medium placeholder:text-subtle outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
+                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border bg-surface text-foreground font-medium placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
                   placeholder="Nhập câu hỏi của bạn..."
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
@@ -463,7 +466,7 @@ Explain this topic in more detail.`;
                   }}
                 />
                 <button
-                  className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-amber-200 dark:shadow-amber-500/20"
+                  className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-primary/20"
                   onClick={() => handleExplain()}
                   disabled={!chatInput.trim() || isChatting}
                 >
@@ -475,7 +478,7 @@ Explain this topic in more detail.`;
         )}
 
         {/* ── Main content ── */}
-        <section className="flex-1 flex flex-col items-center justify-center max-w-[800px] mx-auto w-full relative">
+        <section className="flex-1 min-h-0 flex flex-col items-center justify-center max-w-[800px] mx-auto w-full relative">
           {card && (
             <div className="w-full flex flex-col gap-8">
               {/* Progress and status */}
@@ -493,8 +496,8 @@ Explain this topic in more detail.`;
                   </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
-                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-strong text-primary text-[0.75rem] font-black shadow-sm tracking-wide">
-                    {cards.length < 5 ? "BẮt đầu" : cards.length < 15 ? "Tiến bộ" : "Thành thạo"}
+                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.75rem] font-black shadow-sm tracking-wide">
+                    {cards.length < 5 ? "Bắt đầu" : cards.length < 15 ? "Tiến bộ" : "Thành thạo"}
                   </div>
                 </div>
               </div>
@@ -532,7 +535,7 @@ Explain this topic in more detail.`;
                   onPointerCancel={() => { setIsDragging(false); setDragX(0); }}
                 >
                   {/* Front */}
-                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-surface-muted border-2 border-border shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] flex flex-col">
+                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-surface-muted border-2 border-border/80 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] flex flex-col">
                     <div className="flex justify-between items-start mb-6">
                       <div className="text-[0.82rem] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-primary" /> Câu hỏi
@@ -540,7 +543,7 @@ Explain this topic in more detail.`;
                       <div className="flex items-center gap-2">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border-strong text-primary text-[0.7rem] font-bold shadow-sm hover:bg-surface-muted transition-all"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.7rem] font-bold shadow-sm hover:bg-muted/35 transition-colors"
                         >
                           <Bot className="w-3.5 h-3.5" /> Giải thích
                         </button>
@@ -557,28 +560,28 @@ Explain this topic in more detail.`;
                     <div className="flex-1 flex items-center justify-center text-center text-xl md:text-2xl lg:text-3xl font-extrabold leading-tight tracking-tight text-foreground">
                       {card.front}
                     </div>
-                    <div className="pt-6 mt-auto border-t border-border-strong/40 flex items-center justify-center gap-2 text-subtle font-bold text-xs uppercase tracking-widest opacity-60">
+                    <div className="pt-6 mt-auto border-t border-border/60 flex items-center justify-center gap-2 text-subtle font-bold text-xs uppercase tracking-widest opacity-60">
                       Nhấn để lật đáp án
                     </div>
                   </div>
 
                   {/* Back */}
-                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-blue-50 dark:bg-blue-900/20 border-2 border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
+                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-primary/10 border-2 border-primary/20 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
                     <div className="flex justify-between items-start mb-6">
-                      <div className="text-[0.82rem] font-bold text-secondary-dark uppercase tracking-widest flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5" /> Đáp án
+                      <div className="text-[0.82rem] font-bold text-foreground uppercase tracking-widest flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-[hsl(var(--success))]" /> Đáp án
                       </div>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/50 border border-secondary/20 text-secondary-dark text-[0.7rem] font-bold shadow-sm hover:bg-surface transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.7rem] font-bold shadow-sm hover:bg-muted/35 transition-colors"
                       >
                         <Bot className="w-3.5 h-3.5" /> Giải thích
                       </button>
                     </div>
-                    <div className="flex-1 flex items-center justify-center text-center text-lg md:text-xl lg:text-2xl font-bold leading-relaxed text-secondary-dark overflow-y-auto custom-scrollbar px-2">
+                    <div className="flex-1 flex items-center justify-center text-center text-lg md:text-xl lg:text-2xl font-bold leading-relaxed text-foreground overflow-y-auto custom-scrollbar px-2">
                       {card.back}
                     </div>
-                    <div className="pt-6 mt-auto border-t border-teal-200/40 flex items-center justify-center gap-2 text-secondary font-bold text-xs uppercase tracking-widest opacity-60">
+                    <div className="pt-6 mt-auto border-t border-border/60 flex items-center justify-center gap-2 text-muted-foreground font-bold text-xs uppercase tracking-widest opacity-60">
                       Chấm điểm bên dưới để tiếp tục
                     </div>
                   </div>
@@ -593,8 +596,8 @@ Explain this topic in more detail.`;
                       <div className="flex gap-4 items-center px-5 py-3 rounded-2xl bg-surface-raised border border-border shadow-sm">
                         <Keyboard className="w-5 h-5 text-muted-foreground" />
                         <div className="flex gap-3 text-[0.75rem] font-bold text-subtle">
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">Space</kbd> Lật</span>
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border-strong bg-surface shadow-xs">←/→</kbd> Chuyển</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border bg-[hsl(var(--acrylic))] shadow-xs">Space</kbd> Lật</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border bg-[hsl(var(--acrylic))] shadow-xs">←/→</kbd> Chuyển</span>
                         </div>
                       </div>
                     )}
@@ -620,13 +623,15 @@ Explain this topic in more detail.`;
                           className={cn(
                             "flex flex-col items-center gap-1.5 p-4 rounded-3xl transition-all duration-200 active:scale-95 shadow-lg",
                             r.color,
-                            isActive ? "scale-90 opacity-50 ring-4 ring-white" : "hover:-translate-y-1 hover:brightness-105"
+                            isActive ? "scale-90 opacity-50 ring-4 ring-background/80" : "hover:-translate-y-1 hover:brightness-105"
                           )}
                         >
                           <Icon className="w-6 h-6 mb-0.5" strokeWidth={3} />
                           <span className="text-[0.9rem] font-black uppercase tracking-tighter">{r.label}</span>
                           <span className="text-[0.65rem] font-bold opacity-80 uppercase tracking-widest">{r.hint}</span>
-                          <kbd className="mt-1 px-1.5 py-0.5 rounded-md bg-black/10 text-[0.65rem] font-bold border border-white/20">{q + 1}</kbd>
+                          <kbd className="mt-1 px-1.5 py-0.5 rounded-md bg-foreground/10 text-[0.65rem] font-bold border border-white/20">
+                            {q + 1}
+                          </kbd>
                         </button>
                       );
                     })}
@@ -637,7 +642,7 @@ Explain this topic in more detail.`;
           )}
 
           {msg && (
-            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-black/90 text-white rounded-[24px] font-bold text-lg shadow-2xl animate-in slide-in-from-bottom shadow-primary/20 flex items-center gap-3 z-50">
+            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-foreground/90 text-[hsl(var(--background))] rounded-[24px] font-bold text-lg shadow-2xl animate-in slide-in-from-bottom shadow-primary/20 flex items-center gap-3 z-50">
               <Sparkles className="text-primary w-6 h-6" /> {msg}
             </div>
           )}
