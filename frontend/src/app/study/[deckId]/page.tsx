@@ -10,6 +10,7 @@ import {
   fetchDeckCards,
   flushProgressQueue,
   getCachedCards,
+  useClientReady,
   useStoredUser,
   isOnline,
   logStudySession,
@@ -95,6 +96,7 @@ export default function StudyPage() {
   const router     = useRouter();
 
   const user = useStoredUser();
+  const clientReady = useClientReady();
   const [cards,        setCards]        = useState<Card[]>([]);
   const [idx,          setIdx]          = useState(0);
   const [isFlipped,    setIsFlipped]    = useState(false);
@@ -134,6 +136,7 @@ export default function StudyPage() {
   }, [deckId]);
 
   useEffect(() => {
+    if (!clientReady) return;
     if (!user) { router.replace("/"); return; }
     const t = setTimeout(() => { void loadCards(user.id); }, 0);
 
@@ -146,7 +149,7 @@ export default function StudyPage() {
       window.removeEventListener("online",  handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [loadCards, router, user]);
+  }, [clientReady, loadCards, router, user]);
 
   const handleRate = useCallback(async (quality: 0 | 1 | 2 | 3) => {
     if (!user || cards.length === 0) return;
@@ -428,7 +431,7 @@ Explain this topic in more detail.`;
                     <X className="w-5 h-5"/>
                   </button>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-black text-sm">
+                    <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">
                       {activeCitation.id}
                     </div>
                     <h4 className="font-extrabold text-xl">Điểm chính</h4>
@@ -438,7 +441,7 @@ Explain this topic in more detail.`;
                   </p>
                   <div className="space-y-4">
                     <div className="p-5 rounded-2xl bg-surface-muted/50 border border-border/60">
-                      <div className="text-[0.7rem] font-black uppercase tracking-widest text-primary mb-2 flex items-center gap-2">
+                      <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
                         <Info className="w-3.5 h-3.5" /> Tài liệu nguồn
                       </div>
                       <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">
@@ -485,8 +488,8 @@ Explain this topic in more detail.`;
               <div className="flex items-center gap-6">
                 <div className="flex-1">
                   <div className="flex justify-between items-end mb-2.5">
-                    <span className="text-[0.75rem] font-extrabold uppercase tracking-widest text-muted-foreground">Thẻ {idx + 1} / {cards.length}</span>
-                    <span className="text-[1.2rem] font-black text-foreground">{Math.round(progress)}%</span>
+                    <span className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted-foreground">Thẻ {idx + 1} / {cards.length}</span>
+                    <span className="text-[1.2rem] font-bold text-foreground tabular-nums">{Math.round(progress)}%</span>
                   </div>
                   <div className="h-2.5 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
                     <div
@@ -496,7 +499,7 @@ Explain this topic in more detail.`;
                   </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
-                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.75rem] font-black shadow-sm tracking-wide">
+                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.75rem] font-semibold shadow-sm tracking-wide">
                     {cards.length < 5 ? "Bắt đầu" : cards.length < 15 ? "Tiến bộ" : "Thành thạo"}
                   </div>
                 </div>
@@ -506,13 +509,13 @@ Explain this topic in more detail.`;
               <div className="relative group w-full h-[400px] md:h-[460px]">
                 {/* Swipe hints */}
                 <div
-                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-black scale-125 md:scale-150 transition-opacity bg-surface/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary"
+                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-bold scale-125 md:scale-150 transition-opacity bg-[hsl(var(--acrylic-strong))] backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary/80"
                   style={{ opacity: rightHintOpacity }}
                 >
                   <Zap className="w-6 h-6" /> Dễ
                 </div>
                 <div
-                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-black scale-125 md:scale-150 transition-opacity bg-surface/90 backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500"
+                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-bold scale-125 md:scale-150 transition-opacity bg-[hsl(var(--acrylic-strong))] backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500/80"
                   style={{ opacity: leftHintOpacity }}
                 >
                   <RotateCcw className="w-6 h-6" /> Lại

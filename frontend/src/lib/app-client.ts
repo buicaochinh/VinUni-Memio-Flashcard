@@ -217,6 +217,41 @@ export function useStoredUser() {
   ) as User | null;
 }
 
+// Ready flag to avoid redirecting before client hydration.
+// Implemented as an external store to satisfy hooks lint rules.
+const CLIENT_READY_EVENT = "flashcard_client_ready";
+let _clientReady = false;
+
+function subscribeClientReady(onStoreChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(CLIENT_READY_EVENT, onStoreChange);
+
+  if (!_clientReady) {
+    queueMicrotask(() => {
+      _clientReady = true;
+      window.dispatchEvent(new Event(CLIENT_READY_EVENT));
+    });
+  }
+
+  return () => window.removeEventListener(CLIENT_READY_EVENT, onStoreChange);
+}
+
+function getClientReadySnapshot() {
+  return typeof window !== "undefined" && _clientReady;
+}
+
+function getClientReadyServerSnapshot() {
+  return false;
+}
+
+export function useClientReady() {
+  return useSyncExternalStore(
+    subscribeClientReady,
+    getClientReadySnapshot,
+    getClientReadyServerSnapshot
+  );
+}
+
 export async function readErrorDetail(res: Response): Promise<string | null> {
   try {
     const data = await res.json();

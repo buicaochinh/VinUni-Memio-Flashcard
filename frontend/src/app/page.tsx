@@ -4,7 +4,8 @@ import { useStoredUser } from "../lib/app-client";
 import Link from "next/link";
 import ThemeToggle from "../components/ThemeToggle";
 import Image from "next/image";
-import { Sparkles, Check, Star, FileText, Brain, Activity, Clock, Layers, ArrowRight } from "lucide-react";
+import { Sparkles, Check, FileText, Brain, Activity, Clock, Layers, ArrowRight } from "lucide-react";
+import { cn } from "../lib/utils";
 
 export default function Home() {
   const user = useStoredUser();
@@ -26,15 +27,13 @@ export default function Home() {
               priority
             />
           </div>
-          <span className="text-2xl font-bold tracking-tight text-foreground">
-            Mem<span className="text-primary">io</span>
-          </span>
+          <span className="text-2xl font-extrabold tracking-tight text-foreground">Memio</span>
         </div>
         <div className="flex items-center gap-4 md:gap-8">
           <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Tính năng</a>
-            <a href="#" className="hover:text-foreground transition-colors">Bảng giá</a>
-            <a href="#" className="hover:text-foreground transition-colors">Tài liệu</a>
+            <a href="#how" className="hover:text-foreground transition-colors">Cách hoạt động</a>
+            <a href="#why" className="hover:text-foreground transition-colors">Nhớ lâu hơn</a>
+            <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
             {user ? (
               <Link
                 href="/workspace"
@@ -50,14 +49,19 @@ export default function Home() {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-black text-primary">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                     {initial}
                   </span>
                 )}
                 <span className="max-w-28 truncate">{displayName}</span>
               </Link>
             ) : (
-              <Link href="/login" className="hover:text-foreground transition-colors text-foreground">Đăng nhập</Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center rounded-full border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md px-4 py-2 text-foreground font-semibold shadow-sm transition-[background-color,border-color,transform,color] hover:bg-muted/35 hover:border-primary/25 hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+              >
+                Đăng nhập
+              </Link>
             )}
           </div>
           <ThemeToggle />
@@ -70,12 +74,12 @@ export default function Home() {
           <Sparkles className="w-3.5 h-3.5" /> AI Tạo thẻ tự động
         </div>
         
-        <h1 className="text-[clamp(2.5rem,6vw,5rem)] font-black tracking-tight mb-6 max-w-[900px] leading-[1.05] text-foreground">
+        <h1 className="text-[clamp(2.4rem,5.6vw,4.8rem)] font-extrabold tracking-tight mb-6 max-w-[920px] leading-[1.05] text-foreground">
           Thẻ ghi nhớ thông minh<br />giúp bạn học nhanh hơn
         </h1>
         
-        <p className="text-muted-foreground text-[1.1rem] md:text-xl max-w-[650px] mb-12 leading-relaxed">
-          Tải lên tài liệu. AI tự tạo flashcards. Ôn tập hiệu quả với thuật toán SM-2. Tiết kiệm hàng giờ mỗi tuần.
+        <p className="text-muted-foreground text-[1.05rem] md:text-xl max-w-[66ch] mb-10 leading-relaxed">
+          Tải tài liệu, tạo thẻ trong vài phút, rồi ôn theo nhịp. Memio giúp bạn học sâu hơn bằng spaced repetition và một luồng làm việc không gây nhiễu.
         </p>
 
         {/* CTA Buttons */}
@@ -94,7 +98,7 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-6 mt-4 text-sm font-bold text-muted-foreground">
+        <div className="flex flex-wrap justify-center gap-6 mt-4 text-sm font-semibold text-muted-foreground">
           <span className="flex items-center gap-2"><Check className="w-4 h-4 text-primary" /> Miễn phí trọn đời</span>
           <span className="flex items-center gap-2"><Check className="w-4 h-4 text-primary" /> Không cần thẻ tín dụng</span>
           <span className="flex items-center gap-2"><Check className="w-4 h-4 text-primary" /> Hỗ trợ mọi thiết bị</span>
@@ -103,146 +107,188 @@ export default function Home() {
 
       {/* MOCKUP GRAPHIC */}
       <section className="px-5 pb-24 flex justify-center">
-        <div className="w-full max-w-5xl rounded-[2rem] overflow-hidden border border-border shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] bg-surface aspect-[16/9] relative flex items-center justify-center p-8">
-           {/* Placeholder for actual app screenshot */}
-           <div className="w-full h-full bg-surface-muted rounded-2xl border border-border flex flex-col">
-              <div className="h-12 border-b border-border flex items-center px-4 gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-                <div className="w-3 h-3 rounded-full bg-green-400"></div>
+        <div className="w-full max-w-5xl rounded-[2rem] overflow-hidden border border-border shadow-[0_30px_60px_-15px_rgba(0,0,0,0.10)] bg-[hsl(var(--acrylic-strong))] backdrop-blur-md relative">
+          <div className="p-4 sm:p-6 border-b border-border/70 bg-[hsl(var(--acrylic))] backdrop-blur-md flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="relative h-8 w-8">
+                <Image src="/icon.svg" alt="Memio" fill className="object-contain" />
               </div>
-              <div className="flex-1 flex overflow-hidden">
-                {/* Sidebar */}
-                <div className="w-[200px] border-r border-border p-6 flex flex-col gap-4 bg-surface">
-                  <div className="flex items-center gap-2 mb-2">
-                     <div className="w-6 h-6 relative">
-                        <Image src="/icon.svg" alt="Memio" fill className="object-contain" />
-                     </div>
-                     <span className="font-black text-base text-foreground">Memio</span>
+              <span className="font-semibold text-foreground">Memio</span>
+              <span className="hidden sm:inline text-[0.82rem] text-muted-foreground">
+                Một vòng lặp học tập, từ tài liệu đến nhịp ôn.
+              </span>
+            </div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-1.5 text-[0.78rem] font-semibold text-muted-foreground">
+              <Sparkles className="h-4 w-4 text-primary" aria-hidden /> Tạo thẻ từ tài liệu
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr]">
+            <div className="border-b lg:border-b-0 lg:border-r border-border/70 p-5 sm:p-6 bg-[hsl(var(--acrylic))] backdrop-blur-md">
+              <div className="grid gap-2">
+                {[
+                  { icon: Layers, label: "Bộ thẻ", active: true },
+                  { icon: Sparkles, label: "Tạo thẻ", active: false },
+                  { icon: Activity, label: "Thống kê", active: false },
+                ].map((i) => {
+                  const Icon = i.icon;
+                  return (
+                    <div
+                      key={i.label}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold",
+                        i.active
+                          ? "bg-primary/10 text-primary ring-1 ring-primary/15"
+                          : "text-muted-foreground hover:bg-muted/30"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden />
+                      {i.label}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-5 sm:p-7 bg-background">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+                <div>
+                  <div className="text-[0.75rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Gợi ý hôm nay
                   </div>
-                  <div className="flex items-center gap-3 px-3 py-2 bg-primary/10 text-primary rounded-lg font-bold text-xs">
-                    <Layers className="w-4 h-4" /> Bộ thẻ
+                  <div className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                    Ôn nhanh 12 thẻ đến hạn
                   </div>
-                  <div className="flex items-center gap-3 px-3 py-2 text-muted-foreground rounded-lg font-bold text-xs">
-                    <Sparkles className="w-4 h-4" /> Tạo thẻ AI
-                  </div>
-                  <div className="flex items-center gap-3 px-3 py-2 text-muted-foreground rounded-lg font-bold text-xs">
-                    <Activity className="w-4 h-4" /> Thống kê
-                  </div>
+                  <p className="text-muted-foreground text-sm mt-1 max-w-[55ch]">
+                    Chọn một deck, bắt đầu phiên ngắn, rồi dừng đúng lúc. Nhớ lâu là nhờ nhịp, không phải marathon.
+                  </p>
                 </div>
-                {/* Main Content */}
-                <div className="flex-1 p-8 flex flex-col gap-6 overflow-hidden bg-background">
-                  <div>
-                    <h2 className="text-2xl font-black mb-1 text-foreground">Xin chào, Khách 👋</h2>
-                    <p className="text-muted-foreground text-sm">Bạn đã ôn tập 120 thẻ trong tuần này. Tiếp tục phát huy nhé!</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                     <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col hover:border-primary/50 transition-colors">
-                        <div className="flex justify-between items-start mb-3">
-                           <h3 className="font-bold text-base text-foreground line-clamp-1">IELTS Writing Task 2</h3>
-                           <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 text-[0.65rem] font-bold rounded-md">80% Mastered</span>
-                        </div>
-                        <p className="text-muted-foreground text-xs mb-4 line-clamp-2">Từ vựng nâng cao và cấu trúc câu phức tạp cho bài thi IELTS.</p>
-                        <div className="mt-auto flex justify-between items-center">
-                           <span className="text-xs font-bold text-primary">12 thẻ cần ôn</span>
-                           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow-sm"><ArrowRight className="w-3 h-3" /></div>
-                        </div>
-                     </div>
-                     <div className="bg-surface border border-border rounded-2xl shadow-sm p-5 flex flex-col hover:border-primary/50 transition-colors">
-                        <div className="flex justify-between items-start mb-3">
-                           <h3 className="font-bold text-base text-foreground line-clamp-1">Lịch sử Thế giới</h3>
-                           <span className="px-2 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 text-[0.65rem] font-bold rounded-md">45% Mastered</span>
-                        </div>
-                        <p className="text-muted-foreground text-xs mb-4 line-clamp-2">Các sự kiện quan trọng trong thế chiến thứ 2 và chiến tranh lạnh.</p>
-                        <div className="mt-auto flex justify-between items-center">
-                           <span className="text-xs font-bold text-primary">34 thẻ cần ôn</span>
-                           <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center shadow-sm"><ArrowRight className="w-3 h-3" /></div>
-                        </div>
-                     </div>
-                  </div>
+                <div className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-[hsl(var(--acrylic))] backdrop-blur-md px-3 py-2">
+                  <span className="text-[0.75rem] font-semibold text-muted-foreground">Tiến độ tuần</span>
+                  <span className="text-sm font-bold tabular-nums text-foreground">120</span>
+                  <span className="text-[0.75rem] text-muted-foreground">thẻ</span>
                 </div>
               </div>
-           </div>
+
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  { title: "IELTS Writing Task 2", note: "12 thẻ cần ôn", tone: "text-primary" },
+                  { title: "Lịch sử Thế giới", note: "34 thẻ cần ôn", tone: "text-muted-foreground" },
+                ].map((d) => (
+                  <div key={d.title} className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-foreground truncate">{d.title}</div>
+                        <div className={cn("text-sm font-semibold mt-1", d.tone)}>{d.note}</div>
+                      </div>
+                      <div className="h-9 w-9 rounded-xl bg-primary text-[hsl(var(--primary-foreground))] grid place-items-center shadow-sm">
+                        <ArrowRight className="h-4 w-4" aria-hidden />
+                      </div>
+                    </div>
+                    <div className="mt-4 h-1.5 rounded-full bg-muted/70 overflow-hidden ring-1 ring-border/60">
+                      <div className="h-full w-[62%] bg-primary/70" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="py-24 px-5 bg-surface border-y border-border">
-        <div className="max-w-6xl mx-auto text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4 text-foreground">3 Bước Để Học Nhanh Hơn</h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Chỉ mất 10 giây để biến tài liệu của bạn thành hàng tá thẻ ghi nhớ thông minh.</p>
-        </div>
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10">
-           {/* Step 1 */}
-           <div className="flex flex-col items-center text-center">
-             <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center text-2xl font-black mb-6 shadow-sm border border-blue-200 dark:border-blue-800">1</div>
-             <h3 className="font-bold text-xl mb-3 text-foreground">Tải lên tài liệu</h3>
-             <p className="text-muted-foreground text-sm leading-relaxed">Kéo thả file PDF, Word, TXT hoặc paste nội dung trực tiếp. Memio hỗ trợ xử lý dữ liệu phức tạp chỉ trong chớp mắt.</p>
-           </div>
-           {/* Step 2 */}
-           <div className="flex flex-col items-center text-center">
-             <div className="w-16 h-16 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 flex items-center justify-center text-2xl font-black mb-6 shadow-sm border border-purple-200 dark:border-purple-800">2</div>
-             <h3 className="font-bold text-xl mb-3 text-foreground">AI tự động trích xuất</h3>
-             <p className="text-muted-foreground text-sm leading-relaxed">Claude 3.5 Sonnet sẽ đọc hiểu và lọc ra những khái niệm quan trọng nhất, tự động tạo thành bộ flashcards (Mặt trước/Mặt sau) cực chuẩn.</p>
-           </div>
-           {/* Step 3 */}
-           <div className="flex flex-col items-center text-center">
-             <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 flex items-center justify-center text-2xl font-black mb-6 shadow-sm border border-green-200 dark:border-green-800">3</div>
-             <h3 className="font-bold text-xl mb-3 text-foreground">Ôn tập với Smart Review</h3>
-             <p className="text-muted-foreground text-sm leading-relaxed">Thuật toán lặp lại ngắt quãng SM-2 sẽ lên lịch ôn tập cho bạn. Những thẻ khó sẽ lặp lại nhiều hơn, thẻ dễ lặp lại ít hơn.</p>
-           </div>
+      <section id="how" className="py-24 px-5 bg-[hsl(var(--surface))] border-y border-border">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-14 items-start">
+          <div className="max-w-[60ch]">
+            <div className="text-[0.78rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              Cách hoạt động
+            </div>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-3 text-foreground">
+              Một vòng lặp để nhớ lâu, không phải một lần đọc cho xong.
+            </h2>
+            <p className="text-muted-foreground text-[1.05rem] leading-relaxed mt-5">
+              Memio gom ba việc bạn vẫn làm hằng ngày vào một luồng. Tài liệu, thẻ, rồi nhịp ôn. Mỗi bước đều có điểm dừng rõ để bạn không bị cuốn quá đà.
+            </p>
+          </div>
+
+          <ol className="grid gap-5">
+            {[
+              { n: "01", t: "Tải tài liệu", d: "PDF, DOCX, TXT. Chỉ cần kéo thả, không cần chuẩn bị định dạng." },
+              { n: "02", t: "AI tạo thẻ", d: "Chọn số lượng, rồi xem lại. Bạn giữ quyền chỉnh sửa trước khi lưu." },
+              { n: "03", t: "Ôn theo nhịp", d: "SM-2 lên lịch ôn. Bạn chỉ tập trung vào thẻ đến hạn." },
+            ].map((s) => (
+              <li key={s.n} className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="flex-none w-12 h-12 rounded-2xl bg-primary/10 text-primary grid place-items-center font-semibold">
+                    {s.n}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-lg font-semibold tracking-tight text-foreground">
+                      {s.t}
+                    </div>
+                    <p className="text-muted-foreground text-[0.95rem] leading-relaxed mt-1">
+                      {s.d}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
-      {/* RATING BANNER */}
-      <section className="py-16 bg-surface border-y border-border text-center">
-        <div className="flex justify-center gap-1 text-amber-400 mb-4">
-          <Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" /><Star className="w-6 h-6 fill-current" />
-        </div>
-        <p className="font-black text-xl md:text-2xl tracking-tight text-foreground max-w-2xl mx-auto leading-snug">
-          &ldquo;MEMIO GIÚP TÔI TIẾT KIỆM HÀNG CHỤC GIỜ SOẠN THẺ MỖI TUẦN. THUẬT TOÁN SM-2 RẤT HIỆU QUẢ.&rdquo;
-        </p>
-        <p className="text-muted-foreground font-bold mt-4 text-sm uppercase tracking-widest">Hơn 20,000 học sinh đang sử dụng</p>
-      </section>
+      <section id="why" className="py-24 px-5 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-12 items-start">
+          <div className="max-w-[68ch]">
+            <div className="text-[0.78rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              Nhớ lâu hơn
+            </div>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-3 text-foreground">
+              Học sâu đến từ nhịp, phản hồi, và sự trung thực khi chấm điểm.
+            </h2>
+            <div className="mt-7 grid gap-4">
+              {[
+                { t: "Nhịp ôn phù hợp", d: "Bạn không cố nhồi, bạn lặp lại đúng lúc sắp quên." },
+                { t: "Phản hồi ngay tại thẻ", d: "Chấm 0–3 sau khi flip. Dữ liệu đúng thì lịch ôn mới đúng." },
+                { t: "Tập trung vào phần yếu", d: "Thống kê không để ngắm. Nó chỉ ra deck và thẻ bạn nên ôn tiếp." },
+              ].map((b) => (
+                <div key={b.t} className="flex gap-3">
+                  <span className="mt-1 h-6 w-6 rounded-full bg-primary/10 ring-1 ring-border/60 flex items-center justify-center text-primary font-semibold">
+                    <Check className="h-4 w-4" aria-hidden />
+                  </span>
+                  <div>
+                    <div className="font-semibold text-foreground">{b.t}</div>
+                    <p className="text-muted-foreground text-[0.95rem] leading-relaxed mt-1">
+                      {b.d}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-      {/* PASTEL FEATURES GRID */}
-      <section className="py-24 px-5 max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4">Mọi công cụ bạn cần. Trong một ứng dụng.</h2>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-blue-50 dark:bg-blue-950/30 p-8 rounded-3xl border border-blue-100 dark:border-blue-900/50">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-6">
-              <FileText className="w-6 h-6" />
+          <div className="rounded-3xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-7 shadow-sm">
+            <div className="text-[0.78rem] font-semibold uppercase tracking-wide text-muted-foreground">
+              Một phiên hợp lý
             </div>
-            <h3 className="font-bold text-xl mb-3 text-blue-950 dark:text-blue-100">Tài liệu</h3>
-            <p className="text-blue-800/80 dark:text-blue-200/70 leading-relaxed text-sm font-medium">Tải lên PDF, Word hoặc Text. Memio sẽ đọc hiểu toàn bộ nội dung của bạn.</p>
-          </div>
-          
-          <div className="bg-pink-50 dark:bg-pink-950/30 p-8 rounded-3xl border border-pink-100 dark:border-pink-900/50">
-            <div className="w-12 h-12 bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-400 rounded-2xl flex items-center justify-center mb-6">
-              <Sparkles className="w-6 h-6" />
+            <div className="text-xl font-bold tracking-tight text-foreground mt-2">
+              8–12 phút là đủ.
             </div>
-            <h3 className="font-bold text-xl mb-3 text-pink-950 dark:text-pink-100">Tạo thẻ AI</h3>
-            <p className="text-pink-800/80 dark:text-pink-200/70 leading-relaxed text-sm font-medium">Tự động trích xuất các khái niệm quan trọng và tạo flashcards trong vài giây.</p>
-          </div>
-          
-          <div className="bg-purple-50 dark:bg-purple-950/30 p-8 rounded-3xl border border-purple-100 dark:border-purple-900/50">
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 rounded-2xl flex items-center justify-center mb-6">
-              <Brain className="w-6 h-6" />
+            <p className="text-muted-foreground text-[0.95rem] leading-relaxed mt-3">
+              Memio được thiết kế cho phiên ngắn. Bạn dễ bắt đầu, dễ dừng, và dễ quay lại mà không cần “lấy đà”.
+            </p>
+            <div className="mt-6 grid gap-3">
+              {[
+                { k: "Mục tiêu", v: "12 thẻ" },
+                { k: "Nhịp", v: "hằng ngày" },
+                { k: "Chấm điểm", v: "0–3 trung thực" },
+              ].map((x) => (
+                <div key={x.k} className="flex items-center justify-between rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
+                  <span className="text-sm font-semibold text-muted-foreground">{x.k}</span>
+                  <span className="text-sm font-bold text-foreground">{x.v}</span>
+                </div>
+              ))}
             </div>
-            <h3 className="font-bold text-xl mb-3 text-purple-950 dark:text-purple-100">Thuật toán SM-2</h3>
-            <p className="text-purple-800/80 dark:text-purple-200/70 leading-relaxed text-sm font-medium">Lặp lại ngắt quãng thông minh. Chỉ ôn tập những thẻ bạn sắp quên.</p>
-          </div>
-          
-          <div className="bg-green-50 dark:bg-green-950/30 p-8 rounded-3xl border border-green-100 dark:border-green-900/50">
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 rounded-2xl flex items-center justify-center mb-6">
-              <Activity className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-xl mb-3 text-green-950 dark:text-green-100">Thống kê</h3>
-            <p className="text-green-800/80 dark:text-green-200/70 leading-relaxed text-sm font-medium">Theo dõi sự tiến bộ hàng ngày qua biểu đồ heatmap và tỷ lệ ghi nhớ.</p>
           </div>
         </div>
       </section>
@@ -383,10 +429,10 @@ export default function Home() {
       </section>
 
       {/* FAQ SECTION */}
-      <section className="py-24 px-5 bg-background">
+      <section id="faq" className="py-24 px-5 bg-background">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4 text-foreground">Câu hỏi thường gặp</h2>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4 text-foreground">Câu hỏi thường gặp</h2>
           </div>
           <div className="space-y-6">
             <div className="p-6 rounded-2xl bg-surface border border-border shadow-sm">
@@ -444,9 +490,7 @@ export default function Home() {
                     className="object-contain"
                   />
                 </div>
-                <span className="text-2xl font-black tracking-tight text-foreground">
-                  Mem<span className="text-primary">io</span>
-                </span>
+                <span className="text-2xl font-extrabold tracking-tight text-foreground">Memio</span>
               </div>
               <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
                 Nền tảng tạo flashcards bằng AI giúp bạn biến tài liệu học tập thành lộ trình ôn tập rõ ràng, nhanh và dễ nhớ hơn.

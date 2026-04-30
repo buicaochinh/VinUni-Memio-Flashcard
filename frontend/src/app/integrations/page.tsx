@@ -13,6 +13,7 @@ import {
   testSendDueCards,
   testWeeklyReport,
   updateIntegration,
+  useClientReady,
   User,
 } from "../../lib/app-client";
 import { Link2, Loader2, Send, Trash2 } from "lucide-react";
@@ -32,6 +33,7 @@ type FormRow = { timezone: string; send_window: string; daily_goal: string };
 export default function IntegrationsPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const clientReady = useClientReady();
   const [rows, setRows] = useState<ChatIntegrationDTO[]>([]);
   const [forms, setForms] = useState<Record<string, FormRow>>({});
   const [code, setCode] = useState("");
@@ -63,6 +65,7 @@ export default function IntegrationsPage() {
   }, []);
 
   useEffect(() => {
+    if (!clientReady) return;
     const u = getStoredUser();
     if (!u) {
       router.replace("/login");
@@ -74,7 +77,7 @@ export default function IntegrationsPage() {
     }
     setUser(u);
     void load();
-  }, [router, load]);
+  }, [clientReady, router, load]);
 
   const onLink = async () => {
     const c = code.trim().toUpperCase();

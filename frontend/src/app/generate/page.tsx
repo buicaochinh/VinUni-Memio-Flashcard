@@ -7,6 +7,7 @@ import {
   bulkCreateCards,
   Deck,
   fetchDecks,
+  useClientReady,
   useStoredUser,
   previewCards,
   PreviewCard,
@@ -43,6 +44,7 @@ export default function GeneratePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useStoredUser();
+  const clientReady = useClientReady();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -69,10 +71,11 @@ export default function GeneratePage() {
   }, []);
 
   useEffect(() => {
+    if (!clientReady) return;
     if (!user) { router.replace("/"); return; }
     const t = setTimeout(() => { void loadDecks(user.id); }, 0);
     return () => clearTimeout(t);
-  }, [loadDecks, router, user]);
+  }, [clientReady, loadDecks, router, user]);
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -99,21 +102,22 @@ export default function GeneratePage() {
     setMessage(null);
     setProgress(0);
 
-    const ticker = setInterval(() => {
+    let ticker: ReturnType<typeof setInterval> | null = null;
+    ticker = setInterval(() => {
       setProgress((p) => Math.min(p + Math.random() * 8, 90));
     }, 600);
 
     try {
       const generated = await previewCards(selectedDeckId, files, targetCount);
-      clearInterval(ticker);
       setProgress(100);
       setCards(generated);
       setStage("preview");
     } catch (err) {
-      clearInterval(ticker);
       const detail = err instanceof Error ? err.message : "Lỗi không xác định";
       setMessage(`Không sinh được flashcards: ${detail}`);
       setStage("setup");
+    } finally {
+      if (ticker) clearInterval(ticker);
     }
   };
 
@@ -161,6 +165,7 @@ export default function GeneratePage() {
     }
   };
 
+  if (!clientReady) return null;
   if (!user) return null;
 
   const diffCount = cards.reduce(
@@ -171,24 +176,25 @@ export default function GeneratePage() {
   return (
     <AppShell user={user}>
       {stage === "setup" && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div>
           <div className="mb-8">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
               <Sparkles className="w-4 h-4 text-primary" /> Tạo Flashcard AI
             </div>
-            <h1 className="text-[clamp(1.8rem,4vw,3.2rem)] font-extrabold tracking-[-0.05em] mb-2.5 leading-tight">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2.5 leading-tight">
               Tải lên tài liệu,{" "}
               <span className="text-primary">AI làm phần còn lại</span>
             </h1>
             <p className="text-muted-foreground text-base max-w-[64ch] leading-relaxed">
-              Upload PDF → AI tạo đến <strong className="text-foreground">{targetCount}</strong> flashcards → Bạn xem lại và chỉnh sửa → Lưu vào deck.
+              Tải tài liệu → AI tạo đến{" "}
+              <strong className="text-foreground">{targetCount}</strong> thẻ → Bạn xem lại và chỉnh sửa → Lưu vào deck.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
-            <section className="p-8 bg-surface-raised border border-border rounded-[32px] shadow-sm backdrop-blur-xl">
+            <section className="p-8 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[32px] shadow-sm">
               <h3 className="mb-6 font-bold text-xl flex items-center gap-2">
-                <Settings2 className="w-5 h-5 text-subtle" /> Cấu hình
+                <Settings2 className="w-5 h-5 text-muted-foreground" /> Cấu hình
               </h3>
 
               <div className="grid gap-6">
@@ -198,7 +204,7 @@ export default function GeneratePage() {
                     value={selectedDeckId ? String(selectedDeckId) : ""}
                     onValueChange={(v) => setSelectedDeckId(Number(v) || null)}
                   >
-                    <SelectTrigger className="w-full justify-between bg-background/70">
+                    <SelectTrigger className="w-full justify-between">
                       <SelectValue placeholder={decks.length ? "Chọn deck" : "Chưa có deck"} />
                     </SelectTrigger>
                     <SelectContent>
@@ -214,7 +220,7 @@ export default function GeneratePage() {
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider">Số flashcards mục tiêu</label>
-                    <span className="text-primary font-extrabold text-lg">{targetCount}</span>
+                    <span className="text-primary font-bold text-lg tabular-nums">{targetCount}</span>
                   </div>
                   <input
                     type="range"
@@ -223,7 +229,7 @@ export default function GeneratePage() {
                     onChange={(e) => setTargetCount(Number(e.target.value))}
                     className="w-full h-2 bg-surface-muted rounded-full appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="flex justify-between mt-2 text-[0.75rem] font-bold text-subtle">
+                  <div className="flex justify-between mt-2 text-[0.75rem] font-semibold text-muted-foreground">
                     <span>10</span>
                     <span>500</span>
                   </div>
@@ -232,8 +238,8 @@ export default function GeneratePage() {
                 <div
                   className={cn(
                     "relative border-2 border-dashed rounded-[28px] p-10 flex flex-col items-center justify-center gap-4 transition-all duration-200 cursor-pointer group overflow-hidden",
-                    dragOver ? "border-primary bg-primary/5" : "border-border-strong bg-surface hover:border-primary/50 hover:bg-surface-muted",
-                    files.length > 0 ? "border-secondary/30 bg-secondary/5" : ""
+                    dragOver ? "border-primary bg-primary/5" : "border-border/80 bg-[hsl(var(--acrylic))] hover:border-primary/40 hover:bg-muted/30",
+                    files.length > 0 ? "border-primary/25 bg-primary/5" : ""
                   )}
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -251,12 +257,12 @@ export default function GeneratePage() {
 
                   {files.length > 0 ? (
                     <>
-                      <div className="w-16 h-16 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
+                      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
                         <FileUp className="w-8 h-8" />
                       </div>
                       <div className="text-center">
                         <p className="font-bold text-lg mb-1">Đã tải lên {files.length} file</p>
-                        <div className="max-h-[120px] overflow-y-auto px-4 custom-scrollbar">
+                        <div className="max-h-[120px] overflow-y-auto px-4">
                           {files.map(f => (
                             <div key={f.name} className="text-[0.82rem] text-muted-foreground truncate max-w-[200px] flex items-center gap-1.5 justify-center">
                               <FileText className="w-3.5 h-3.5 opacity-60" /> {f.name}
@@ -264,7 +270,9 @@ export default function GeneratePage() {
                           ))}
                         </div>
                       </div>
-                      <p className="text-[0.82rem] font-bold text-secondary uppercase tracking-widest mt-2">Nhấn để thêm file mới</p>
+                      <p className="text-[0.82rem] font-semibold text-muted-foreground uppercase tracking-wider mt-2">
+                        Nhấn để thêm file
+                      </p>
                     </>
                   ) : (
                     <>
@@ -280,9 +288,11 @@ export default function GeneratePage() {
                 </div>
 
                 {message && (
-                  <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl flex items-center gap-3">
-                    <X className="w-5 h-5 text-danger flex-shrink-0" />
-                    <p className="text-danger text-[0.88rem] font-medium leading-[1.5]">{message}</p>
+                  <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3">
+                    <X className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0" />
+                    <p className="text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium leading-[1.5]">
+                      {message}
+                    </p>
                   </div>
                 )}
 
@@ -300,7 +310,7 @@ export default function GeneratePage() {
             </section>
 
             <aside className="grid gap-6 content-start">
-              <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
+              <section className="p-6 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-3xl shadow-sm">
                 <h3 className="mb-4 font-bold text-lg">Luồng hoạt động</h3>
                 <div className="grid gap-4">
                   {[
@@ -310,7 +320,7 @@ export default function GeneratePage() {
                     { n: "4", t: "Lưu vào deck → Bắt đầu học" },
                   ].map((s) => (
                     <div key={s.n} className="flex gap-3 items-start">
-                      <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-extrabold text-[0.88rem] bg-primary/10 text-primary">
+                      <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-bold text-[0.88rem] bg-primary/10 text-primary">
                         {s.n}
                       </div>
                       <div className="pt-1.5"><strong className="text-sm font-semibold leading-tight block">{s.t}</strong></div>
@@ -319,7 +329,7 @@ export default function GeneratePage() {
                 </div>
               </section>
 
-              <section className="p-6 bg-surface-raised border border-border rounded-3xl shadow-sm backdrop-blur-xl">
+              <section className="p-6 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-3xl shadow-sm">
                 <h3 className="mb-4 font-bold text-lg">AI tạo gì?</h3>
                 <div className="grid gap-4">
                   {[
@@ -333,7 +343,7 @@ export default function GeneratePage() {
                         <div className={cn("flex-none w-8 h-8 rounded-lg grid place-items-center", f.c)}>
                           <Icon className="w-4 h-4" />
                         </div>
-                        <p className="text-[0.88rem] font-bold text-foreground leading-snug m-0">{f.t}</p>
+                        <p className="text-[0.88rem] font-semibold text-foreground leading-snug m-0">{f.t}</p>
                       </div>
                     );
                   })}
@@ -345,14 +355,14 @@ export default function GeneratePage() {
       )}
 
       {stage === "loading" && (
-        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center animate-in fade-in duration-500">
+        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
           <div className="relative mb-10">
             <div className="w-24 h-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
               <Sparkles className="w-10 h-10 text-primary animate-pulse" />
             </div>
           </div>
-          <h2 className="text-3xl font-extrabold tracking-tight mb-3">AI đang đọc tài liệu…</h2>
+          <h2 className="text-3xl font-bold tracking-tight mb-3">AI đang đọc tài liệu…</h2>
           <p className="text-muted-foreground text-lg max-w-[50ch] mb-10 leading-relaxed">
             Đang trích xuất khái niệm và tạo <strong className="text-foreground">{targetCount} flashcards</strong>.<br />Quá trình này có thể mất 30–60 giây.
           </p>
@@ -365,21 +375,21 @@ export default function GeneratePage() {
               />
             </div>
             <div className="flex justify-between mt-3 px-1">
-              <span className="text-[0.82rem] font-bold text-subtle uppercase tracking-widest">Đang xử lý</span>
-              <span className="text-[0.82rem] font-extrabold text-primary">{Math.round(progress)}%</span>
+              <span className="text-[0.82rem] font-semibold text-muted-foreground uppercase tracking-wider">Đang xử lý</span>
+              <span className="text-[0.82rem] font-bold text-primary tabular-nums">{Math.round(progress)}%</span>
             </div>
           </div>
         </div>
       )}
 
       {stage === "preview" && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+        <div className="pb-20">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sticky top-[-32px] md:top-[-40px] z-40 bg-background/80 backdrop-blur-xl py-6 border-b border-border/50">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/80 border border-border text-muted-foreground text-[0.82rem] font-semibold mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-2">
                 <Pencil className="w-3.5 h-3.5" /> Xem lại trước khi lưu
               </div>
-              <h2 className="text-3xl font-extrabold tracking-tight mb-2.5">
+              <h2 className="text-3xl font-bold tracking-tight mb-2.5">
                 {cards.length} flashcards được tạo
               </h2>
               <div className="flex gap-2.5 flex-wrap">
@@ -409,9 +419,11 @@ export default function GeneratePage() {
           </div>
 
           {message && (
-            <div className="p-4 bg-danger/10 border border-danger/20 rounded-2xl flex items-center gap-3 mb-6">
-              <X className="w-5 h-5 text-danger flex-shrink-0" />
-              <p className="text-danger text-[0.88rem] font-medium leading-[1.5] m-0">{message}</p>
+            <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3 mb-6">
+              <X className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0" />
+              <p className="text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium leading-[1.5] m-0">
+                {message}
+              </p>
             </div>
           )}
 
@@ -420,8 +432,8 @@ export default function GeneratePage() {
               <div
                 key={idx}
                 className={cn(
-                  "p-[22px] flex flex-col gap-4 bg-surface-raised border border-border rounded-2xl shadow-sm transition-all duration-300",
-                  editingIdx === idx ? "ring-2 ring-primary border-primary bg-surface shadow-xl scale-[1.02] z-10" : "hover:border-primary/40"
+                  "p-[22px] flex flex-col gap-4 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-2xl shadow-sm transition-colors duration-200",
+                  editingIdx === idx ? "ring-2 ring-primary/40 border-primary/40" : "hover:border-primary/30"
                 )}
               >
                 {editingIdx === idx && editState ? (
@@ -430,7 +442,7 @@ export default function GeneratePage() {
                       <div>
                         <label className="text-[0.7rem] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">Câu hỏi (Front)</label>
                         <textarea
-                          className="w-full rounded-xl border border-primary/30 bg-surface text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.front}
                           onChange={(e) => setEditState({ ...editState, front: e.target.value })}
                           autoFocus
@@ -439,7 +451,7 @@ export default function GeneratePage() {
                       <div>
                         <label className="text-[0.7rem] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">Câu trả lời (Back)</label>
                         <textarea
-                          className="w-full rounded-xl border border-primary/30 bg-surface text-text px-4 py-3 outline-none focus:ring-2 focus:ring-primary/10 text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
+                          className="w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] text-[0.9rem] leading-relaxed resize-none min-h-[90px]"
                           value={editState.back}
                           onChange={(e) => setEditState({ ...editState, back: e.target.value })}
                         />
@@ -449,6 +461,7 @@ export default function GeneratePage() {
                         <div className="flex gap-2">
                           {(["easy", "medium", "hard"] as const).map((d) => (
                             <button
+                              type="button"
                               key={d}
                               className={cn(
                                 "flex-1 py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-tighter transition-all",
@@ -465,18 +478,12 @@ export default function GeneratePage() {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-2">
-                      <button
-                        className="flex-1 flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-muted-foreground font-bold text-sm hover:bg-surface-muted transition-all"
-                        onClick={cancelEdit}
-                      >
+                      <Button variant="ghost" className="flex-1" onClick={cancelEdit}>
                         Hủy
-                      </button>
-                      <button
-                        className="flex-[1.5] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-secondary text-white font-bold text-sm hover:opacity-90 shadow-sm transition-all"
-                        onClick={saveEdit}
-                      >
+                      </Button>
+                      <Button variant="primary" className="flex-[1.5]" onClick={saveEdit}>
                         <Check className="w-4 h-4" /> Hoàn tất
-                      </button>
+                      </Button>
                     </div>
                   </>
                 ) : (
@@ -490,32 +497,39 @@ export default function GeneratePage() {
                       )}>
                         {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
                       </span>
-                      <p className="font-extrabold text-[0.95rem] leading-snug mb-2 text-foreground line-clamp-3">{card.front}</p>
+                      <p className="font-bold text-[0.95rem] leading-snug mb-2 text-foreground line-clamp-3">{card.front}</p>
                       <p className="text-muted-foreground text-[0.88rem] leading-relaxed m-0 line-clamp-4">{card.back}</p>
                     </div>
                     <div className="flex justify-end gap-2.5 pt-4 border-t border-border/50">
-                      <button
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-danger bg-[#fff1f2] dark:bg-danger/10 border border-danger/10 hover:shadow-sm hover:-translate-y-px active:translate-y-0 transition-all"
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        className="h-10 w-10 p-0"
                         onClick={() => removeCard(idx)}
                         title="Xóa thẻ"
                       >
                         <Trash2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        className="h-10 px-4 rounded-xl flex items-center justify-center gap-1.5 text-secondary border border-secondary/20 bg-secondary/5 font-bold text-[0.85rem] hover:bg-secondary/10 hover:-translate-y-px active:translate-y-0 transition-all"
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-10"
                         onClick={() => startEdit(idx)}
                         title="Chỉnh sửa"
                       >
                         <Pencil className="w-3.5 h-3.5" /> Sửa
-                      </button>
+                      </Button>
                     </div>
                   </>
                 )}
               </div>
             ))}
             <button
+              type="button"
               onClick={addCard}
-              className="p-[22px] min-h-[220px] flex flex-col items-center justify-center gap-3 bg-transparent border-2 border-dashed border-border-strong rounded-2xl text-subtle hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all duration-300"
+              className="p-[22px] min-h-[220px] flex flex-col items-center justify-center gap-3 bg-transparent border-2 border-dashed border-border/80 rounded-2xl text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors duration-200"
             >
               <div className="w-12 h-12 rounded-full bg-surface-muted flex items-center justify-center">
                 <Plus className="w-6 h-6" />
@@ -527,12 +541,14 @@ export default function GeneratePage() {
       )}
 
       {stage === "saved" && (
-        <div className="mt-10 p-10 bg-surface border border-border rounded-[40px] shadow-sm text-center animate-in zoom-in-95 duration-500">
+        <div className="mt-10 p-10 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[40px] shadow-sm text-center">
           <div className="w-20 h-20 bg-green-50 dark:bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <Sparkles className="w-10 h-10 text-green-500" />
           </div>
-          <h2 className="text-2xl font-extrabold mb-2">Đã lưu thành công!</h2>
-          <p className="text-muted-foreground mb-8 italic">Các thẻ flashcards mới đã sẵn sàng để bạn chinh phục.</p>
+          <h2 className="text-2xl font-bold mb-2">Đã lưu thành công</h2>
+          <p className="text-muted-foreground mb-8">
+            Thẻ mới đã sẵn sàng để bạn ôn theo nhịp.
+          </p>
           <div className="flex justify-center gap-3">
             <Button
               variant="primary"

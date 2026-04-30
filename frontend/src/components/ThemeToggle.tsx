@@ -18,7 +18,10 @@ export default function ThemeToggle() {
 
   if (!isClient) {
     return (
-      <button className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-foreground transition-all">
+      <button
+        type="button"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md text-foreground transition-colors"
+      >
         <div className="h-5 w-5" />
       </button>
     );
@@ -30,7 +33,7 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-foreground transition-all hover:-translate-y-px hover:border-border-strong hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+      className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md text-foreground transition-[color,background-color,border-color,transform] hover:-translate-y-px hover:bg-muted/35 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
       aria-label={isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
       title={isDark ? "Light mode" : "Dark mode"}
     >

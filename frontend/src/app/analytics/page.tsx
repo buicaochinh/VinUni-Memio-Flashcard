@@ -6,6 +6,7 @@ import AppShell from "../../components/AppShell";
 import {
   AnalyticsData,
   fetchAnalytics,
+  useClientReady,
   useStoredUser,
 } from "../../lib/app-client";
 import {
@@ -90,7 +91,7 @@ function Heatmap({ data }: { data: Record<string, number> }) {
           <div
             key={date}
             className={cn(
-              "w-3.5 h-3.5 rounded-[3px] transition-transform duration-200 ease-out hover:scale-125 hover:z-[1] cursor-help ring-1 ring-black/[0.04] dark:ring-white/[0.06]",
+              "w-3.5 h-3.5 rounded-[3px] transition-transform duration-200 ease-out hover:scale-125 hover:z-[1] cursor-help ring-1 ring-border/60",
               level === 0
                 ? "bg-muted"
                 : level === 1
@@ -110,7 +111,7 @@ function Heatmap({ data }: { data: Record<string, number> }) {
             <div
               key={l}
               className={cn(
-                "w-3 h-3 rounded-[3px] ring-1 ring-black/[0.04] dark:ring-white/[0.06]",
+                "w-3 h-3 rounded-[3px] ring-1 ring-border/60",
                 l === 0
                   ? "bg-muted"
                   : l === 1
@@ -137,7 +138,7 @@ function PredictedMasteryTimeline({
   return (
     <div className="space-y-3">
       <div
-        className="flex items-end gap-1 sm:gap-1.5 overflow-x-auto pb-1 custom-scrollbar pt-4"
+        className="flex items-end gap-1 sm:gap-1.5 overflow-x-auto pb-1 pt-4"
         style={{ minHeight: maxHeight + 28 }}
       >
         {timeline.map((p, idx) => {
@@ -165,7 +166,15 @@ function PredictedMasteryTimeline({
         })}
       </div>
       <p className="text-[0.82rem] text-muted-foreground leading-relaxed max-w-[70ch]">
-        Ước tính tỉ lệ thẻ đến hạn ôn theo từng ngày, dựa trên `next_review` và lịch SM-2.
+        Ước tính tỉ lệ thẻ đến hạn ôn theo từng ngày, dựa trên{" "}
+        <code className="px-1.5 py-0.5 rounded bg-muted/60 ring-1 ring-border/60 text-[0.75rem] font-mono">
+          next_review
+        </code>{" "}
+        và lịch{" "}
+        <code className="px-1.5 py-0.5 rounded bg-muted/60 ring-1 ring-border/60 text-[0.75rem] font-mono">
+          SM-2
+        </code>
+        .
       </p>
     </div>
   );
@@ -174,11 +183,13 @@ function PredictedMasteryTimeline({
 export default function AnalyticsPage() {
   const router = useRouter();
   const user = useStoredUser();
+  const clientReady = useClientReady();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!clientReady) return;
     if (!user) {
       const t = window.setTimeout(() => router.replace("/"), 0);
       return () => window.clearTimeout(t);
@@ -187,18 +198,19 @@ export default function AnalyticsPage() {
       .then(setData)
       .catch(() => setError("Không tải được analytics. Hãy kiểm tra backend."))
       .finally(() => setLoading(false));
-  }, [router, user]);
+  }, [clientReady, router, user]);
 
+  if (!clientReady) return null;
   if (!user) return null;
 
   return (
     <AppShell user={user}>
-      <header className="mb-12 max-w-3xl animate-in fade-in slide-in-from-bottom-3 duration-500">
+      <header className="mb-12 max-w-3xl">
         <p className="text-[0.8rem] font-semibold text-muted-foreground mb-3 flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-primary shrink-0" aria-hidden />
           Phân tích học tập
         </p>
-        <h1 className="text-[clamp(1.65rem,3.8vw,2.75rem)] font-bold tracking-tight text-balance mb-4">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance mb-4">
           Tiến độ của bạn
         </h1>
         <p className="text-muted-foreground text-[0.98rem] leading-relaxed">
@@ -220,7 +232,7 @@ export default function AnalyticsPage() {
       {error && (
         <div
           role="alert"
-          className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-950/40 px-8 py-10 text-center animate-in zoom-in-95 duration-300"
+          className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-950/40 px-8 py-10 text-center"
         >
           <AlertTriangle
             className="w-10 h-10 mx-auto mb-3 opacity-70 text-rose-600 dark:text-rose-400"
@@ -233,7 +245,7 @@ export default function AnalyticsPage() {
       )}
 
       {data && !loading && (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_min(100%,340px)] gap-10 xl:gap-12 animate-in fade-in slide-in-from-bottom-5 duration-700">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_min(100%,340px)] gap-10 xl:gap-12">
           <div className="space-y-10">
             {/* Unified metrics strip */}
             <section
