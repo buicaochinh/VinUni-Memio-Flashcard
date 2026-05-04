@@ -14,6 +14,7 @@ celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
+    imports=("src.app.worker.tasks", "src.app.worker.tasks_ingestion"),
 )
 
 
@@ -21,6 +22,11 @@ celery_app.conf.update(
 def setup_periodic_tasks(sender, **kwargs):
     # Run every 5 minutes (starter).
     sender.add_periodic_task(300.0, "src.app.worker.tasks.send_due_cards", name="send_due_cards")
+    sender.add_periodic_task(
+        600.0,
+        "src.app.worker.tasks_ingestion.sync_ingestion_sources",
+        name="sync_ingestion_sources",
+    )
     # Weekly report: Monday 08:00 (worker timezone)
     sender.add_periodic_task(
         crontab(minute=0, hour=8, day_of_week=1),
