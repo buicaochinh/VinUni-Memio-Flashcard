@@ -4,8 +4,8 @@ Mục tiêu: mỗi session/đợt thay đổi kết thúc, agent ghi lại một
 
 ### Khi bắt đầu session mới (resume nhanh)
 
-1) Đọc `PROJECT_CONTEXT.md` mục **Quick Rehydrate** + **Current Invariants**.  
-2) Chạy `git status` (và `git diff` nếu cần) để biết đang ở đâu.
+1. Đọc `PROJECT_CONTEXT.md` mục **Quick Rehydrate** + **Current Invariants**.  
+2. Chạy `git status` (và `git diff` nếu cần) để biết đang ở đâu.
 
 ### Khi kết thúc một đợt làm việc (hoặc trước khi dừng)
 
