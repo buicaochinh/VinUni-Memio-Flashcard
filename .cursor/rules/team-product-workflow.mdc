@@ -1,0 +1,99 @@
+# Workflow “team sản phẩm nhỏ” (mặc định)
+
+## Khi nào áp dụng (Trigger)
+
+Áp dụng workflow này mỗi khi người dùng đưa **yêu cầu tính năng mới** (dù chỉ 1 câu), ví dụ: “làm tính năng…”, “thêm feature…”, “implement…”, “phát triển…”.
+
+## Mục tiêu
+
+- Người dùng **chỉ cần mô tả tính năng** → agent tự break theo vai trò như team sản phẩm.
+- Bàn giao ở trạng thái **release-ready / no known issues** (tất cả checks/tests khả dụng đều pass).
+
+## Quy ước vận hành (luôn tuân thủ)
+
+- **Tách làn FE/BE**:
+  - FE chủ yếu sửa trong `frontend/`.
+  - BE chủ yếu sửa trong `src/`.
+  - Tránh trộn refactor không liên quan để giảm “đá nhau”.
+- **Chốt “API contract” trước khi code** (khi có FE↔BE):
+  - Endpoint, payload, response shape, error shape, status codes.
+  - Nếu contract đổi trong lúc làm: cập nhật contract trước, rồi mới sửa FE/BE theo.
+- **Artifact ngắn, hành động được**: ưu tiên checklist, tránh văn dài.
+
+## Format trả lời bắt buộc cho mọi feature (PM → TL → UX → ENG → QA)
+
+Khi nhận feature mới, trước tiên phải trả đúng các mục sau (bằng Tiếng Việt):
+
+1) **PM — PRD mini**
+   - Vấn đề (Problem)
+   - Mục tiêu / Không làm (Goals / Non-goals)
+   - Người dùng (persona)
+   - User stories (3–7)
+   - **Acceptance Criteria (checklist)**
+   - Out of scope (nêu rõ)
+
+2) **Tech Lead — Thiết kế kỹ thuật tối giản**
+   - Phạm vi tác động (files/modules)
+   - **API contract** (nếu có FE↔BE)
+   - DB/migration (nếu có; **đổi schema → Alembic**)
+   - Edge cases + rủi ro
+   - Kế hoạch triển khai theo bước (nhỏ, kiểm chứng được)
+
+3) **UX — Flow & states** (chỉ khi có UI/luồng người dùng)
+   - Flow/màn hình liên quan
+   - Empty/loading/error states
+   - Microcopy (ngắn)
+   - Accessibility checklist (ngắn)
+
+4) **Engineering — Kế hoạch implement (tách FE/BE)**
+   - 4A) **Frontend (FE)** (chỉ khi cần)
+     - Files/areas impacted (trong `frontend/`)
+     - Tasks (checklist)
+     - Estimate (S/M/L)
+     - Tests/checks FE sẽ chạy (best-effort)
+   - 4B) **Backend (BE)** (chỉ khi cần)
+     - Files/areas impacted (trong `src/`)
+     - Tasks (checklist)
+     - Estimate (S/M/L)
+     - Tests/checks BE sẽ chạy (best-effort)
+
+5) **QA/Release — Test plan + DoD**
+   - Test cases: happy path + edge/error chính
+   - Regression checklist
+   - **Definition of Done (checklist)**
+
+## Khi nào bắt đầu code
+
+- Mặc định: **chỉ code sau khi đã có breakdown** ở trên.
+- Nếu user nói rõ “build ngay”: vẫn phải tạo breakdown, sau đó code ngay trong cùng phiên.
+- Nếu cần cả FE và BE: ưu tiên **BE trước (API/DB/tests) → FE (UI/integration)** trừ khi là UI-only.
+
+## Trách nhiệm chất lượng & bàn giao (Quality gate)
+
+- Không hứa “0 bug tuyệt đối”, nhưng bắt buộc đạt “**no known issues**” tại thời điểm bàn giao:
+  - AC được check ✅
+  - Có QA test plan và **đã thực thi best-effort** trong phạm vi repo
+  - **Không còn lỗi đang biết** từ: tests, lint, typecheck, build (cái nào repo hỗ trợ thì chạy)
+  - Smoke test thủ công tối thiểu cho luồng chính
+  - Nếu vẫn còn rủi ro: liệt kê mục “Known risks” + cách giảm thiểu/follow-up
+
+## PM final check (duyệt trước khi bàn giao)
+
+- PM phải kiểm lại sản phẩm so với AC trước khi bàn giao.
+- Nếu phát hiện hành vi “ngoài ý muốn” (kể cả tests pass): coi như bug.
+
+## Vòng lặp sửa lỗi (fix đến khi hết lỗi)
+
+- Nếu phát hiện bug (PM/QA/tests/smoke):
+  - PM mô tả expected vs actual, TL chỉ định owner (FE hay BE)
+  - Fix ngay + thêm/điều chỉnh test khi phù hợp
+  - Chạy lại checks liên quan
+- **Không bàn giao** cho đến khi quality gate pass + PM final check pass.
+
+## Ràng buộc theo dự án
+
+- Trước khi sửa code: đọc `PROJECT_CONTEXT.md`.
+- Python: khi chạy lệnh, phải dùng interpreter trong `.venv` (hoặc `venv`), không dùng python global.
+- Auth đang “mixed” (legacy localStorage user_id + một số JWT): khi động vào auth/API phải nêu rõ route/flow bị ảnh hưởng.
+- Multi-tenancy: mọi query decks/cards phải filter theo `user_id` khi áp dụng.
+
