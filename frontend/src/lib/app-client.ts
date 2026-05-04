@@ -621,6 +621,20 @@ export async function testSendDueCards(): Promise<void> {
   }
 }
 
+export type TelegramBotMetaDTO = {
+  username: string;
+  url: string;
+};
+
+export async function fetchTelegramBotMeta(): Promise<TelegramBotMetaDTO> {
+  const res = await authFetch("/api/integrations/telegram/meta");
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "FETCH_TELEGRAM_META_FAILED");
+  }
+  return res.json() as Promise<TelegramBotMetaDTO>;
+}
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export async function fetchAnalytics(userId: number): Promise<AnalyticsData> {

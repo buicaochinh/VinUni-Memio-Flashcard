@@ -14,6 +14,21 @@ def _api_base() -> str:
         raise TelegramConfigError("TELEGRAM_BOT_TOKEN is not set")
     return f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
+async def get_bot_username() -> str:
+    """
+    Resolve bot username via Telegram `getMe`.
+    Used to build a stable t.me link for the frontend (QR code, open bot).
+    """
+    url = f"{_api_base()}/getMe"
+    async with httpx.AsyncClient(timeout=10) as client:
+        res = await client.get(url)
+        res.raise_for_status()
+        data = res.json()
+        username = str(((data or {}).get("result") or {}).get("username") or "").strip()
+        if not username:
+            raise RuntimeError("Telegram getMe returned empty username")
+        return username
+
 
 async def send_message(
     *,
