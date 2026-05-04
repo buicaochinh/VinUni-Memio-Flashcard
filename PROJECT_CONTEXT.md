@@ -34,15 +34,16 @@
 ```
 
 - **Monorepo** — backend (`src/`) and frontend (`frontend/`) live in the same repo
-- **No JWT/session tokens** — authentication is client-side localStorage based (`flashcard_user`)
-- **User identity** is passed via `user_id` query parameter or request body (not via auth header)
+- **Auth today is mixed**:
+  - **Legacy** flows are client-side localStorage based (`flashcard_user`) and pass identity via `user_id` query/body (no auth header).
+  - **JWT session** flows exist for some routes (notably integrations): frontend stores access/refresh tokens and uses Bearer auth.
 - **Caddy** serves as reverse proxy in production (auto HTTPS via Let's Encrypt)
 
 ## 3. Tech Stack
 
 | Layer | Technology | Version |
 |---|---|---|
-| **Frontend** | Next.js (App Router, TypeScript) | 16.2.3 |
+| **Frontend** | Next.js (App Router, TypeScript) | 16.2.4 |
 | **Styling** | Tailwind CSS 3.4 + CSS Variables + `next-themes` | darkMode: `"class"` |
 | **UI primitives** | Radix UI (Dialog, Tabs), Lucide icons | — |
 | **Backend** | FastAPI (Python) | 0.115+ |
@@ -97,9 +98,10 @@ A20-App-001/
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
 | `study_sessions` | `id`, `user_id`, `deck_id`, `session_date`, `cards_reviewed`, `avg_quality` | UniqueConstraint on (user_id, deck_id, session_date) |
 
-**Schema is auto-created** by `SQLModel.metadata.create_all()` in `init_db()` on app startup.
+**Schema is managed via Alembic migrations.**
 
-> ⚠️ **No migration tool** (e.g., Alembic) is configured. Schema changes require manual `ALTER TABLE` on production or dropping/recreating tables.
+- Legacy auto-create at runtime has been disabled (see `src/app/db/session.py:init_db()`).
+- Apply migrations with `alembic upgrade head`.
 
 ## 6. API Endpoints
 
