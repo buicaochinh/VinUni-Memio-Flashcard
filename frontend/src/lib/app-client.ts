@@ -553,6 +553,37 @@ export type ChatIntegrationDTO = {
   weekly_report_sent_at?: string | null;
 };
 
+export type IngestionSourceDTO = {
+  id: number;
+  provider: string;
+  name: string;
+  status: string;
+  sync_mode: string;
+  source_url?: string | null;
+  external_id?: string | null;
+  target_deck_id?: number | null;
+  auto_tag: boolean;
+  frequency_minutes: number;
+  cards_per_item: number;
+  config: Record<string, unknown>;
+  last_synced_at?: string | null;
+  last_error?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type IngestionRunDTO = {
+  id: number;
+  source_id: number;
+  status: string;
+  started_at: string;
+  finished_at?: string | null;
+  fetched_count: number;
+  normalized_count: number;
+  created_count: number;
+  error_message?: string | null;
+};
+
 export async function fetchIntegrations(): Promise<ChatIntegrationDTO[]> {
   const res = await authFetch("/api/integrations/me");
   if (!res.ok) {
@@ -633,6 +664,111 @@ export async function fetchTelegramBotMeta(): Promise<TelegramBotMetaDTO> {
     throw new Error(detail ?? "FETCH_TELEGRAM_META_FAILED");
   }
   return res.json() as Promise<TelegramBotMetaDTO>;
+}
+
+export async function fetchIngestionSources(): Promise<IngestionSourceDTO[]> {
+  const res = await authFetch("/api/ingestion/sources");
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "FETCH_INGESTION_SOURCES_FAILED");
+  }
+  return res.json() as Promise<IngestionSourceDTO[]>;
+}
+
+export async function createIngestionSource(body: {
+  provider: string;
+  name: string;
+  source_url?: string;
+  target_deck_id?: number;
+  auto_tag?: boolean;
+  frequency_minutes?: number;
+  cards_per_item?: number;
+  sync_mode?: string;
+  config?: Record<string, unknown>;
+}): Promise<IngestionSourceDTO> {
+  const res = await authFetch("/api/ingestion/sources", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "CREATE_INGESTION_SOURCE_FAILED");
+  }
+  return res.json() as Promise<IngestionSourceDTO>;
+}
+
+export async function updateIngestionSource(
+  sourceId: number,
+  body: {
+    name?: string;
+    status?: string;
+    source_url?: string;
+    target_deck_id?: number;
+    auto_tag?: boolean;
+    frequency_minutes?: number;
+    cards_per_item?: number;
+    sync_mode?: string;
+    config?: Record<string, unknown>;
+  }
+): Promise<IngestionSourceDTO> {
+  const res = await authFetch(`/api/ingestion/sources/${sourceId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "UPDATE_INGESTION_SOURCE_FAILED");
+  }
+  return res.json() as Promise<IngestionSourceDTO>;
+}
+
+export async function deleteIngestionSource(sourceId: number): Promise<void> {
+  const res = await authFetch(`/api/ingestion/sources/${sourceId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "DELETE_INGESTION_SOURCE_FAILED");
+  }
+}
+
+export async function syncIngestionSource(sourceId: number, previewOnly = false): Promise<{
+  message: string;
+  source_id: number;
+  run_id: number;
+  fetched_count: number;
+  normalized_count: number;
+  created_count: number;
+  preview_cards: number;
+}> {
+  const query = previewOnly ? "?preview_only=true" : "";
+  const res = await authFetch(`/api/ingestion/sources/${sourceId}/sync${query}`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "SYNC_INGESTION_SOURCE_FAILED");
+  }
+  return res.json() as Promise<{
+    message: string;
+    source_id: number;
+    run_id: number;
+    fetched_count: number;
+    normalized_count: number;
+    created_count: number;
+    preview_cards: number;
+  }>;
+}
+
+export async function fetchIngestionRuns(sourceId: number): Promise<IngestionRunDTO[]> {
+  const res = await authFetch(`/api/ingestion/sources/${sourceId}/runs`);
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "FETCH_INGESTION_RUNS_FAILED");
+  }
+  return res.json() as Promise<IngestionRunDTO[]>;
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
