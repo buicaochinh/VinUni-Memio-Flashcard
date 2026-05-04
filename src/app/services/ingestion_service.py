@@ -1,10 +1,10 @@
 import datetime
 import hashlib
 import json
-import xml.etree.ElementTree as ET
 from typing import Any
 
 import httpx
+from defusedxml import ElementTree as ET
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
@@ -350,7 +350,9 @@ async def sync_source(session: Session, source: IngestionSource, *, preview_only
                 created_cards += len(cards)
                 item_row.last_processed_at = _now()
                 session.add(item_row)
-                session.commit()
+
+        if not preview_only and created_cards > 0:
+            session.commit()
 
         cursor = _get_or_create_cursor(session, source.id)
         cursor.cursor_value = _now().isoformat()

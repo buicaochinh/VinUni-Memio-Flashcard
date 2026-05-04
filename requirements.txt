@@ -24,3 +24,4 @@ celery
 redis
 alembic
 datasketch>=1.6
+defusedxml>=0.0.1
