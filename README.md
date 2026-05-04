@@ -2,22 +2,28 @@
 
 Memio là ứng dụng học tập dùng AI để tạo flashcards từ tài liệu PDF/DOCX/TXT và áp dụng thuật toán **SM-2** để ôn tập theo spaced repetition. Repo này cũng có **Study Buddy Bot (Telegram)**: tự gửi thẻ theo lịch cá nhân hóa và cho phép chấm điểm ngay trong chat (inline 0–3), kèm weekly report vào nhóm.
 
-[Hướng dẫn sản phẩm (triết lý, thuật toán, sử dụng, tích hợp Telegram)](docs/PRODUCT_GUIDE.md)
+## Tài liệu (Docs)
+
+- `docs/INDEX.md`: mục lục tài liệu
+- `docs/PRODUCT_GUIDE.md`: hướng dẫn sản phẩm (triết lý, SM-2, cách dùng web, Telegram bot)
+- `PROJECT_CONTEXT.md`: source of truth kỹ thuật/vận hành (architecture, DB, API, deploy, gotchas)
+- `docs/diagrams.md`: sơ đồ Mermaid
+- `WORKLOG.md`: ADR/quyết định kỹ thuật
+- `JOURNAL.md`: nhật ký tuần
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docker.com)
 
-- `src/main.py`: Điểm khởi động chính của Backend FastAPI
-- `src/app/api/`: Chứa các API endpoints
-- `src/app/services/`: Chứa logic nghiệp vụ (Business Logic)
-- `src/app/models/`: Chứa định nghĩa database models (SQLModel)
-- `src/app/schemas/`: Chứa định nghĩa Pydantic models
-- `src/app/db/`: Cấu hình database và session
-- `src/app/core/`: Các cấu hình dùng chung và thuật toán (SM-2)
-- `src/app/worker/`: Celery worker + beat (tự gửi thẻ + weekly report)
-- `frontend/src/app/`: Next.js routes (workspace/generate/study/analytics/integrations)
+## Cấu trúc repo (tóm tắt)
+
+- **Backend**: `src/` (FastAPI)
+- **Frontend**: `frontend/` (Next.js)
+- **Docs**: `docs/`
+- **Handoff**: `handoff/`
+
+Chi tiết file map xem `PROJECT_CONTEXT.md`.
 
 ## Yêu cầu
 
@@ -40,7 +46,7 @@ cd A20-App-001
 cp .env.example .env
 ```
 
-Chỉnh sửa `.env` — xem [Biến môi trường](#biến-môi-trường) bên dưới.
+Chỉnh sửa `.env` — xem `.env.example` và phần “Biến môi trường (tóm tắt)” bên dưới.
 
 ### 2. Cài đặt Python
 
@@ -109,7 +115,7 @@ celery -A src.app.worker.celery_app.celery_app beat -l INFO
 
 ## Biến môi trường
 
-Sao chép `.env.example` thành `.env` và điền các giá trị:
+Sao chép `.env.example` thành `.env` và điền các giá trị. Danh sách dưới đây là **tóm tắt**; danh sách đầy đủ + ghi chú deploy xem `PROJECT_CONTEXT.md`.
 
 | Biến | Bắt buộc | Mặc định | Mô tả |
 | --- | --- | --- | --- |
@@ -124,164 +130,10 @@ Sao chép `.env.example` thành `.env` và điền các giá trị:
 | `JWT_SECRET` | **Có** | — | Secret cho JWT sessions (integrations + refresh) |
 | `TELEGRAM_BOT_TOKEN` | Có nếu bật bot | — | Token bot Telegram (@BotFather) |
 
-```bash
-source .venv/bin/activate
-uvicorn src.main:app --reload
-```
+## API / Deploy (link)
 
-**Terminal 1 — Windows (PowerShell):**
-
-```powershell
-.\.venv\Scripts\activate
-uvicorn src.main:app --reload
-```
-
----
-
-## Triển khai Docker (Production)
-
-### Cấu trúc deploy
-
-```text
-A20-App-001/
-├── Dockerfile.backend      # Python 3.11 Alpine
-├── Dockerfile.frontend     # Node 20 Alpine (multi-stage)
-├── docker-compose.yml      # Caddy + Backend + Frontend + Redis + Worker + Beat
-├── Caddyfile               # Reverse proxy (mem.io.vn)
-├── scripts/
-│   └── deploy.sh           # Auto-deploy script (Debian 12+)
-└── db_deploy/              # PostgreSQL standalone (server riêng)
-    ├── docker-compose.yml
-    ├── .env.example
-    └── deploy.sh
-```
-
-### Triển khai toàn bộ stack
-
-```bash
-cp .env.example .env
-# Chỉnh sửa .env với đúng giá trị production
-
-sudo bash scripts/deploy.sh
-```
-
-Script tự động: kiểm tra Docker, cấu hình firewall UFW (port 80, 443), chạy `docker compose up -d`.
-
-| Service | Cổng nội bộ |
-| --- | --- |
-| Frontend (Next.js) | `3000` |
-| Backend (FastAPI) | `8000` |
-| Caddy (HTTPS) | `80`, `443` |
-| Redis | `6379` |
-
-### Triển khai PostgreSQL độc lập
-
-Nếu database chạy trên server riêng:
-
-```bash
-# Trên server PostgreSQL
-scp -r db_deploy/ user@db-server:~/
-ssh user@db-server
-
-cd db_deploy
-cp .env.example .env
-nano .env   # Đổi POSTGRES_PASSWORD
-
-sudo bash deploy.sh
-```
-
-Cập nhật `DATABASE_URL` trong `.env` của app server:
-
-```env
-DATABASE_URL=postgresql://flashcard_user:<password>@<db-server-ip>:5432/flashcard
-```
-
-### Quản lý containers
-
-```bash
-# Trạng thái
-docker compose ps
-
-# Log realtime
-docker logs -f flashcard-backend
-docker logs -f flashcard-frontend
-
-# Dừng / khởi động lại
-docker compose down
-docker compose restart backend
-```
-
----
-
-## API Reference
-
-Base URL: `http://localhost:8000` (dev) / `https://api.mem.io.vn` (prod)
-
-Tài liệu API tương tác: `GET /docs` (Swagger UI)
-
-| Endpoint | Method | Mô tả |
-| --- | --- | --- |
-| `/api/auth/login` | POST | Đăng nhập Google (legacy) |
-| `/api/auth/session/login/google` | POST | Đăng nhập Google (JWT session) |
-| `/api/auth/session/login/username` | POST | Đăng nhập username/password (JWT session) |
-| `/api/auth/session/refresh` | POST | Refresh access token |
-| `/api/decks/` | GET, POST | Danh sách deck / tạo deck |
-| `/api/decks/{id}` | DELETE | Xóa deck |
-| `/api/decks/{id}/share` | POST | Bật chia sẻ công khai |
-| `/api/decks/shared/{token}` | GET | Truy cập deck công khai |
-| `/api/cards/{deck_id}` | GET | Lấy tất cả thẻ trong deck |
-| `/api/cards/{deck_id}/preview` | POST | AI preview thẻ (không lưu) |
-| `/api/cards/{deck_id}/generate` | POST | AI sinh thẻ từ PDF/DOCX |
-| `/api/cards/{deck_id}/analytics` | GET | Thống kê deck |
-| `/api/cards/progress` | POST | Cập nhật tiến độ SM-2 |
-| `/api/cards/explain` | POST | AI giải thích thẻ |
-| `/api/integrations/telegram/webhook` | POST | Telegram webhook (Study Buddy Bot) |
-| `/api/integrations/link` | POST | Link integration bằng code (JWT) |
-| `/api/integrations/me` | GET | List integrations (JWT) |
-
----
-
-## Cấu trúc thư mục
-
-```text
-A20-App-001/
-├── .github/                    # GitHub Actions / workflows
-├── alembic/                    # Alembic migrations
-│   └── versions/               # migration scripts (0001_*.py, ...)
-├── docs/                       # Tài liệu sản phẩm (Product Guide, ...)
-├── handoff/                    # Ghi chú bàn giao / session notes
-├── data/                       # Thư mục tạm cho upload (backend)
-├── db_deploy/                  # Deploy PostgreSQL standalone (server riêng)
-├── frontend/                   # Next.js 16 App Router (TypeScript)
-│   ├── public/                 # Static assets
-│   └── src/
-│       ├── app/                # Routes (workspace/generate/study/analytics/integrations)
-│       ├── components/         # UI components (AppShell, ThemeToggle, ...)
-│       └── lib/                # API client + localStorage auth + utils
-├── scripts/                    # Scripts vận hành (deploy, hooks, logging)
-├── src/                        # Backend FastAPI (Python 3.11)
-│   ├── main.py                 # FastAPI entry (mount /api)
-│   ├── database.py             # Legacy DB helper (hạn chế dùng)
-│   └── app/
-│       ├── api/                # API routers/endpoints
-│       ├── core/               # config + SM-2
-│       ├── db/                 # SQLModel engine/session
-│       ├── models/             # SQLModel tables (domain.py)
-│       ├── schemas/            # Pydantic DTOs
-│       ├── services/           # Business logic
-│       ├── utils/              # shared utils (jwt, security, ...)
-│       └── worker/             # Celery worker + beat + tasks
-├── scratch/                    # Local scratch (gitignored)
-├── alembic.ini                 # Alembic config
-├── docker-compose.yml          # Caddy + backend + frontend + redis + worker + beat
-├── Dockerfile.backend
-├── Dockerfile.frontend
-├── Caddyfile
-├── requirements.txt
-└── .env.example
-```
-
----
+- **API interactive docs**: `GET /docs` (Swagger UI) khi chạy backend local.
+- **Danh sách endpoints + deploy guide**: xem `PROJECT_CONTEXT.md`.
 
 | Lệnh | macOS / Linux | Windows (PowerShell) |
 | --- | --- | --- |

@@ -5,6 +5,39 @@
 > **Product Stage: PILOT (team decision, effective 2026-04-29).**
 > Treat this project as a pilot deployment: usable by a controlled group of real users, with known limitations, and prioritized stability/feedback before broad production scale.
 
+## 0. Quick Rehydrate (≤ 60s)
+
+Đọc nhanh phần này khi bạn bị “mất context” và cần tiếp tục flow ngay.
+
+- **Dev (local)**:
+  - Backend: `uvicorn src.main:app --reload` → Swagger tại `http://localhost:8000/docs`
+  - Frontend: `cd frontend && npm run dev` → `http://localhost:3000`
+- **Auth (trạng thái hiện tại)**:
+  - **Legacy**: user ở `localStorage` (`flashcard_user`), backend nhận `user_id` qua query/body.
+  - **JWT session**: một số route (đặc biệt integrations) dùng Bearer access token + refresh.
+- **DB / migrations**:
+  - DB: PostgreSQL
+  - **Alembic là chuẩn**: `alembic upgrade head` (runtime `create_all()` đã tắt)
+- **Deploy (pilot)**:
+  - Docker Swarm single-node; deploy qua `scripts/bootstrap.sh` (one-time) + `scripts/redeploy.sh` (hằng ngày)
+- **Docs entrypoints**:
+  - `README.md` (quickstart + links), `docs/INDEX.md` (docs map), `WORKLOG.md` (ADR), `handoff/SESSION_NOTES.md` (handoff)
+
+## 0.1 Current Invariants (để không drift)
+
+- **Source of truth kỹ thuật/vận hành**: `PROJECT_CONTEXT.md` (file này). Tài liệu khác chỉ link/tóm tắt.
+- **Templates**: `docs/templates/*` (không nhúng template lặp ở `JOURNAL.md`/`WORKLOG.md`).
+- **Migrations**: thay đổi schema → tạo/áp dụng Alembic; không dựa vào auto-create runtime.
+- **Deploy**: pilot deploy theo Swarm + scripts; cập nhật deploy flow thì cập nhật file này trước.
+- **Auth**: đang ở giai đoạn chuyển tiếp (legacy + JWT). Khi sửa auth/API, cần ghi rõ “đang áp dụng cho route nào”.
+
+## 0.2 Handoff workflow (ít token)
+
+Nếu không dùng hooks, vẫn có thể chống “mất context” bằng workflow nhẹ:
+
+- Khi kết thúc một đợt làm việc: yêu cầu agent append mục handoff vào `handoff/SESSION_NOTES.md`.
+- Template + nguyên tắc tối ưu: xem `handoff/HANDOFF_WORKFLOW.md`.
+
 ## 1. Product Overview
 
 **Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (Anthropic Claude) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
@@ -34,15 +67,16 @@
 ```
 
 - **Monorepo** — backend (`src/`) and frontend (`frontend/`) live in the same repo
-- **No JWT/session tokens** — authentication is client-side localStorage based (`flashcard_user`)
-- **User identity** is passed via `user_id` query parameter or request body (not via auth header)
+- **Auth today is mixed**:
+  - **Legacy** flows are client-side localStorage based (`flashcard_user`) and pass identity via `user_id` query/body (no auth header).
+  - **JWT session** flows exist for some routes (notably integrations): frontend stores access/refresh tokens and uses Bearer auth.
 - **Caddy** serves as reverse proxy in production (auto HTTPS via Let's Encrypt)
 
 ## 3. Tech Stack
 
 | Layer | Technology | Version |
 |---|---|---|
-| **Frontend** | Next.js (App Router, TypeScript) | 16.2.3 |
+| **Frontend** | Next.js (App Router, TypeScript) | 16.2.4 |
 | **Styling** | Tailwind CSS 3.4 + CSS Variables + `next-themes` | darkMode: `"class"` |
 | **UI primitives** | Radix UI (Dialog, Tabs), Lucide icons | — |
 | **Backend** | FastAPI (Python) | 0.115+ |
@@ -97,9 +131,10 @@ A20-App-001/
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
 | `study_sessions` | `id`, `user_id`, `deck_id`, `session_date`, `cards_reviewed`, `avg_quality` | UniqueConstraint on (user_id, deck_id, session_date) |
 
-**Schema is auto-created** by `SQLModel.metadata.create_all()` in `init_db()` on app startup.
+**Schema is managed via Alembic migrations.**
 
-> ⚠️ **No migration tool** (e.g., Alembic) is configured. Schema changes require manual `ALTER TABLE` on production or dropping/recreating tables.
+- Legacy auto-create at runtime has been disabled (see `src/app/db/session.py:init_db()`).
+- Apply migrations with `alembic upgrade head`.
 
 ## 6. API Endpoints
 

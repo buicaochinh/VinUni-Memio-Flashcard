@@ -8,6 +8,8 @@
 
 Bối cảnh: server `2GB RAM / 2 vCPU / 30GB SSD`. Quyết định hiện tại: không dùng CI/CD auto deploy, chỉ deploy thủ công trên server để dễ kiểm soát.
 
+> Source of truth về deploy/topology/scripts/limits: xem `PROJECT_CONTEXT.md` (mục Deployment).
+
 ### Files chính
 - `docker-stack.yml`: dùng local image tags:
   - `backend/worker/beat`: `a20-app-001-backend:pilot`
@@ -20,24 +22,9 @@ Bối cảnh: server `2GB RAM / 2 vCPU / 30GB SSD`. Quyết định hiện tại
   - chờ converge + in trạng thái service/task
 - `scripts/deploy.sh`: wrapper gọi bootstrap khi cần rồi chạy redeploy.
 
-### Quy trình deploy hiện tại
-- Lần đầu trên server: `sudo bash scripts/bootstrap.sh`
-- Mỗi lần update code:
-  - `cd ~/A20-App-001`
-  - `git pull --ff-only`
-  - `bash scripts/redeploy.sh`
+### Quy trình deploy / checklist / lệnh quan sát
 
-### Checklist thao tác tay bắt buộc (server)
-- `docker stack services memio` về `1/1`
-- `docker service logs --tail=80 memio_backend` không lỗi runtime
-- `curl -I https://mem.io.vn` và `curl -I https://api.mem.io.vn/` trả HTTP hợp lệ
-
-### Lệnh quan sát/quản trị Swarm hữu ích
-- `docker stack services memio` — trạng thái replicas.
-- `docker stack ps memio --no-trunc` — task gần nhất, lý do restart.
-- `docker service logs -f memio_backend` — log realtime 1 service.
-- `docker stack rm memio` — gỡ stack (image vẫn còn).
-- `docker swarm leave --force` — rời swarm (thận trọng).
+Các bước và checklist thao tác tay đã được chuẩn hoá trong `PROJECT_CONTEXT.md` để tránh trùng lặp và drift.
 
 ### Việc còn để pha sau (theo quyết định)
 - B: tối ưu image backend (đổi base, multi-stage gọn) — chưa làm.
@@ -173,16 +160,8 @@ Mục tiêu: Learning Automation “Study Buddy Bot” (Telegram/Discord) + JWT 
 - `TELEGRAM_BOT_TOKEN=...` (bắt buộc nếu bật bot)
 
 ### Các lệnh quan trọng
-- Backend:
-  - `uvicorn src.main:app --reload`
-- Frontend:
-  - `cd frontend && npm run dev`
-  - `cd frontend && npm run lint`
-- Alembic:
-  - `alembic current`
-  - `alembic stamp head` (DB đã có tables)
-  - `alembic revision -m "..." --autogenerate`
-  - `alembic upgrade head`
+
+Các lệnh chạy dev và các lệnh vận hành/migration tham khảo ở `README.md` (dev) và `PROJECT_CONTEXT.md` (deploy/ops).
 
 ### Việc còn dang dở / cần làm tiếp
 - `ChatIntegration.dm_chat_id` là bắt buộc để worker gửi; nếu user đã link từ trước mà thiếu `dm_chat_id` thì gõ `/start` và link lại bằng mã mới.
@@ -195,4 +174,3 @@ Mục tiêu: Learning Automation “Study Buddy Bot” (Telegram/Discord) + JWT 
 - **Bảo mật/Auth**:
   - Frontend dùng JWT cho integrations; các endpoint legacy vẫn dùng `user_id` query (chưa migrate hết).
 - Billing/Quota (MoMo/ZaloPay) chưa triển khai.
-
