@@ -174,4 +174,3 @@ Các lệnh chạy dev và các lệnh vận hành/migration tham khảo ở `RE
 - **Bảo mật/Auth**:
   - Frontend dùng JWT cho integrations; các endpoint legacy vẫn dùng `user_id` query (chưa migrate hết).
 - Billing/Quota (MoMo/ZaloPay) chưa triển khai.
-

@@ -31,6 +31,13 @@
 - **Deploy**: pilot deploy theo Swarm + scripts; cập nhật deploy flow thì cập nhật file này trước.
 - **Auth**: đang ở giai đoạn chuyển tiếp (legacy + JWT). Khi sửa auth/API, cần ghi rõ “đang áp dụng cho route nào”.
 
+## 0.2 Handoff workflow (ít token)
+
+Nếu không dùng hooks, vẫn có thể chống “mất context” bằng workflow nhẹ:
+
+- Khi kết thúc một đợt làm việc: yêu cầu agent append mục handoff vào `handoff/SESSION_NOTES.md`.
+- Template + nguyên tắc tối ưu: xem `handoff/HANDOFF_WORKFLOW.md`.
+
 ## 1. Product Overview
 
 **Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (Anthropic Claude) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
