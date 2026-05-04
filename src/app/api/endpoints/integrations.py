@@ -12,7 +12,8 @@ from src.app.schemas.integrations import (
     LinkIntegrationResponse,
     UpdateIntegrationRequest,
 )
-from src.app.services.telegram_service import send_message_sync
+from src.app.schemas.telegram import TelegramBotMeta
+from src.app.services.telegram_service import TelegramConfigError, get_bot_username, send_message_sync
 
 
 router = APIRouter()
@@ -77,6 +78,22 @@ def list_integrations(
 ):
     rows = session.exec(select(ChatIntegration).where(ChatIntegration.user_id == user_id)).all()
     return [IntegrationItem.model_validate(r) for r in rows]
+
+@router.get("/telegram/meta", response_model=TelegramBotMeta)
+async def telegram_bot_meta(user_id: int = Depends(get_current_user_id)):
+    """
+    Frontend helper to open the bot directly (and generate a QR code).
+    Requires JWT (same as other integrations endpoints).
+    """
+    _ = user_id  # auth gate only
+    try:
+        username = await get_bot_username()
+    except TelegramConfigError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Cannot resolve Telegram bot meta")
+
+    return TelegramBotMeta(username=username, url=f"https://t.me/{username}")
 
 
 @router.patch("/{provider}", response_model=IntegrationItem)

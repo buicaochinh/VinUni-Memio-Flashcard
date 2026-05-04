@@ -16,6 +16,7 @@ import {
   fetchIngestionRuns,
   fetchIngestionSources,
   fetchIntegrations,
+  fetchTelegramBotMeta,
   getStoredTokens,
   getStoredUser,
   linkIntegration,
@@ -31,6 +32,7 @@ import { BookMarked, Link2, Loader2, RefreshCw, Rss, Send, Trash2 } from "lucide
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import QRCode from "qrcode";
 
 const SEND_WINDOW_RE = /^\d{2}:\d{2}-\d{2}:\d{2}$/;
 
@@ -87,6 +89,10 @@ export default function IntegrationsPage() {
   const [creatingSource, setCreatingSource] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [botUrl, setBotUrl] = useState<string | null>(null);
+  const [botUsername, setBotUsername] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [qrErr, setQrErr] = useState<string | null>(null);
 
   const loadTelegram = useCallback(async () => {
     const data = await fetchIntegrations();
@@ -150,6 +156,25 @@ export default function IntegrationsPage() {
     if (!user) return;
     void load();
   }, [user, load]);
+
+  useEffect(() => {
+    if (!clientReady) return;
+    setQrErr(null);
+    void fetchTelegramBotMeta()
+      .then(async (meta) => {
+        setBotUrl(meta.url);
+        setBotUsername(meta.username);
+        const url = await QRCode.toDataURL(meta.url, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 256,
+        });
+        setQrDataUrl(url);
+      })
+      .catch((e) => {
+        setQrErr(e instanceof Error ? e.message : "Không tải được QR bot.");
+      });
+  }, [clientReady]);
 
   const onLink = async () => {
     const c = code.trim().toUpperCase();
@@ -374,7 +399,6 @@ export default function IntegrationsPage() {
           MVP nay uu tien RSS chay that, con Notion va Obsidian duoc scaffold de noi tiep.
         </p>
       </div>
-
       {msg && (
         <p className="mb-4 text-sm font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 rounded-2xl px-4 py-3">
           {msg}
@@ -403,6 +427,75 @@ export default function IntegrationsPage() {
         </Tabs.List>
 
         <Tabs.Content value="telegram" className="space-y-6">
+          <section className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Mở bot nhanh
+                </p>
+                <h2 className="text-lg font-semibold tracking-tight">Quét QR để mở bot trên Telegram</h2>
+                <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                  Quét QR bằng camera hoặc Telegram. Nếu bạn dùng desktop, có thể bấm nút “Mở bot” để đi thẳng tới chat.
+                </p>
+                {botUsername ? (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Bot: <span className="font-mono font-semibold text-foreground">@{botUsername}</span>
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!botUrl}
+                    onClick={() => {
+                      if (botUrl) window.open(botUrl, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    Mở bot trên Telegram
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!botUrl}
+                    onClick={async () => {
+                      if (!botUrl) return;
+                      try {
+                        await navigator.clipboard.writeText(botUrl);
+                        setMsg("Đã copy link bot.");
+                      } catch {
+                        setErr("Không copy được link. Hãy copy thủ công.");
+                      }
+                    }}
+                  >
+                    Copy link bot
+                  </Button>
+                </div>
+                {qrErr ? (
+                  <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                    Không tải được QR/link bot tự động. Bạn vẫn có thể tìm bot trong Telegram và gõ /start.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="shrink-0 self-start">
+                <div className="rounded-2xl border border-border bg-[hsl(var(--acrylic))] backdrop-blur-md p-3 w-[176px]">
+                  {qrDataUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={qrDataUrl}
+                      alt="QR code mở bot Telegram"
+                      className="w-full h-auto rounded-xl"
+                    />
+                  ) : (
+                    <div className="w-full aspect-square rounded-xl bg-surface-muted flex items-center justify-center text-muted-foreground">
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
               <div>
