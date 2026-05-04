@@ -48,39 +48,7 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ## Template
 
-### Quyết định kỹ thuật
-
-```markdown
-### [ADR-N] Tiêu đề quyết định — DD/MM/YYYY
-
-**Bối cảnh:** ...
-
-**Quyết định:** ...
-
-**Hệ quả:** ...
-```
-
-### Phân công
-
-```markdown
-### Sprint N — DD/MM → DD/MM/YYYY
-
-- Task: ... (người làm, deadline, trạng thái)
-```
-
-### Brainstorming
-
-```markdown
-### Brainstorm: [Chủ đề] — DD/MM/YYYY
-
-**Câu hỏi:** ...
-
-**Các ý tưởng:**
-- Ý tưởng 1: ...
-- Ý tưởng 2: ...
-
-**Kết luận:** ...
-```
+Xem `docs/templates/WORKLOG.template.md`.
 
 ---
 
