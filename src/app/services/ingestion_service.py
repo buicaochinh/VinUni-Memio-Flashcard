@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 from defusedxml import ElementTree as ET
+from xml.etree.ElementTree import Element
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
@@ -74,7 +75,7 @@ def _checksum(*parts: str) -> str:
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
-def _extract_text(node: ET.Element | None) -> str:
+def _extract_text(node: Element | None) -> str:
     if node is None:
         return ""
     return "".join(node.itertext()).strip()
