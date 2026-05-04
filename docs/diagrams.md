@@ -8,10 +8,10 @@ Biểu đồ này mô tả cách các thành phần trong hệ thống tương t
 
 ```mermaid
 graph TD
-    User((Người dùng)) <--> Frontend[Next.js 15 Frontend<br/>Tailwind CSS / TypeScript]
+    User((Người dùng)) <--> Frontend[Next.js 16 Frontend<br/>Tailwind CSS / TypeScript]
     Frontend <--> API[FastAPI Backend<br/>Python 3.11+]
     API <--> LLM{AI Engine<br/>Anthropic Claude / OpenAI}
-    API <--> DB[(Database<br/>PostgreSQL / SQLite)]
+    API <--> DB[(Database<br/>PostgreSQL)]
     API <--> Auth[Google OAuth<br/>Xác thực người dùng]
 ```
 
@@ -81,7 +81,7 @@ sequenceDiagram
     B->>D: Truy vấn cards & progress
     D-->>B: Trả về danh sách thẻ
     B-->>F: Gửi danh sách thẻ đến hạn
-    U->>F: Lật thẻ & Đánh giá (1-5)
+    U->>F: Lật thẻ & Đánh giá (0-3)
     F->>B: Gửi kết quả đánh giá (quality)
     rect rgb(240, 240, 240)
         Note over B: Tính toán thuật toán SM-2
