@@ -136,3 +136,99 @@ class StudySession(SQLModel, table=True):
     session_date: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
     cards_reviewed: int = 0
     avg_quality: float = 0
+
+
+class IngestionSource(SQLModel, table=True):
+    __tablename__ = "ingestion_sources"
+    __table_args__ = (
+        Index("ix_ingestion_sources_user_provider", "user_id", "provider"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    provider: str  # "rss" | "notion" | "obsidian" | "roam"
+    name: str
+    status: str = "active"  # "active" | "paused"
+    sync_mode: str = "one_way"  # "one_way" | "two_way"
+    source_url: Optional[str] = None
+    external_id: Optional[str] = None
+    target_deck_id: Optional[int] = Field(default=None, foreign_key="decks.id")
+    auto_tag: bool = True
+    frequency_minutes: int = 360
+    cards_per_item: int = 6
+    config_json: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class IngestionItem(SQLModel, table=True):
+    __tablename__ = "ingestion_items"
+    __table_args__ = (
+        UniqueConstraint("source_id", "checksum", name="uq_ingestion_items_source_checksum"),
+        Index("ix_ingestion_items_source_created", "source_id", "created_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_id: int = Field(foreign_key="ingestion_sources.id", index=True)
+    external_id: Optional[str] = None
+    external_url: Optional[str] = None
+    title: str
+    content_text: Optional[str] = None
+    summary: Optional[str] = None
+    topic_tag: Optional[str] = None
+    checksum: str = Field(index=True)
+    published_at: Optional[datetime] = None
+    last_processed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class IngestionRun(SQLModel, table=True):
+    __tablename__ = "ingestion_runs"
+    __table_args__ = (
+        Index("ix_ingestion_runs_source_started", "source_id", "started_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_id: int = Field(foreign_key="ingestion_sources.id", index=True)
+    status: str = "running"  # "running" | "success" | "failed"
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    finished_at: Optional[datetime] = None
+    fetched_count: int = 0
+    normalized_count: int = 0
+    created_count: int = 0
+    error_message: Optional[str] = None
+
+
+class ExternalNote(SQLModel, table=True):
+    __tablename__ = "external_notes"
+    __table_args__ = (
+        UniqueConstraint("source_id", "external_note_id", name="uq_external_notes_source_note"),
+        Index("ix_external_notes_source_last_seen", "source_id", "last_seen_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_id: int = Field(foreign_key="ingestion_sources.id", index=True)
+    external_note_id: str
+    parent_external_id: Optional[str] = None
+    title: str
+    note_type: str = "page"
+    content_text: Optional[str] = None
+    highlights_text: Optional[str] = None
+    graph_refs_json: Optional[str] = None
+    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class IngestionCursor(SQLModel, table=True):
+    __tablename__ = "ingestion_cursors"
+    __table_args__ = (
+        UniqueConstraint("source_id", name="uq_ingestion_cursors_source"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    source_id: int = Field(foreign_key="ingestion_sources.id", index=True)
+    cursor_type: str = "timestamp"
+    cursor_value: Optional[str] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
