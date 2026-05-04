@@ -5,6 +5,32 @@
 > **Product Stage: PILOT (team decision, effective 2026-04-29).**
 > Treat this project as a pilot deployment: usable by a controlled group of real users, with known limitations, and prioritized stability/feedback before broad production scale.
 
+## 0. Quick Rehydrate (≤ 60s)
+
+Đọc nhanh phần này khi bạn bị “mất context” và cần tiếp tục flow ngay.
+
+- **Dev (local)**:
+  - Backend: `uvicorn src.main:app --reload` → Swagger tại `http://localhost:8000/docs`
+  - Frontend: `cd frontend && npm run dev` → `http://localhost:3000`
+- **Auth (trạng thái hiện tại)**:
+  - **Legacy**: user ở `localStorage` (`flashcard_user`), backend nhận `user_id` qua query/body.
+  - **JWT session**: một số route (đặc biệt integrations) dùng Bearer access token + refresh.
+- **DB / migrations**:
+  - DB: PostgreSQL
+  - **Alembic là chuẩn**: `alembic upgrade head` (runtime `create_all()` đã tắt)
+- **Deploy (pilot)**:
+  - Docker Swarm single-node; deploy qua `scripts/bootstrap.sh` (one-time) + `scripts/redeploy.sh` (hằng ngày)
+- **Docs entrypoints**:
+  - `README.md` (quickstart + links), `docs/INDEX.md` (docs map), `WORKLOG.md` (ADR), `handoff/SESSION_NOTES.md` (handoff)
+
+## 0.1 Current Invariants (để không drift)
+
+- **Source of truth kỹ thuật/vận hành**: `PROJECT_CONTEXT.md` (file này). Tài liệu khác chỉ link/tóm tắt.
+- **Templates**: `docs/templates/*` (không nhúng template lặp ở `JOURNAL.md`/`WORKLOG.md`).
+- **Migrations**: thay đổi schema → tạo/áp dụng Alembic; không dựa vào auto-create runtime.
+- **Deploy**: pilot deploy theo Swarm + scripts; cập nhật deploy flow thì cập nhật file này trước.
+- **Auth**: đang ở giai đoạn chuyển tiếp (legacy + JWT). Khi sửa auth/API, cần ghi rõ “đang áp dụng cho route nào”.
+
 ## 1. Product Overview
 
 **Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (Anthropic Claude) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
