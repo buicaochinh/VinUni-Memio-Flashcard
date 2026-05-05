@@ -87,3 +87,20 @@ class NotionSourceCreateRequest(BaseModel):
     auto_tag: bool = True
     frequency_minutes: int = Field(default=360, ge=5, le=10080)
     cards_per_item: int = Field(default=6, ge=1, le=20)
+
+
+class NotionDeckCreateRequest(BaseModel):
+    page_id: str
+    deck_name: Optional[str] = None
+    description: str = ""
+    auto_tag: bool = True
+    frequency_minutes: int = Field(default=360, ge=5, le=10080)
+    cards_per_item: int = Field(default=6, ge=1, le=20)
+
+
+class NotionDeckCreateResponse(BaseModel):
+    message: str = "success"
+    deck_id: int
+    deck_name: str
+    source_id: int
+    created_count: int
