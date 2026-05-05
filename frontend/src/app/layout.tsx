@@ -1,13 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import ThemeProvider from "../components/ThemeProvider";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin", "vietnamese"],
+const jakarta = localFont({
+  src: [
+    {
+      path: "./fonts/PlusJakartaSans-Variable.ttf",
+      weight: "400 800",
+      style: "normal",
+    },
+    {
+      path: "./fonts/PlusJakartaSans-Italic-Variable.ttf",
+      weight: "400 800",
+      style: "italic",
+    },
+  ],
   display: "swap",
-  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-sans",
 });
 
