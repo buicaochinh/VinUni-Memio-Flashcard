@@ -135,6 +135,8 @@ class StudySession(SQLModel, table=True):
     deck_id: int = Field(foreign_key="decks.id")
     session_date: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
     cards_reviewed: int = 0
+    new_cards_reviewed: int = 0
+    review_cards_reviewed: int = 0
     avg_quality: float = 0
 
 
@@ -232,6 +234,15 @@ class IngestionCursor(SQLModel, table=True):
     cursor_type: str = "timestamp"
     cursor_value: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserSettings(SQLModel, table=True):
+    __tablename__ = "user_settings"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True, unique=True)
+    daily_new_limit: int = Field(default=20)
+    daily_review_limit: int = Field(default=50)
 
 
 class OAuthConnection(SQLModel, table=True):
