@@ -7,7 +7,8 @@ import {
   Card,
   ExplainCitation,
   ExplainHistoryMessage,
-  fetchDeckCards,
+  fetchSmartQueue,
+  fetchStudySummary,
   flushProgressQueue,
   getCachedCards,
   useClientReady,
@@ -37,7 +38,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../../components/ui/button";
-
+import SessionCompleteBoard from "../../../components/SessionCompleteBoard";
+import DailyLimitReached from "../../../components/DailyLimitReached";
 function mdToHtml(md: string): string {
   if (!md) return "";
   const escaped = md
@@ -98,6 +100,7 @@ export default function StudyPage() {
   const user = useStoredUser();
   const clientReady = useClientReady();
   const [cards,        setCards]        = useState<Card[]>([]);
+  const [isLoading,    setIsLoading]    = useState(true);
   const [idx,          setIdx]          = useState(0);
   const [isFlipped,    setIsFlipped]    = useState(false);
   const [dragX,        setDragX]        = useState(0);
@@ -106,6 +109,9 @@ export default function StudyPage() {
   const [msg,          setMsg]          = useState<string | null>(null);
   const [ratingQuality, setRatingQuality] = useState<number | null>(null);
   const [sessionRatings, setSessionRatings] = useState<number[]>([]);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
+  const [isDailyLimitReached, setIsDailyLimitReached] = useState(false);
+  const [studySummary, setStudySummary] = useState<any>(null);
 
   // Explain mode states
   const [isExplainMode, setIsExplainMode] = useState(false);
@@ -117,21 +123,38 @@ export default function StudyPage() {
   const pointerStart = useRef<{ x: number; t: number } | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const loadCards = useCallback(async (userId: number) => {
+  const loadCards = useCallback(async (userId: number, overrideLimit: boolean = false) => {
+    setIsLoading(true);
     try {
       let loaded: Card[];
       if (isOnline()) {
-        loaded = await fetchDeckCards(deckId, userId);
+        loaded = await fetchSmartQueue(deckId, userId, overrideLimit);
         cacheCards(deckId, loaded);
+        
+        if (loaded.length === 0) {
+          const summary = await fetchStudySummary(deckId, userId);
+          if (summary.total_cards > 0) {
+            setStudySummary(summary);
+            if (overrideLimit) {
+              // All cards already reviewed today, nothing left even with override
+              setMsg("Bạn đã ôn hết tất cả thẻ trong deck này hôm nay. Hẹn ngày mai!");
+            } else {
+              setIsDailyLimitReached(true);
+            }
+          }
+        }
       } else {
         loaded = getCachedCards(deckId) ?? [];
         if (loaded.length === 0) setMsg("Offline — không có cache cho deck này.");
       }
       setCards(loaded);
+      setIsFlipped(false);
     } catch {
       const cached = getCachedCards(deckId);
       if (cached) { setCards(cached); setMsg("Offline — đang dùng dữ liệu cache."); }
       else         setMsg("Không tải được flashcards.");
+    } finally {
+      setIsLoading(false);
     }
   }, [deckId]);
 
@@ -182,10 +205,15 @@ export default function StudyPage() {
     } else {
       const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
       if (isOnline()) {
-        void logStudySession(user.id, deckId, newRatings.length, avg);
+        await logStudySession(user.id, deckId, newRatings.length, avg);
       }
-      setMsg("Hoàn thành phiên học!");
-      setTimeout(() => router.push("/workspace"), 1400);
+      try {
+        const summary = await fetchStudySummary(deckId, user.id);
+        setStudySummary(summary);
+      } catch {
+        // ignore
+      }
+      setIsSessionComplete(true);
     }
   }, [cards, deckId, idx, router, sessionRatings, user]);
 
@@ -323,7 +351,15 @@ export default function StudyPage() {
 
   if (!user) return null;
 
-  if (cards.length === 0 && !msg) {
+  if (isLoading) {
+    return (
+      <main className="min-h-screen grid place-items-center p-5 bg-background">
+        <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </main>
+    );
+  }
+
+  if (cards.length === 0 && !msg && !isSessionComplete && !isDailyLimitReached) {
     return (
       <main className="min-h-screen grid place-items-center p-5 bg-background">
         <section className="w-full max-w-[480px] p-10 bg-surface border border-border rounded-[32px] shadow-sm text-center">
@@ -349,6 +385,41 @@ export default function StudyPage() {
             </Button>
           </div>
         </section>
+      </main>
+    );
+  }
+
+  if (isDailyLimitReached && studySummary) {
+    return (
+      <main className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+        <DailyLimitReached
+          summary={studySummary}
+          onHome={() => router.push("/workspace")}
+          onOverride={async () => {
+            setIsDailyLimitReached(false);
+            setSessionRatings([]);
+            setIdx(0);
+            await loadCards(user.id, true);
+          }}
+        />
+      </main>
+    );
+  }
+
+  if (isSessionComplete && studySummary) {
+    return (
+      <main className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-4">
+        <SessionCompleteBoard
+          sessionRatings={sessionRatings}
+          summary={studySummary}
+          onHome={() => router.push("/workspace")}
+          onContinue={async (overrideLimit: boolean) => {
+            setIsSessionComplete(false);
+            setSessionRatings([]);
+            setIdx(0);
+            await loadCards(user.id, overrideLimit);
+          }}
+        />
       </main>
     );
   }
