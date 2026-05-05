@@ -772,6 +772,38 @@ export async function createNotionIngestionSource(body: {
   return res.json() as Promise<IngestionSourceDTO>;
 }
 
+export async function createDeckFromNotion(body: {
+  page_id: string;
+  deck_name?: string;
+  description?: string;
+  auto_tag?: boolean;
+  frequency_minutes?: number;
+  cards_per_item?: number;
+}): Promise<{
+  message: string;
+  deck_id: number;
+  deck_name: string;
+  source_id: number;
+  created_count: number;
+}> {
+  const res = await authFetch("/api/ingestion/notion/create-deck", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "CREATE_DECK_FROM_NOTION_FAILED");
+  }
+  return res.json() as Promise<{
+    message: string;
+    deck_id: number;
+    deck_name: string;
+    source_id: number;
+    created_count: number;
+  }>;
+}
+
 export async function updateIngestionSource(
   sourceId: number,
   body: {
