@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.app.api.endpoints import auth, decks, cards
+from src.app.api.endpoints import auth, decks, cards, users
 from src.app.api.endpoints import integrations
 from src.app.api.endpoints import integrations_telegram
 from src.app.api.endpoints import ingestion
