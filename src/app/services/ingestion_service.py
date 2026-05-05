@@ -171,6 +171,40 @@ def delete_source(session: Session, user_id: int, source_id: int) -> None:
     ).first()
     if not source:
         raise HTTPException(status_code=404, detail="Ingestion source not found")
+
+    item_rows = session.exec(
+        select(IngestionItem).where(IngestionItem.source_id == source_id)
+    ).all()
+    item_ids = [row.id for row in item_rows if row.id is not None]
+
+    if item_ids:
+        map_rows = session.exec(
+            select(IngestionCardMap).where(IngestionCardMap.ingestion_item_id.in_(item_ids))
+        ).all()
+        for row in map_rows:
+            session.delete(row)
+
+    run_rows = session.exec(
+        select(IngestionRun).where(IngestionRun.source_id == source_id)
+    ).all()
+    for row in run_rows:
+        session.delete(row)
+
+    note_rows = session.exec(
+        select(ExternalNote).where(ExternalNote.source_id == source_id)
+    ).all()
+    for row in note_rows:
+        session.delete(row)
+
+    cursor_rows = session.exec(
+        select(IngestionCursor).where(IngestionCursor.source_id == source_id)
+    ).all()
+    for row in cursor_rows:
+        session.delete(row)
+
+    for row in item_rows:
+        session.delete(row)
+
     session.delete(source)
     session.commit()
 
@@ -421,6 +455,8 @@ async def sync_source(session: Session, source: IngestionSource, *, preview_only
                 continue
             pages = [SimplePage(text)]
             cards = await _generate_cards_chunked(pages, source.cards_per_item)
+            if not cards and not preview_only:
+                raise IngestionSyncError("Không tạo được flashcard từ nội dung Notion này. Hãy thử nội dung khác hoặc kiểm tra cấu hình AI.")
             tag = raw.get("topic_tag")
             for card in cards:
                 card["source_context"] = text[:6000]
