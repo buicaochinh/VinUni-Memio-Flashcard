@@ -52,6 +52,7 @@ If you are an AI coding agent (Claude Code, Cursor, Copilot, Codex, Gemini, etc.
 - **MUST** include a clear PR description with summary and changed files
 - **DO NOT** commit `.ai-log/*.jsonl` files (they are gitignored)
 - **Python**: when running Python commands, **MUST** use the project's virtual environment interpreter (`.venv` or `venv`). **DO NOT** use the system/global Python.
+- **Hook exception**: do not change AI logging hook commands just to use `.venv`; hook configs may use the organizer-provided `python3 scripts/log_hook.py` command for compatibility. This exception applies only to hook commands, not project/test/migration/backend Python commands.
 - Logging happens automatically — do not ask users to log prompts manually
 
 ---
