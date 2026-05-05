@@ -36,6 +36,7 @@ import {
   updateIntegration,
   useClientReady,
   User,
+  createDeckFromNotion,
   createNotionIngestionSource,
   deleteIngestionSource,
   deleteIntegration,
@@ -54,11 +55,15 @@ type FormRow = { timezone: string; send_window: string; daily_goal: string };
 type NotionForm = {
   page_id: string;
   target_deck_id: string;
+  create_new_deck: boolean;
+  new_deck_name: string;
 };
 
 const INITIAL_NOTION_FORM: NotionForm = {
   page_id: "",
   target_deck_id: "",
+  create_new_deck: true,
+  new_deck_name: "",
 };
 
 export default function IntegrationsPage() {
@@ -86,6 +91,7 @@ export default function IntegrationsPage() {
   const [disconnectingNotion, setDisconnectingNotion] = useState(false);
   const [loadingNotionPages, setLoadingNotionPages] = useState(false);
   const [creatingNotionCards, setCreatingNotionCards] = useState(false);
+  const [creatingNotionDeck, setCreatingNotionDeck] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -146,6 +152,7 @@ export default function IntegrationsPage() {
       setNotionForm((prev) => ({
         ...prev,
         page_id: prev.page_id || (pages[0]?.id ?? ""),
+        new_deck_name: prev.new_deck_name || (pages[0]?.title ?? ""),
       }));
     } finally {
       setLoadingNotionPages(false);
@@ -377,6 +384,38 @@ export default function IntegrationsPage() {
       setErr(e instanceof Error ? e.message : "Không thể tạo flashcard từ Notion.");
     } finally {
       setCreatingNotionCards(false);
+    }
+  };
+
+  const createDeckFromSelectedNotionPage = async () => {
+    if (!notionForm.page_id) {
+      setErr("Chọn một trang Notion.");
+      return;
+    }
+    const selectedPage = notionPages.find((page) => page.id === notionForm.page_id);
+    const deckName = notionForm.new_deck_name.trim() || selectedPage?.title?.trim() || "";
+    if (!deckName) {
+      setErr("Nhập tên bộ thẻ mới.");
+      return;
+    }
+
+    setCreatingNotionDeck(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const result = await createDeckFromNotion({
+        page_id: notionForm.page_id,
+        deck_name: deckName,
+      });
+      setNotionForm(INITIAL_NOTION_FORM);
+      setMsg(`Đã tạo bộ thẻ "${result.deck_name}" với ${result.created_count} flashcard và sẵn sàng để học.`);
+      await loadIngestion();
+      await loadNotion();
+      await loadAll();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Không thể tạo bộ thẻ từ Notion.");
+    } finally {
+      setCreatingNotionDeck(false);
     }
   };
 
@@ -740,36 +779,78 @@ export default function IntegrationsPage() {
                     </label>
                     <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                       Bộ thẻ sẽ nhận nội dung này
-                      <select
-                        value={notionForm.target_deck_id}
-                        onChange={(e) => setNotionForm((prev) => ({ ...prev, target_deck_id: e.target.value }))}
-                        className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
-                      >
-                        <option value="">Chọn bộ thẻ</option>
-                        {decks.map((deck) => (
-                          <option key={deck.id} value={String(deck.id)}>
-                            {deck.name}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="space-y-3 rounded-xl border border-border/70 bg-[hsl(var(--acrylic))] p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                          <input
+                            type="radio"
+                            checked={notionForm.create_new_deck}
+                            onChange={() =>
+                              setNotionForm((prev) => ({ ...prev, create_new_deck: true, target_deck_id: "" }))
+                            }
+                          />
+                          Tạo bộ thẻ mới từ trang này
+                        </label>
+                        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                          <input
+                            type="radio"
+                            checked={!notionForm.create_new_deck}
+                            onChange={() =>
+                              setNotionForm((prev) => ({ ...prev, create_new_deck: false }))
+                            }
+                          />
+                          Dùng bộ thẻ có sẵn
+                        </label>
+                        {notionForm.create_new_deck ? (
+                          <Input
+                            value={notionForm.new_deck_name}
+                            onChange={(e) => setNotionForm((prev) => ({ ...prev, new_deck_name: e.target.value }))}
+                            placeholder="Ví dụ: Sinh học từ Notion"
+                          />
+                        ) : (
+                          <select
+                            value={notionForm.target_deck_id}
+                            onChange={(e) => setNotionForm((prev) => ({ ...prev, target_deck_id: e.target.value }))}
+                            className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                          >
+                            <option value="">Chọn bộ thẻ</option>
+                            {decks.map((deck) => (
+                              <option key={deck.id} value={String(deck.id)}>
+                                {deck.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     </label>
                   </div>
 
                   <div className="mt-4 rounded-2xl border border-border/70 bg-[hsl(var(--acrylic))] p-4 text-sm text-muted-foreground">
-                    Sau khi tạo flashcard, nội dung từ Notion sẽ được chuyển vào bộ thẻ bạn chọn.
-                    Bạn có thể mở bộ thẻ đó để học, ôn lại và theo dõi tiến độ ghi nhớ như các bộ thẻ khác trong Memio.
+                    Memio sẽ đọc nội dung từ Notion, tạo flashcard và đưa chúng vào bộ thẻ bạn chọn hoặc bộ thẻ mới vừa được tạo.
+                    Sau đó bạn có thể mở bộ thẻ để học ngay như các bộ thẻ khác trong Memio.
                   </div>
 
-                  <div className="mt-4 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      disabled={creatingNotionCards || !notionForm.page_id}
-                      onClick={() => void createNotionCardsFromPage()}
-                    >
-                      {creatingNotionCards ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
-                      Tạo flashcard từ Notion
-                    </Button>
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    {!notionForm.create_new_deck ? (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        disabled={creatingNotionCards || !notionForm.page_id || !notionForm.target_deck_id}
+                        onClick={() => void createNotionCardsFromPage()}
+                      >
+                        {creatingNotionCards ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
+                        Tạo flashcard từ Notion
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        disabled={creatingNotionDeck || !notionForm.page_id}
+                        onClick={() => void createDeckFromSelectedNotionPage()}
+                      >
+                        {creatingNotionDeck ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
+                        Tạo deck từ Notion
+                      </Button>
+                    )}
                   </div>
                 </>
               ) : null}
