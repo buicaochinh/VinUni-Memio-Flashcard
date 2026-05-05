@@ -28,12 +28,14 @@ function shareUrl(token: string) {
   return `${window.location.origin}/deck/${token}`;
 }
 
+type StudySummary = Awaited<ReturnType<typeof fetchStudySummary>>;
+
 export default function WorkspacePage() {
   const router = useRouter();
   const clientReady = useClientReady();
   const [user, setUser] = useState<User | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
-  const [cardCounts, setCardCounts] = useState<Record<number, number>>({});
+  const [cardCounts, setCardCounts] = useState<Record<number, StudySummary | null>>({});
   const [newDeckName, setNewDeckName] = useState("");
   const [newDeckDesc, setNewDeckDesc] = useState("");
   const [creating, setCreating] = useState(false);
@@ -79,19 +81,19 @@ export default function WorkspacePage() {
     }
   };
 
-  const totalCards = useMemo(() => Object.values(cardCounts).reduce((s, n: any) => s + (n?.total_cards ?? 0), 0), [cardCounts]);
+  const totalCards = useMemo(() => Object.values(cardCounts).reduce((s, n) => s + (n?.total_cards ?? 0), 0), [cardCounts]);
   const readyDecks = useMemo(() => decks.filter((d) => {
-    const sum = cardCounts[d.id] as any;
+    const sum = cardCounts[d.id];
     return sum && (sum.due_cards + sum.new_cards) > 0;
   }).length, [decks, cardCounts]);
   const maxCardsInAnyDeck = useMemo(() => {
-    const vals = Object.values(cardCounts).map((s: any) => s?.total_cards ?? 0);
+    const vals = Object.values(cardCounts).map((s) => s?.total_cards ?? 0);
     return vals.length ? Math.max(...vals) : 0;
   }, [cardCounts]);
   const decksByActivity = useMemo(() => {
     return [...decks].sort((a, b) => {
-      const suma = cardCounts[a.id] as any;
-      const sumb = cardCounts[b.id] as any;
+      const suma = cardCounts[a.id];
+      const sumb = cardCounts[b.id];
       const aDue = suma ? suma.due_cards + suma.new_cards : 0;
       const bDue = sumb ? sumb.due_cards + sumb.new_cards : 0;
       return bDue - aDue;
@@ -99,7 +101,7 @@ export default function WorkspacePage() {
   }, [decks, cardCounts]);
   const firstReadyDeckId = useMemo(() => {
     const d = decksByActivity.find((x) => {
-      const sum = cardCounts[x.id] as any;
+      const sum = cardCounts[x.id];
       return sum && (sum.due_cards + sum.new_cards) > 0;
     });
     return d?.id ?? null;
@@ -111,7 +113,7 @@ export default function WorkspacePage() {
       : [...decks].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "", "vi"));
 
     return base.filter((d) => {
-      const sum = cardCounts[d.id] as any;
+      const sum = cardCounts[d.id];
       const due = sum ? sum.due_cards + sum.new_cards : 0;
       if (showReadyOnly && due <= 0) return false;
       if (!query) return true;
@@ -415,7 +417,7 @@ export default function WorkspacePage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredDecks.map((deck, idx) => {
-                const summary = cardCounts[deck.id] as any;
+                const summary = cardCounts[deck.id];
                 const count = summary?.total_cards ?? 0;
                 const due = summary ? summary.due_cards + summary.new_cards : 0;
                 const isReady = due > 0;
