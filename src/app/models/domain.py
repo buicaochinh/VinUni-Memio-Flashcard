@@ -232,3 +232,37 @@ class IngestionCursor(SQLModel, table=True):
     cursor_type: str = "timestamp"
     cursor_value: Optional[str] = None
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class OAuthConnection(SQLModel, table=True):
+    __tablename__ = "oauth_connections"
+    __table_args__ = (
+        UniqueConstraint("user_id", "provider", name="uq_oauth_connections_user_provider"),
+        Index("ix_oauth_connections_provider", "provider"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    provider: str
+    provider_user_id: Optional[str] = None
+    access_token: str
+    workspace_id: Optional[str] = None
+    workspace_name: Optional[str] = None
+    workspace_icon: Optional[str] = None
+    owner_type: Optional[str] = None
+    capabilities_json: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class IngestionCardMap(SQLModel, table=True):
+    __tablename__ = "ingestion_card_maps"
+    __table_args__ = (
+        UniqueConstraint("ingestion_item_id", "flashcard_id", name="uq_ingestion_card_maps_item_card"),
+        Index("ix_ingestion_card_maps_item", "ingestion_item_id"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ingestion_item_id: int = Field(foreign_key="ingestion_items.id", index=True)
+    flashcard_id: int = Field(foreign_key="flashcards.id", index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)

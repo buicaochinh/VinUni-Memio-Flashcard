@@ -24,6 +24,27 @@ def bulk_add_flashcards(session: Session, deck_id: int, cards: list[dict]):
     session.commit()
 
 
+def replace_flashcards(session: Session, deck_id: int, card_ids: list[int], cards: list[dict]) -> list[int]:
+    for card_id in card_ids:
+        delete_flashcard(session, card_id)
+
+    created_ids: list[int] = []
+    for card_data in cards:
+        card = Flashcard(
+            deck_id=deck_id,
+            front=card_data["front"],
+            back=card_data["back"],
+            difficulty=card_data.get("difficulty", "medium"),
+            source_context=card_data.get("source_context"),
+        )
+        session.add(card)
+        session.flush()
+        if card.id is not None:
+            created_ids.append(card.id)
+    session.commit()
+    return created_ids
+
+
 def update_flashcard(session: Session, card_id: int, front: str, back: str, difficulty: str = None):
     card = session.get(Flashcard, card_id)
     if card:

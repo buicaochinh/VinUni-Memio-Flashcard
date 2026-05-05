@@ -78,3 +78,12 @@ class IngestionSyncResponse(BaseModel):
     normalized_count: int
     created_count: int
     preview_cards: int = 0
+
+
+class NotionSourceCreateRequest(BaseModel):
+    page_id: str
+    name: Optional[str] = None
+    target_deck_id: Optional[int] = None
+    auto_tag: bool = True
+    frequency_minutes: int = Field(default=360, ge=5, le=10080)
+    cards_per_item: int = Field(default=6, ge=1, le=20)

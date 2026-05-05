@@ -5,6 +5,7 @@ from src.app.api.deps import get_current_user_id
 from src.app.db.session import get_session
 from src.app.schemas.ingestion import (
     IngestionRunItem,
+    NotionSourceCreateRequest,
     IngestionSourceCreate,
     IngestionSourceItem,
     IngestionSourceUpdate,
@@ -32,6 +33,16 @@ def create_ingestion_source(
     user_id: int = Depends(get_current_user_id),
 ):
     row = ingestion_service.create_source(session, user_id, payload)
+    return IngestionSourceItem(**row)
+
+
+@router.post("/sources/notion", response_model=IngestionSourceItem)
+async def create_notion_ingestion_source(
+    payload: NotionSourceCreateRequest,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user_id),
+):
+    row = await ingestion_service.create_notion_source(session, user_id, payload)
     return IngestionSourceItem(**row)
 
 

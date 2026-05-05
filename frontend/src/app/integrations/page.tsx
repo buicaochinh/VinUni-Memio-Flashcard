@@ -3,23 +3,32 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as Tabs from "@radix-ui/react-tabs";
+import QRCode from "qrcode";
+import { BookMarked, Link2, Loader2, RefreshCw, Rss, Send, Trash2 } from "lucide-react";
+
 import AppShell from "../../components/AppShell";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { cn } from "../../lib/utils";
 import {
   ChatIntegrationDTO,
   Deck,
-  IngestionRunDTO,
-  IngestionSourceDTO,
-  createIngestionSource,
-  deleteIngestionSource,
-  deleteIntegration,
+  disconnectNotion,
   fetchDecks,
   fetchIngestionRuns,
   fetchIngestionSources,
   fetchIntegrations,
+  fetchNotionPages,
+  fetchNotionStatus,
   fetchTelegramBotMeta,
+  getNotionConnectUrl,
   getStoredTokens,
   getStoredUser,
+  IngestionRunDTO,
+  IngestionSourceDTO,
   linkIntegration,
+  NotionConnectionStatusDTO,
+  NotionPageDTO,
   syncIngestionSource,
   testSendDueCards,
   testWeeklyReport,
@@ -27,12 +36,11 @@ import {
   updateIntegration,
   useClientReady,
   User,
+  createIngestionSource,
+  createNotionIngestionSource,
+  deleteIngestionSource,
+  deleteIntegration,
 } from "../../lib/app-client";
-import { BookMarked, Link2, Loader2, RefreshCw, Rss, Send, Trash2 } from "lucide-react";
-import { cn } from "../../lib/utils";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import QRCode from "qrcode";
 
 const SEND_WINDOW_RE = /^\d{2}:\d{2}-\d{2}:\d{2}$/;
 
@@ -57,6 +65,14 @@ type SourceForm = {
   sync_mode: string;
 };
 
+type NotionForm = {
+  page_id: string;
+  target_deck_id: string;
+  frequency_minutes: string;
+  cards_per_item: string;
+  auto_tag: boolean;
+};
+
 const INITIAL_SOURCE_FORM: SourceForm = {
   name: "",
   source_url: "",
@@ -67,10 +83,18 @@ const INITIAL_SOURCE_FORM: SourceForm = {
   sync_mode: "one_way",
 };
 
+const INITIAL_NOTION_FORM: NotionForm = {
+  page_id: "",
+  target_deck_id: "",
+  frequency_minutes: "360",
+  cards_per_item: "6",
+  auto_tag: true,
+};
+
 export default function IntegrationsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const clientReady = useClientReady();
+  const [user, setUser] = useState<User | null>(null);
 
   const [rows, setRows] = useState<ChatIntegrationDTO[]>([]);
   const [forms, setForms] = useState<Record<string, FormRow>>({});
@@ -82,13 +106,22 @@ export default function IntegrationsPage() {
   const [sourceForm, setSourceForm] = useState<SourceForm>(INITIAL_SOURCE_FORM);
   const [sourceProvider, setSourceProvider] = useState("rss");
 
+  const [notionStatus, setNotionStatus] = useState<NotionConnectionStatusDTO>({ connected: false });
+  const [notionPages, setNotionPages] = useState<NotionPageDTO[]>([]);
+  const [notionForm, setNotionForm] = useState<NotionForm>(INITIAL_NOTION_FORM);
+
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<number | null>(null);
   const [creatingSource, setCreatingSource] = useState(false);
+  const [connectingNotion, setConnectingNotion] = useState(false);
+  const [disconnectingNotion, setDisconnectingNotion] = useState(false);
+  const [loadingNotionPages, setLoadingNotionPages] = useState(false);
+  const [creatingNotionSource, setCreatingNotionSource] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
   const [botUrl, setBotUrl] = useState<string | null>(null);
   const [botUsername, setBotUsername] = useState<string | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -97,15 +130,15 @@ export default function IntegrationsPage() {
   const loadTelegram = useCallback(async () => {
     const data = await fetchIntegrations();
     setRows(data);
-    const f: Record<string, FormRow> = {};
-    for (const r of data) {
-      f[r.provider] = {
-        timezone: r.timezone,
-        send_window: r.send_window,
-        daily_goal: String(r.daily_goal),
+    const nextForms: Record<string, FormRow> = {};
+    for (const row of data) {
+      nextForms[row.provider] = {
+        timezone: row.timezone,
+        send_window: row.send_window,
+        daily_goal: String(row.daily_goal),
       };
     }
-    setForms(f);
+    setForms(nextForms);
   }, []);
 
   const loadIngestion = useCallback(async () => {
@@ -113,6 +146,7 @@ export default function IntegrationsPage() {
       fetchIngestionSources(),
       user ? fetchDecks(user.id) : Promise.resolve([] as Deck[]),
     ]);
+
     setSources(sourceRows);
     setDecks(deckRows);
 
@@ -122,26 +156,50 @@ export default function IntegrationsPage() {
         runs: await fetchIngestionRuns(source.id).catch(() => [] as IngestionRunDTO[]),
       }))
     );
+
     const nextRuns: Record<number, IngestionRunDTO[]> = {};
-    for (const pair of runPairs) nextRuns[pair.sourceId] = pair.runs;
+    for (const pair of runPairs) {
+      nextRuns[pair.sourceId] = pair.runs;
+    }
     setRuns(nextRuns);
   }, [user]);
 
-  const load = useCallback(async () => {
+  const loadNotion = useCallback(async () => {
+    const status = await fetchNotionStatus();
+    setNotionStatus(status);
+    if (!status.connected) {
+      setNotionPages([]);
+      return;
+    }
+
+    setLoadingNotionPages(true);
+    try {
+      const pages = await fetchNotionPages();
+      setNotionPages(pages);
+      setNotionForm((prev) => ({
+        ...prev,
+        page_id: prev.page_id || (pages[0]?.id ?? ""),
+      }));
+    } finally {
+      setLoadingNotionPages(false);
+    }
+  }, []);
+
+  const loadAll = useCallback(async () => {
     setErr(null);
     try {
-      await Promise.all([loadTelegram(), loadIngestion()]);
+      await Promise.all([loadTelegram(), loadIngestion(), loadNotion()]);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Không tải được integrations.");
     } finally {
       setLoading(false);
     }
-  }, [loadIngestion, loadTelegram]);
+  }, [loadIngestion, loadNotion, loadTelegram]);
 
   useEffect(() => {
     if (!clientReady) return;
-    const u = getStoredUser();
-    if (!u) {
+    const currentUser = getStoredUser();
+    if (!currentUser) {
       router.replace("/login");
       return;
     }
@@ -149,13 +207,13 @@ export default function IntegrationsPage() {
       router.replace("/login");
       return;
     }
-    setUser(u);
+    setUser(currentUser);
   }, [clientReady, router]);
 
   useEffect(() => {
     if (!user) return;
-    void load();
-  }, [user, load]);
+    void loadAll();
+  }, [user, loadAll]);
 
   useEffect(() => {
     if (!clientReady) return;
@@ -176,9 +234,24 @@ export default function IntegrationsPage() {
       });
   }, [clientReady]);
 
+  useEffect(() => {
+    if (!clientReady) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("provider") !== "notion") return;
+    const status = params.get("status");
+    const message = params.get("message");
+    if (status === "success") {
+      setMsg("Đã kết nối Notion.");
+      void loadNotion();
+    } else if (status === "error") {
+      setErr(message || "Kết nối Notion thất bại.");
+    }
+    window.history.replaceState({}, "", "/integrations");
+  }, [clientReady, loadNotion]);
+
   const onLink = async () => {
-    const c = code.trim().toUpperCase();
-    if (!c) {
+    const normalized = code.trim().toUpperCase();
+    if (!normalized) {
       setErr("Nhập mã từ Telegram.");
       return;
     }
@@ -186,7 +259,7 @@ export default function IntegrationsPage() {
     setErr(null);
     setMsg(null);
     try {
-      await linkIntegration(c);
+      await linkIntegration(normalized);
       setCode("");
       setMsg("Liên kết thành công.");
       await loadTelegram();
@@ -198,25 +271,26 @@ export default function IntegrationsPage() {
   };
 
   const onSave = async (provider: string) => {
-    const f = forms[provider];
-    if (!f) return;
-    if (!SEND_WINDOW_RE.test(f.send_window.trim())) {
+    const form = forms[provider];
+    if (!form) return;
+    if (!SEND_WINDOW_RE.test(form.send_window.trim())) {
       setErr("Khung giờ phải có dạng HH:MM-HH:MM.");
       return;
     }
-    const dg = parseInt(f.daily_goal, 10);
-    if (Number.isNaN(dg) || dg < 1 || dg > 500) {
+    const dailyGoal = parseInt(form.daily_goal, 10);
+    if (Number.isNaN(dailyGoal) || dailyGoal < 1 || dailyGoal > 500) {
       setErr("Mục tiêu mỗi ngày phải từ 1 đến 500.");
       return;
     }
+
     setSaving(provider);
     setErr(null);
     setMsg(null);
     try {
       await updateIntegration(provider, {
-        timezone: f.timezone.trim(),
-        send_window: f.send_window.trim(),
-        daily_goal: dg,
+        timezone: form.timezone.trim(),
+        send_window: form.send_window.trim(),
+        daily_goal: dailyGoal,
       });
       setMsg("Đã lưu cấu hình Telegram.");
       await loadTelegram();
@@ -269,31 +343,37 @@ export default function IntegrationsPage() {
     }));
   };
 
-  const sentRatio = (r: ChatIntegrationDTO) => {
-    const goal = Math.max(Number(r.daily_goal ?? 0), 0);
+  const sentRatio = (row: ChatIntegrationDTO) => {
+    const goal = Math.max(Number(row.daily_goal ?? 0), 0);
     if (goal <= 0) return 0;
-    const sent = Math.max(Number(r.sent_today ?? 0), 0);
+    const sent = Math.max(Number(row.sent_today ?? 0), 0);
     return Math.min(1, sent / goal);
   };
 
   const createSource = async () => {
+    if (sourceProvider !== "rss") {
+      setErr("Provider này không tạo trực tiếp ở đây. Hãy dùng khối Notion riêng nếu cần OAuth.");
+      return;
+    }
     if (!sourceForm.name.trim()) {
       setErr("Nhập tên nguồn.");
       return;
     }
-    if (sourceProvider === "rss" && !sourceForm.source_url.trim()) {
+    if (!sourceForm.source_url.trim()) {
       setErr("Nguồn RSS cần có URL.");
       return;
     }
+
     const frequency = parseInt(sourceForm.frequency_minutes, 10);
     const cardsPerItem = parseInt(sourceForm.cards_per_item, 10);
     const deckId = sourceForm.target_deck_id ? parseInt(sourceForm.target_deck_id, 10) : undefined;
+
     setCreatingSource(true);
     setErr(null);
     setMsg(null);
     try {
       await createIngestionSource({
-        provider: sourceProvider,
+        provider: "rss",
         name: sourceForm.name.trim(),
         source_url: sourceForm.source_url.trim() || undefined,
         target_deck_id: deckId,
@@ -301,13 +381,7 @@ export default function IntegrationsPage() {
         frequency_minutes: frequency,
         cards_per_item: cardsPerItem,
         sync_mode: sourceForm.sync_mode,
-        config:
-          sourceProvider === "rss"
-            ? {}
-            : {
-                status: "scaffolded",
-                note: `${providerLabel(sourceProvider)} adapter chưa được implement đầy đủ trong MVP này.`,
-              },
+        config: {},
       });
       setSourceForm(INITIAL_SOURCE_FORM);
       setSourceProvider("rss");
@@ -317,6 +391,68 @@ export default function IntegrationsPage() {
       setErr(e instanceof Error ? e.message : "Không tạo được nguồn ingestion.");
     } finally {
       setCreatingSource(false);
+    }
+  };
+
+  const connectNotion = async () => {
+    setConnectingNotion(true);
+    setErr(null);
+    try {
+      const connectUrl = await getNotionConnectUrl();
+      window.location.href = connectUrl;
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Không tạo được Notion connect URL.");
+      setConnectingNotion(false);
+    }
+  };
+
+  const unlinkNotion = async () => {
+    if (!window.confirm("Ngắt kết nối Notion?")) return;
+    setDisconnectingNotion(true);
+    setErr(null);
+    try {
+      await disconnectNotion();
+      setNotionStatus({ connected: false });
+      setNotionPages([]);
+      setNotionForm(INITIAL_NOTION_FORM);
+      setMsg("Đã ngắt kết nối Notion.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Không ngắt được Notion.");
+    } finally {
+      setDisconnectingNotion(false);
+    }
+  };
+
+  const createNotionSourceFromPage = async () => {
+    if (!notionForm.page_id) {
+      setErr("Chọn page Notion để sync.");
+      return;
+    }
+
+    const targetDeckId = notionForm.target_deck_id ? parseInt(notionForm.target_deck_id, 10) : undefined;
+    const frequency = parseInt(notionForm.frequency_minutes, 10);
+    const cardsPerItem = parseInt(notionForm.cards_per_item, 10);
+    const selectedPage = notionPages.find((page) => page.id === notionForm.page_id);
+
+    setCreatingNotionSource(true);
+    setErr(null);
+    try {
+      await createNotionIngestionSource({
+        page_id: notionForm.page_id,
+        name: selectedPage?.title,
+        target_deck_id: targetDeckId,
+        auto_tag: notionForm.auto_tag,
+        frequency_minutes: frequency,
+        cards_per_item: cardsPerItem,
+      });
+      setNotionForm(INITIAL_NOTION_FORM);
+      setMsg("Đã tạo Notion source.");
+      await loadIngestion();
+      await loadNotion();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Không tạo được Notion source.");
+    } finally {
+      setCreatingNotionSource(false);
     }
   };
 
@@ -330,6 +466,7 @@ export default function IntegrationsPage() {
       auto_tag: patch.auto_tag ?? source.auto_tag,
       sync_mode: patch.sync_mode ?? source.sync_mode,
     };
+
     setErr(null);
     try {
       await updateIngestionSource(source.id, {
@@ -395,20 +532,21 @@ export default function IntegrationsPage() {
           Tích hợp
         </h1>
         <p className="text-muted-foreground text-[0.95rem] max-w-2xl leading-relaxed">
-          Telegram giúp nhắc học. Knowledge ingestion biến RSS/ghi chú/các nguồn “second-brain” thành flashcards.
-          MVP hiện ưu tiên RSS chạy thật; Notion và Obsidian đang ở mức scaffold để nối tiếp.
+          Telegram giúp nhắc học. Knowledge ingestion biến RSS, notes và các nguồn second-brain thành flashcards.
+          MVP hiện ưu tiên RSS và Notion sync thật. Obsidian và Roam để sau để tránh nổ scope.
         </p>
       </div>
-      {msg && (
+
+      {msg ? (
         <p className="mb-4 text-sm font-semibold text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 rounded-2xl px-4 py-3">
           {msg}
         </p>
-      )}
-      {err && (
+      ) : null}
+      {err ? (
         <p className="mb-4 text-sm font-semibold text-destructive border border-destructive/30 bg-destructive/10 rounded-2xl px-4 py-3">
           {err}
         </p>
-      )}
+      ) : null}
 
       <Tabs.Root defaultValue="telegram" className="space-y-6">
         <Tabs.List className="inline-flex rounded-2xl border border-border bg-surface-raised p-1">
@@ -430,9 +568,7 @@ export default function IntegrationsPage() {
           <section className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Mở bot nhanh
-                </p>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Mở bot nhanh</p>
                 <h2 className="text-lg font-semibold tracking-tight">Quét QR để mở bot trên Telegram</h2>
                 <p className="text-sm text-muted-foreground mt-1 max-w-xl">
                   Quét QR bằng camera hoặc Telegram. Nếu bạn dùng desktop, có thể bấm nút “Mở bot” để đi thẳng tới chat.
@@ -481,11 +617,7 @@ export default function IntegrationsPage() {
                 <div className="rounded-2xl border border-border bg-[hsl(var(--acrylic))] backdrop-blur-md p-3 w-[176px]">
                   {qrDataUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={qrDataUrl}
-                      alt="QR code mở bot Telegram"
-                      className="w-full h-auto rounded-xl"
-                    />
+                    <img src={qrDataUrl} alt="QR code mở bot Telegram" className="w-full h-auto rounded-xl" />
                   ) : (
                     <div className="w-full aspect-square rounded-xl bg-surface-muted flex items-center justify-center text-muted-foreground">
                       <Loader2 className="w-6 h-6 animate-spin" />
@@ -499,14 +631,10 @@ export default function IntegrationsPage() {
           <section className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
               <div>
-                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Bước 1
-                </p>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Bước 1</p>
                 <h2 className="text-lg font-semibold tracking-tight">Nhập mã liên kết</h2>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Dùng bot Telegram để liên kết tài khoản và bật nhắc học.
-              </p>
+              <p className="text-xs text-muted-foreground">Dùng bot Telegram để liên kết tài khoản và bật nhắc học.</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 border border-border/70 bg-[hsl(var(--acrylic))] backdrop-blur-md rounded-xl p-1 shadow-sm">
@@ -537,7 +665,7 @@ export default function IntegrationsPage() {
                   Test weekly report
                 </Button>
                 <Button type="button" size="sm" variant="secondary" onClick={() => void onTestDue()}>
-                  Test gui the
+                  Test gửi thẻ
                 </Button>
               </div>
             </div>
@@ -551,21 +679,21 @@ export default function IntegrationsPage() {
               </div>
             ) : (
               <ul className="space-y-5">
-                {rows.map((r) => {
-                  const f = forms[r.provider] ?? {
-                    timezone: r.timezone,
-                    send_window: r.send_window,
-                    daily_goal: String(r.daily_goal),
+                {rows.map((row) => {
+                  const form = forms[row.provider] ?? {
+                    timezone: row.timezone,
+                    send_window: row.send_window,
+                    daily_goal: String(row.daily_goal),
                   };
                   return (
                     <li
-                      key={r.provider}
+                      key={row.provider}
                       className="border border-border rounded-2xl bg-[hsl(var(--acrylic-strong))] backdrop-blur-md overflow-hidden shadow-sm"
                     >
                       <div className="p-5 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2.5">
-                            <p className="font-semibold text-lg tracking-tight">{providerLabel(r.provider)}</p>
+                            <p className="font-semibold text-lg tracking-tight">{providerLabel(row.provider)}</p>
                             <span className="text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border border-border/70 bg-[hsl(var(--acrylic))] text-muted-foreground">
                               Đang hoạt động
                             </span>
@@ -574,19 +702,19 @@ export default function IntegrationsPage() {
                             <div className="flex items-center justify-between text-[0.85rem] font-medium mb-1.5 text-muted-foreground">
                               <span>Tiến độ hôm nay</span>
                               <span className="font-mono font-bold text-foreground">
-                                {r.sent_today ?? 0}/{r.daily_goal}
+                                {row.sent_today ?? 0}/{row.daily_goal}
                               </span>
                             </div>
                             <div className="w-full h-2 rounded-full bg-surface-muted overflow-hidden">
                               <div
                                 className="h-full rounded-full transition-[width] duration-400 ease-in-out bg-[linear-gradient(90deg,hsl(var(--primary))_0%,hsl(var(--success))_100%)]"
-                                style={{ width: `${Math.round(sentRatio(r) * 100)}%` }}
+                                style={{ width: `${Math.round(sentRatio(row) * 100)}%` }}
                               />
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 self-start">
-                          <Button type="button" size="sm" variant="danger" onClick={() => void onUnlink(r.provider)}>
+                          <Button type="button" size="sm" variant="danger" onClick={() => void onUnlink(row.provider)}>
                             <Trash2 className="w-4 h-4" />
                             Hủy liên kết
                           </Button>
@@ -596,43 +724,40 @@ export default function IntegrationsPage() {
                       <div className="px-5 pb-5">
                         <div className="grid md:grid-cols-4 gap-3">
                           <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Mui gio
+                            Múi giờ
                             <Input
-                              value={f.timezone}
-                              onChange={(e) => updateForm(r.provider, { timezone: e.target.value })}
+                              value={form.timezone}
+                              onChange={(e) => updateForm(row.provider, { timezone: e.target.value })}
                               className="font-medium"
                             />
                           </label>
                           <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Khung gio
+                            Khung giờ
                             <Input
-                              value={f.send_window}
-                              onChange={(e) => updateForm(r.provider, { send_window: e.target.value })}
-                              className={cn(
-                                "font-mono",
-                                SEND_WINDOW_RE.test(f.send_window.trim()) ? "" : "border-amber-500"
-                              )}
+                              value={form.send_window}
+                              onChange={(e) => updateForm(row.provider, { send_window: e.target.value })}
+                              className={cn("font-mono", SEND_WINDOW_RE.test(form.send_window.trim()) ? "" : "border-amber-500")}
                             />
                           </label>
                           <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Muc tieu moi ngay
+                            Mục tiêu mỗi ngày
                             <Input
                               type="number"
                               min={1}
                               max={500}
-                              value={f.daily_goal}
-                              onChange={(e) => updateForm(r.provider, { daily_goal: e.target.value })}
+                              value={form.daily_goal}
+                              onChange={(e) => updateForm(row.provider, { daily_goal: e.target.value })}
                             />
                           </label>
                           <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                             Group chat id
                             <Input
-                              defaultValue={r.group_target_id ?? ""}
+                              defaultValue={row.group_target_id ?? ""}
                               onBlur={(e) => {
-                                const v = e.currentTarget.value.trim();
-                                void updateIntegration(r.provider, { group_target_id: v || undefined })
+                                const value = e.currentTarget.value.trim();
+                                void updateIntegration(row.provider, { group_target_id: value || undefined })
                                   .then(() => loadTelegram())
-                                  .catch((er) => setErr(er instanceof Error ? er.message : "Không lưu được."));
+                                  .catch((apiError) => setErr(apiError instanceof Error ? apiError.message : "Không lưu được."));
                               }}
                               className="font-mono"
                               placeholder="-100xxxxxxxxxx"
@@ -640,8 +765,13 @@ export default function IntegrationsPage() {
                           </label>
                         </div>
                         <div className="mt-4 flex justify-end">
-                          <Button type="button" variant="secondary" disabled={saving === r.provider} onClick={() => void onSave(r.provider)}>
-                            {saving === r.provider ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={saving === row.provider}
+                            onClick={() => void onSave(row.provider)}
+                          >
+                            {saving === row.provider ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                             Lưu cấu hình
                           </Button>
                         </div>
@@ -665,8 +795,113 @@ export default function IntegrationsPage() {
                 </h2>
               </div>
               <div className="text-xs text-muted-foreground max-w-md">
-                RSS sync chạy thật. Notion và Obsidian được scaffold để mở rộng theo hướng pilot, không giả lập OAuth hay two-way sync.
+                RSS và Notion sync 1 chiều vào Memio. Obsidian và Roam vẫn để sau, không trộn vào MVP này.
               </div>
+            </div>
+
+            <div className="mb-6 rounded-2xl border border-border bg-background p-5">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div>
+                  <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Notion</p>
+                  <h3 className="text-base font-semibold tracking-tight">Connect workspace và chọn page để sync</h3>
+                  <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+                    OAuth kết nối Notion thật, chọn một page, map vào deck, rồi sync 1 chiều thành flashcards.
+                  </p>
+                  {notionStatus.connected ? (
+                    <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-300">
+                      Đã kết nối: {notionStatus.workspace_name || notionStatus.workspace_id || "Notion workspace"}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">Chưa kết nối Notion.</p>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  {!notionStatus.connected ? (
+                    <Button type="button" variant="primary" disabled={connectingNotion} onClick={() => void connectNotion()}>
+                      {connectingNotion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                      Connect Notion
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="danger" disabled={disconnectingNotion} onClick={() => void unlinkNotion()}>
+                      {disconnectingNotion ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      Disconnect
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {notionStatus.connected ? (
+                <>
+                  <div className="mt-5 grid lg:grid-cols-5 gap-3">
+                    <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide lg:col-span-2">
+                      Notion page
+                      <select
+                        value={notionForm.page_id}
+                        onChange={(e) => setNotionForm((prev) => ({ ...prev, page_id: e.target.value }))}
+                        className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                      >
+                        <option value="">{loadingNotionPages ? "Đang tải pages..." : "Chọn page"}</option>
+                        {notionPages.map((page) => (
+                          <option key={page.id} value={page.id}>
+                            {page.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Target deck
+                      <select
+                        value={notionForm.target_deck_id}
+                        onChange={(e) => setNotionForm((prev) => ({ ...prev, target_deck_id: e.target.value }))}
+                        className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
+                      >
+                        <option value="">Chọn deck</option>
+                        {decks.map((deck) => (
+                          <option key={deck.id} value={String(deck.id)}>
+                            {deck.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Frequency
+                      <Input
+                        type="number"
+                        value={notionForm.frequency_minutes}
+                        onChange={(e) => setNotionForm((prev) => ({ ...prev, frequency_minutes: e.target.value }))}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Cards / sync
+                      <Input
+                        type="number"
+                        value={notionForm.cards_per_item}
+                        onChange={(e) => setNotionForm((prev) => ({ ...prev, cards_per_item: e.target.value }))}
+                      />
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground pt-7">
+                      <input
+                        type="checkbox"
+                        checked={notionForm.auto_tag}
+                        onChange={(e) => setNotionForm((prev) => ({ ...prev, auto_tag: e.target.checked }))}
+                      />
+                      Auto-tag by topic
+                    </label>
+                  </div>
+
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      disabled={creatingNotionSource || !notionForm.page_id}
+                      onClick={() => void createNotionSourceFromPage()}
+                    >
+                      {creatingNotionSource ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
+                      Tạo Notion source
+                    </Button>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             <div className="grid lg:grid-cols-6 gap-3">
@@ -678,7 +913,6 @@ export default function IntegrationsPage() {
                   className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
                 >
                   <option value="rss">RSS</option>
-                  <option value="notion">Notion</option>
                   <option value="obsidian">Obsidian</option>
                   <option value="roam">Roam</option>
                 </select>
@@ -692,7 +926,7 @@ export default function IntegrationsPage() {
                 <Input
                   value={sourceForm.source_url}
                   onChange={(e) => setSourceForm((prev) => ({ ...prev, source_url: e.target.value }))}
-                  placeholder={sourceProvider === "rss" ? "https://example.com/rss.xml" : "Tuỳ chọn (scaffold)"}
+                  placeholder="https://example.com/rss.xml"
                 />
               </label>
               <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide lg:col-span-2">
@@ -770,9 +1004,7 @@ export default function IntegrationsPage() {
             ) : sources.length === 0 ? (
               <div className="border border-dashed border-border/80 rounded-2xl p-8 bg-[hsl(var(--acrylic))] backdrop-blur-md">
                 <p className="text-foreground font-semibold text-lg tracking-tight mb-1">Chưa có nguồn ingestion nào</p>
-                <p className="text-muted-foreground text-sm">
-                  Tạo nguồn RSS trước. Notion và Obsidian sẽ nối tiếp sau khi chốt adapter.
-                </p>
+                <p className="text-muted-foreground text-sm">Tạo RSS source hoặc kết nối Notion để bắt đầu sync.</p>
               </div>
             ) : (
               <ul className="space-y-5">
@@ -796,13 +1028,10 @@ export default function IntegrationsPage() {
                           </div>
                           <div className="mt-2 text-sm text-muted-foreground space-y-1">
                             <p>Deck đích: {decks.find((d) => d.id === source.target_deck_id)?.name ?? "Chưa chọn"}</p>
-                            <p>
-                              Lần sync cuối:{" "}
-                              {source.last_synced_at ? new Date(source.last_synced_at).toLocaleString("vi-VN") : "Chưa sync"}
-                            </p>
+                            <p>Lần sync cuối: {source.last_synced_at ? new Date(source.last_synced_at).toLocaleString("vi-VN") : "Chưa sync"}</p>
                             {source.source_url ? <p className="font-mono break-all">{source.source_url}</p> : null}
                             {source.last_error ? <p className="text-destructive">{source.last_error}</p> : null}
-                            {source.provider !== "rss" ? (
+                            {source.provider === "obsidian" || source.provider === "roam" ? (
                               <p className="text-amber-600 dark:text-amber-400">
                                 Provider này mới ở mức scaffold. OAuth/plugin sync chưa được implement trong MVP.
                               </p>
@@ -846,10 +1075,7 @@ export default function IntegrationsPage() {
                         <div className="grid md:grid-cols-5 gap-3">
                           <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide md:col-span-2">
                             Tên
-                            <Input
-                              defaultValue={source.name}
-                              onBlur={(e) => void updateSource(source, { name: e.currentTarget.value })}
-                            />
+                            <Input defaultValue={source.name} onBlur={(e) => void updateSource(source, { name: e.currentTarget.value })} />
                           </label>
                           <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide md:col-span-3">
                             URL nguồn
