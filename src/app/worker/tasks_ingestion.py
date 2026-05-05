@@ -24,7 +24,7 @@ def sync_ingestion_sources():
             if source.provider not in {"rss", "notion", "obsidian"}:
                 skipped_source_ids.append(source.id)
                 continue
-            if source.provider != "rss":
+            if source.provider == "obsidian":
                 skipped_source_ids.append(source.id)
                 continue
 

@@ -13,12 +13,14 @@ from src.app.api.endpoints.cards import _generate_cards_chunked
 from src.app.models.domain import (
     Deck,
     ExternalNote,
+    IngestionCardMap,
     IngestionCursor,
     IngestionItem,
     IngestionRun,
     IngestionSource,
 )
 from src.app.services import card_service
+from src.app.services import notion_service
 
 
 SUPPORTED_PROVIDERS = {"rss", "notion", "obsidian", "roam"}
@@ -60,6 +62,18 @@ def _source_to_item(source: IngestionSource):
     payload = source.model_dump()
     payload["config"] = _parse_config(source.config_json)
     return payload
+
+
+def _cursor_payload(cursor: IngestionCursor | None) -> dict[str, Any]:
+    if not cursor or not cursor.cursor_value:
+        return {}
+    try:
+        data = json.loads(cursor.cursor_value)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+    return {"value": cursor.cursor_value}
 
 
 def _classify_topic(text: str) -> str:
@@ -237,11 +251,18 @@ def _build_note_preview(source: IngestionSource) -> list[dict[str, Any]]:
     return entries
 
 
-async def fetch_source_items(source: IngestionSource) -> list[dict[str, Any]]:
+async def fetch_source_items(session: Session, source: IngestionSource) -> list[dict[str, Any]]:
     provider = source.provider.strip().lower()
     if provider == "rss":
         return await _fetch_rss_entries(source)
-    if provider in {"notion", "obsidian", "roam"}:
+    if provider == "notion":
+        config = _parse_config(source.config_json)
+        user_id = int(source.user_id)
+        page_id = str(source.external_id or config.get("page_id") or "").strip()
+        if not page_id:
+            raise IngestionSyncError("Notion page_id is required")
+        return [await notion_service.fetch_page_content(session, user_id, page_id)]
+    if provider in {"obsidian", "roam"}:
         return _build_note_preview(source)
     raise IngestionSyncError("Unsupported provider")
 
@@ -257,21 +278,43 @@ def _get_or_create_cursor(session: Session, source_id: int) -> IngestionCursor:
     return cursor
 
 
-def _record_item(session: Session, source: IngestionSource, item: dict[str, Any]) -> tuple[IngestionItem, bool]:
+def _record_item(session: Session, source: IngestionSource, item: dict[str, Any]) -> tuple[IngestionItem, bool, bool]:
     checksum = _checksum(
         str(item.get("external_id") or ""),
         str(item.get("title") or ""),
         str(item.get("content_text") or ""),
     )
+    external_id = str(item.get("external_id") or "").strip() or None
+    existing = None
+    if external_id:
+        existing = session.exec(
+            select(IngestionItem).where(
+                IngestionItem.source_id == source.id,
+                IngestionItem.external_id == external_id,
+            )
+        ).first()
+    if existing:
+        changed = existing.checksum != checksum
+        existing.external_url = item.get("external_url")
+        existing.title = str(item.get("title") or "").strip() or existing.title
+        existing.content_text = str(item.get("content_text") or "").strip() or None
+        existing.summary = str(item.get("summary") or "").strip() or None
+        existing.topic_tag = str(item.get("topic_tag") or "").strip() or None
+        existing.checksum = checksum
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        return existing, False, changed
+
     existing = session.exec(
         select(IngestionItem).where(IngestionItem.source_id == source.id, IngestionItem.checksum == checksum)
     ).first()
     if existing:
-        return existing, False
+        return existing, False, False
 
     row = IngestionItem(
         source_id=source.id,
-        external_id=str(item.get("external_id") or "") or None,
+        external_id=external_id,
         external_url=item.get("external_url"),
         title=str(item.get("title") or "").strip(),
         content_text=str(item.get("content_text") or "").strip() or None,
@@ -282,7 +325,7 @@ def _record_item(session: Session, source: IngestionSource, item: dict[str, Any]
     session.add(row)
     session.commit()
     session.refresh(row)
-    return row, True
+    return row, True, True
 
 
 def _upsert_external_note(session: Session, source: IngestionSource, item: dict[str, Any]) -> None:
@@ -310,6 +353,34 @@ def _upsert_external_note(session: Session, source: IngestionSource, item: dict[
     session.commit()
 
 
+def _mapped_flashcard_ids(session: Session, ingestion_item_id: int) -> list[int]:
+    rows = session.exec(
+        select(IngestionCardMap).where(IngestionCardMap.ingestion_item_id == ingestion_item_id)
+    ).all()
+    return [row.flashcard_id for row in rows]
+
+
+def _replace_item_card_maps(
+    session: Session,
+    ingestion_item_id: int,
+    target_deck_id: int,
+    cards: list[dict[str, Any]],
+) -> int:
+    old_maps = session.exec(
+        select(IngestionCardMap).where(IngestionCardMap.ingestion_item_id == ingestion_item_id)
+    ).all()
+    old_card_ids = [row.flashcard_id for row in old_maps]
+    for row in old_maps:
+        session.delete(row)
+    session.commit()
+
+    new_card_ids = card_service.replace_flashcards(session, target_deck_id, old_card_ids, cards)
+    for flashcard_id in new_card_ids:
+        session.add(IngestionCardMap(ingestion_item_id=ingestion_item_id, flashcard_id=flashcard_id))
+    session.commit()
+    return len(new_card_ids)
+
+
 async def sync_source(session: Session, source: IngestionSource, *, preview_only: bool = False) -> dict[str, Any]:
     run = IngestionRun(source_id=source.id, status="running")
     session.add(run)
@@ -322,18 +393,28 @@ async def sync_source(session: Session, source: IngestionSource, *, preview_only
     fetched_items = 0
 
     try:
-        fetched = await fetch_source_items(source)
+        fetched = await fetch_source_items(session, source)
         fetched_items = len(fetched)
-        normalized: list[tuple[IngestionItem, dict[str, Any], bool]] = []
+        normalized: list[tuple[IngestionItem, dict[str, Any], bool, bool]] = []
+        cursor = _get_or_create_cursor(session, source.id)
+        cursor_state = _cursor_payload(cursor)
+        previous_last_edited = str(cursor_state.get("last_edited_time") or "").strip()
 
         for raw in fetched:
-            item_row, is_new = _record_item(session, source, raw)
+            item_row, is_new, changed = _record_item(session, source, raw)
+            if source.provider == "notion" and previous_last_edited:
+                edited = str(raw.get("last_edited_time") or "").strip()
+                if edited and edited <= previous_last_edited and not changed:
+                    normalized.append((item_row, raw, False, False))
+                    continue
             _upsert_external_note(session, source, raw)
-            normalized.append((item_row, raw, is_new))
+            normalized.append((item_row, raw, is_new, changed))
         normalized_items = len(normalized)
 
-        for item_row, raw, is_new in normalized:
-            if not is_new and not preview_only:
+        latest_last_edited = previous_last_edited
+
+        for item_row, raw, is_new, changed in normalized:
+            if not changed and not preview_only:
                 continue
             text = (raw.get("content_text") or raw.get("summary") or raw.get("title") or "").strip()
             if not text:
@@ -341,22 +422,28 @@ async def sync_source(session: Session, source: IngestionSource, *, preview_only
             pages = [SimplePage(text)]
             cards = await _generate_cards_chunked(pages, source.cards_per_item)
             tag = raw.get("topic_tag")
+            for card in cards:
+                card["source_context"] = text[:6000]
             if source.auto_tag and tag:
                 for card in cards:
                     card["front"] = f"[{tag}] {card['front']}"
             if preview_only:
                 preview_cards += len(cards)
             elif source.target_deck_id:
-                card_service.bulk_add_flashcards(session, source.target_deck_id, cards)
-                created_cards += len(cards)
+                created_cards += _replace_item_card_maps(session, item_row.id, source.target_deck_id, cards)
                 item_row.last_processed_at = _now()
                 session.add(item_row)
+            edited = str(raw.get("last_edited_time") or "").strip()
+            if edited and edited > latest_last_edited:
+                latest_last_edited = edited
 
         if not preview_only and created_cards > 0:
             session.commit()
 
-        cursor = _get_or_create_cursor(session, source.id)
-        cursor.cursor_value = _now().isoformat()
+        cursor_payload = {"synced_at": _now().isoformat()}
+        if latest_last_edited:
+            cursor_payload["last_edited_time"] = latest_last_edited
+        cursor.cursor_value = json.dumps(cursor_payload, ensure_ascii=True)
         cursor.updated_at = _now()
         session.add(cursor)
 
@@ -405,3 +492,25 @@ async def sync_source_for_user(session: Session, user_id: int, source_id: int, *
     if not source:
         raise HTTPException(status_code=404, detail="Ingestion source not found")
     return await sync_source(session, source, preview_only=preview_only)
+
+
+async def create_notion_source(session: Session, user_id: int, payload) -> dict[str, Any]:
+    _require_owned_deck(session, user_id, payload.target_deck_id)
+    page = await notion_service.fetch_page_content(session, user_id, payload.page_id)
+    source = IngestionSource(
+        user_id=user_id,
+        provider="notion",
+        name=(payload.name or page["title"]).strip(),
+        source_url=page.get("external_url"),
+        external_id=payload.page_id.strip(),
+        target_deck_id=payload.target_deck_id,
+        auto_tag=payload.auto_tag,
+        frequency_minutes=payload.frequency_minutes,
+        cards_per_item=payload.cards_per_item,
+        sync_mode="one_way",
+        config_json=_dump_config({"page_id": payload.page_id.strip()}),
+    )
+    session.add(source)
+    session.commit()
+    session.refresh(source)
+    return _source_to_item(source)

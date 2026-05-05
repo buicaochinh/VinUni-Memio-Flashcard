@@ -109,7 +109,9 @@ export type ExplainResponse = {
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ??
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ??
+  "http://localhost:8000";
 
 export function apiUrl(path: string) {
   return `${API_BASE_URL}${path}`;
@@ -584,6 +586,22 @@ export type IngestionRunDTO = {
   error_message?: string | null;
 };
 
+export type NotionConnectionStatusDTO = {
+  connected: boolean;
+  workspace_id?: string | null;
+  workspace_name?: string | null;
+  workspace_icon?: string | null;
+  owner_type?: string | null;
+};
+
+export type NotionPageDTO = {
+  id: string;
+  title: string;
+  url?: string | null;
+  last_edited_time?: string | null;
+  object_type: string;
+};
+
 export async function fetchIntegrations(): Promise<ChatIntegrationDTO[]> {
   const res = await authFetch("/api/integrations/me");
   if (!res.ok) {
@@ -675,6 +693,42 @@ export async function fetchIngestionSources(): Promise<IngestionSourceDTO[]> {
   return res.json() as Promise<IngestionSourceDTO[]>;
 }
 
+export async function getNotionConnectUrl(): Promise<string> {
+  const res = await authFetch("/api/notion/connect");
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "GET_NOTION_CONNECT_URL_FAILED");
+  }
+  const data = (await res.json()) as { connect_url: string };
+  return data.connect_url;
+}
+
+export async function fetchNotionStatus(): Promise<NotionConnectionStatusDTO> {
+  const res = await authFetch("/api/notion/status");
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "FETCH_NOTION_STATUS_FAILED");
+  }
+  return res.json() as Promise<NotionConnectionStatusDTO>;
+}
+
+export async function disconnectNotion(): Promise<void> {
+  const res = await authFetch("/api/notion/disconnect", { method: "DELETE" });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "DISCONNECT_NOTION_FAILED");
+  }
+}
+
+export async function fetchNotionPages(): Promise<NotionPageDTO[]> {
+  const res = await authFetch("/api/notion/pages");
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "FETCH_NOTION_PAGES_FAILED");
+  }
+  return res.json() as Promise<NotionPageDTO[]>;
+}
+
 export async function createIngestionSource(body: {
   provider: string;
   name: string;
@@ -694,6 +748,26 @@ export async function createIngestionSource(body: {
   if (!res.ok) {
     const detail = await readErrorDetail(res);
     throw new Error(detail ?? "CREATE_INGESTION_SOURCE_FAILED");
+  }
+  return res.json() as Promise<IngestionSourceDTO>;
+}
+
+export async function createNotionIngestionSource(body: {
+  page_id: string;
+  name?: string;
+  target_deck_id?: number;
+  auto_tag?: boolean;
+  frequency_minutes?: number;
+  cards_per_item?: number;
+}): Promise<IngestionSourceDTO> {
+  const res = await authFetch("/api/ingestion/sources/notion", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "CREATE_NOTION_INGESTION_SOURCE_FAILED");
   }
   return res.json() as Promise<IngestionSourceDTO>;
 }
