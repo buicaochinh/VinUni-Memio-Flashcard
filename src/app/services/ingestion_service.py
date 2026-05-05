@@ -20,6 +20,7 @@ from src.app.models.domain import (
     IngestionSource,
 )
 from src.app.services import card_service
+from src.app.services import deck_service
 from src.app.services import notion_service
 
 
@@ -550,3 +551,64 @@ async def create_notion_source(session: Session, user_id: int, payload) -> dict[
     session.commit()
     session.refresh(source)
     return _source_to_item(source)
+
+
+async def create_deck_from_notion(session: Session, user_id: int, payload) -> dict[str, Any]:
+    page = await notion_service.fetch_page_content(session, user_id, payload.page_id)
+    deck_name = (payload.deck_name or page["title"]).strip()
+    if not deck_name:
+        raise HTTPException(status_code=400, detail="Deck name is required")
+
+    existing_deck = session.exec(
+        select(Deck).where(
+            Deck.user_id == user_id,
+            Deck.name == deck_name,
+        )
+    ).first()
+
+    source = session.exec(
+        select(IngestionSource).where(
+            IngestionSource.user_id == user_id,
+            IngestionSource.provider == "notion",
+            IngestionSource.external_id == payload.page_id.strip(),
+        )
+    ).first()
+
+    if existing_deck:
+        deck_id = int(existing_deck.id)
+    else:
+        deck_id = int(deck_service.create_deck(session, user_id, deck_name, payload.description))
+
+    if source:
+        if source.target_deck_id != deck_id:
+            source.target_deck_id = deck_id
+            source.updated_at = _now()
+            session.add(source)
+            session.commit()
+            session.refresh(source)
+    else:
+        source = IngestionSource(
+            user_id=user_id,
+            provider="notion",
+            name=deck_name,
+            source_url=page.get("external_url"),
+            external_id=payload.page_id.strip(),
+            target_deck_id=deck_id,
+            auto_tag=payload.auto_tag,
+            frequency_minutes=payload.frequency_minutes,
+            cards_per_item=payload.cards_per_item,
+            sync_mode="one_way",
+            config_json=_dump_config({"page_id": payload.page_id.strip()}),
+        )
+        session.add(source)
+        session.commit()
+        session.refresh(source)
+
+    sync_result = await sync_source(session, source, preview_only=False)
+    return {
+        "message": "success",
+        "deck_id": deck_id,
+        "deck_name": deck_name,
+        "source_id": int(source.id),
+        "created_count": int(sync_result.get("created_count") or 0),
+    }
