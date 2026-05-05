@@ -845,3 +845,40 @@ export async function flushProgressQueue() {
 export function isOnline(): boolean {
   return typeof navigator !== "undefined" ? navigator.onLine : true;
 }
+
+export async function fetchSmartQueue(deckId: number, userId: number, overrideLimit: boolean = false): Promise<Card[]> {
+  const r = await fetch(apiUrl(`/api/cards/${deckId}/smart-queue?user_id=${userId}&override_limit=${overrideLimit}`));
+  if (!r.ok) throw new Error("Failed to fetch smart queue");
+  const data = await r.json();
+  return data.cards;
+}
+
+export async function fetchStudySummary(deckId: number, userId: number): Promise<{
+  due_cards: number;
+  new_cards: number;
+  completed_new: number;
+  completed_review: number;
+  daily_new_limit: number;
+  daily_review_limit: number;
+  total_cards: number;
+}> {
+  const r = await fetch(apiUrl(`/api/cards/${deckId}/study-summary?user_id=${userId}`));
+  if (!r.ok) throw new Error("Failed to fetch study summary");
+  return await r.json();
+}
+
+export async function fetchUserSettings(userId: number) {
+  const r = await fetch(apiUrl(`/api/users/${userId}/settings`));
+  if (!r.ok) throw new Error("Failed to fetch user settings");
+  return await r.json();
+}
+
+export async function updateUserSettings(userId: number, dailyNew: number, dailyReview: number) {
+  const r = await fetch(apiUrl(`/api/users/${userId}/settings`), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ daily_new_limit: dailyNew, daily_review_limit: dailyReview })
+  });
+  if (!r.ok) throw new Error("Failed to update user settings");
+  return await r.json();
+}

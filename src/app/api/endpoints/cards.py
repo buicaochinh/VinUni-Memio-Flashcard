@@ -187,6 +187,16 @@ def get_cards(deck_id: int, user_id: int, session: Session = Depends(get_session
     cards = card_service.get_deck_cards(session, deck_id, user_id)
     return {"cards": cards}
 
+@router.get("/{deck_id}/smart-queue")
+def get_smart_queue(deck_id: int, user_id: int, override_limit: bool = False, session: Session = Depends(get_session)):
+    cards = card_service.get_daily_study_queue(session, deck_id, user_id, override_limit)
+    return {"cards": cards}
+
+@router.get("/{deck_id}/study-summary")
+def get_study_summary(deck_id: int, user_id: int, session: Session = Depends(get_session)):
+    summary = card_service.get_study_summary(session, deck_id, user_id)
+    return summary
+
 
 @router.post("/progress")
 def update_progress(payload: ProgressUpdate, session: Session = Depends(get_session)):
