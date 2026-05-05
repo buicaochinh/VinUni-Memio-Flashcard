@@ -1,7 +1,7 @@
 """add oauth connections for notion
 
 Revision ID: 0008_notion_oauth
-Revises: 0007_ingestion_module
+Revises: 0008
 Create Date: 2026-05-05
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "0008_notion_oauth"
-down_revision = "0007_ingestion_module"
+down_revision = "0008"
 branch_labels = None
 depends_on = None
 
