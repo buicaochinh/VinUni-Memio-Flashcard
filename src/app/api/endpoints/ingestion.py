@@ -5,6 +5,8 @@ from src.app.api.deps import get_current_user_id
 from src.app.db.session import get_session
 from src.app.schemas.ingestion import (
     IngestionRunItem,
+    NotionDeckCreateRequest,
+    NotionDeckCreateResponse,
     NotionSourceCreateRequest,
     IngestionSourceCreate,
     IngestionSourceItem,
@@ -44,6 +46,16 @@ async def create_notion_ingestion_source(
 ):
     row = await ingestion_service.create_notion_source(session, user_id, payload)
     return IngestionSourceItem(**row)
+
+
+@router.post("/notion/create-deck", response_model=NotionDeckCreateResponse)
+async def create_deck_from_notion(
+    payload: NotionDeckCreateRequest,
+    session: Session = Depends(get_session),
+    user_id: int = Depends(get_current_user_id),
+):
+    row = await ingestion_service.create_deck_from_notion(session, user_id, payload)
+    return NotionDeckCreateResponse(**row)
 
 
 @router.patch("/sources/{source_id}", response_model=IngestionSourceItem)
