@@ -9,7 +9,7 @@ import {
   deleteDeck,
   disableDeckSharing,
   enableDeckSharing,
-  fetchDeckCards,
+  fetchStudySummary,
   fetchDecks,
   getStoredUser,
   useClientReady,
@@ -21,6 +21,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import UserSettingsModal from "../../components/UserSettingsModal";
 
 function shareUrl(token: string) {
   if (typeof window === "undefined") return "";
@@ -40,6 +41,7 @@ export default function WorkspacePage() {
   const [showReadyOnly, setShowReadyOnly] = useState(false);
   const [sort, setSort] = useState<"activity" | "name">("activity");
   const [shareModal, setShareModal] = useState<Deck | null>(null);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const setRevealVars = (e: React.PointerEvent<HTMLElement>) => {
@@ -64,10 +66,10 @@ export default function WorkspacePage() {
       const counts = await Promise.all(
         d.map(async (deck) => {
           try {
-            const cards = await fetchDeckCards(deck.id, userId);
-            return [deck.id, cards.length] as const;
+            const summary = await fetchStudySummary(deck.id, userId);
+            return [deck.id, summary] as const;
           } catch {
-            return [deck.id, 0] as const;
+            return [deck.id, null] as const;
           }
         })
       );
@@ -77,17 +79,29 @@ export default function WorkspacePage() {
     }
   };
 
-  const totalCards = useMemo(() => Object.values(cardCounts).reduce((s, n) => s + n, 0), [cardCounts]);
-  const readyDecks = useMemo(() => decks.filter((d) => (cardCounts[d.id] ?? 0) > 0).length, [decks, cardCounts]);
+  const totalCards = useMemo(() => Object.values(cardCounts).reduce((s, n: any) => s + (n?.total_cards ?? 0), 0), [cardCounts]);
+  const readyDecks = useMemo(() => decks.filter((d) => {
+    const sum = cardCounts[d.id] as any;
+    return sum && (sum.due_cards + sum.new_cards) > 0;
+  }).length, [decks, cardCounts]);
   const maxCardsInAnyDeck = useMemo(() => {
-    const vals = Object.values(cardCounts);
+    const vals = Object.values(cardCounts).map((s: any) => s?.total_cards ?? 0);
     return vals.length ? Math.max(...vals) : 0;
   }, [cardCounts]);
   const decksByActivity = useMemo(() => {
-    return [...decks].sort((a, b) => (cardCounts[b.id] ?? 0) - (cardCounts[a.id] ?? 0));
+    return [...decks].sort((a, b) => {
+      const suma = cardCounts[a.id] as any;
+      const sumb = cardCounts[b.id] as any;
+      const aDue = suma ? suma.due_cards + suma.new_cards : 0;
+      const bDue = sumb ? sumb.due_cards + sumb.new_cards : 0;
+      return bDue - aDue;
+    });
   }, [decks, cardCounts]);
   const firstReadyDeckId = useMemo(() => {
-    const d = decksByActivity.find((x) => (cardCounts[x.id] ?? 0) > 0);
+    const d = decksByActivity.find((x) => {
+      const sum = cardCounts[x.id] as any;
+      return sum && (sum.due_cards + sum.new_cards) > 0;
+    });
     return d?.id ?? null;
   }, [decksByActivity, cardCounts]);
   const filteredDecks = useMemo(() => {
@@ -97,7 +111,9 @@ export default function WorkspacePage() {
       : [...decks].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "", "vi"));
 
     return base.filter((d) => {
-      if (showReadyOnly && (cardCounts[d.id] ?? 0) <= 0) return false;
+      const sum = cardCounts[d.id] as any;
+      const due = sum ? sum.due_cards + sum.new_cards : 0;
+      if (showReadyOnly && due <= 0) return false;
       if (!query) return true;
       const hay = `${d.name ?? ""} ${d.description ?? ""}`.toLowerCase();
       return hay.includes(query);
@@ -175,9 +191,18 @@ export default function WorkspacePage() {
             </span>
             Bộ thẻ
           </p>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance mb-4">
-            Xin chào, {user.name}
-          </h1>
+          <div className="flex items-start justify-between">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance mb-4">
+              Xin chào, {user.name}
+            </h1>
+            <button
+              onClick={() => setSettingsModalOpen(true)}
+              className="inline-flex items-center justify-center p-2 rounded-xl text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
+              title="Cài đặt giới hạn học"
+            >
+              <SlidersHorizontal className="w-5 h-5" />
+            </button>
+          </div>
           <p className="text-muted-foreground text-[0.98rem] leading-relaxed">
             Tạo deck theo chủ đề, thêm tài liệu để sinh thẻ, rồi ôn đều mỗi ngày.
           </p>
@@ -236,8 +261,8 @@ export default function WorkspacePage() {
                 <button
                   type="button"
                   className="inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 font-semibold text-[0.9rem] text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] shadow-sm hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => firstReadyDeckId && router.push(`/study/${firstReadyDeckId}`)}
-                  disabled={!firstReadyDeckId}
+                  onClick={() => firstReadyDeckId ? router.push(`/study/${firstReadyDeckId}`) : (decks.length > 0 && router.push(`/study/${decks[0].id}`))}
+                  disabled={decks.length === 0 || totalCards === 0}
                 >
                   <Repeat className="w-4 h-4" aria-hidden />
                   Ôn nhanh
@@ -390,8 +415,10 @@ export default function WorkspacePage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredDecks.map((deck, idx) => {
-                const count = cardCounts[deck.id] ?? 0;
-                const isReady = count > 0;
+                const summary = cardCounts[deck.id] as any;
+                const count = summary?.total_cards ?? 0;
+                const due = summary ? summary.due_cards + summary.new_cards : 0;
+                const isReady = due > 0;
                 const progressW =
                   maxCardsInAnyDeck > 0 ? Math.max(6, Math.round((count / maxCardsInAnyDeck) * 100)) : 6;
                 const isFeatured = sort === "activity" && idx === 0 && filteredDecks.length >= 3;
@@ -435,7 +462,7 @@ export default function WorkspacePage() {
                                 : "bg-muted text-muted-foreground"
                             )}
                           >
-                            {isReady ? "Sẵn sàng" : "Chưa có thẻ"}
+                            {isReady ? `Cần ôn: ${due}` : count > 0 ? "Đã xong hôm nay" : "Chưa có thẻ"}
                           </span>
                         </div>
                       </div>
@@ -535,7 +562,7 @@ export default function WorkspacePage() {
                         )}
                         onClick={() => router.push(`/study/${deck.id}`)}
                         onPointerMove={setRevealVars}
-                        disabled={!isReady}
+                        disabled={count === 0}
                       >
                         <Repeat className="w-4 h-4" aria-hidden /> Ôn
                       </button>
@@ -614,6 +641,15 @@ export default function WorkspacePage() {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      <UserSettingsModal
+        userId={user.id}
+        open={settingsModalOpen}
+        onOpenChange={(open) => {
+          setSettingsModalOpen(open);
+          if (!open) hydrate(user.id);
+        }}
+      />
     </AppShell>
   );
 }
