@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import * as Tabs from "@radix-ui/react-tabs";
 import QRCode from "qrcode";
-import { BookMarked, Link2, Loader2, RefreshCw, Rss, Send, Trash2 } from "lucide-react";
+import { BookMarked, Link2, Loader2, Send, Trash2 } from "lucide-react";
 
 import AppShell from "../../components/AppShell";
 import { Button } from "../../components/ui/button";
@@ -36,7 +36,6 @@ import {
   updateIntegration,
   useClientReady,
   User,
-  createIngestionSource,
   createNotionIngestionSource,
   deleteIngestionSource,
   deleteIntegration,
@@ -46,49 +45,20 @@ const SEND_WINDOW_RE = /^\d{2}:\d{2}-\d{2}:\d{2}$/;
 
 function providerLabel(p: string) {
   if (p === "telegram") return "Telegram";
-  if (p === "rss") return "RSS / News";
   if (p === "notion") return "Notion";
-  if (p === "obsidian") return "Obsidian";
-  if (p === "roam") return "Roam";
   return p;
 }
 
 type FormRow = { timezone: string; send_window: string; daily_goal: string };
 
-type SourceForm = {
-  name: string;
-  source_url: string;
-  target_deck_id: string;
-  frequency_minutes: string;
-  cards_per_item: string;
-  auto_tag: boolean;
-  sync_mode: string;
-};
-
 type NotionForm = {
   page_id: string;
   target_deck_id: string;
-  frequency_minutes: string;
-  cards_per_item: string;
-  auto_tag: boolean;
-};
-
-const INITIAL_SOURCE_FORM: SourceForm = {
-  name: "",
-  source_url: "",
-  target_deck_id: "",
-  frequency_minutes: "360",
-  cards_per_item: "6",
-  auto_tag: true,
-  sync_mode: "one_way",
 };
 
 const INITIAL_NOTION_FORM: NotionForm = {
   page_id: "",
   target_deck_id: "",
-  frequency_minutes: "360",
-  cards_per_item: "6",
-  auto_tag: true,
 };
 
 export default function IntegrationsPage() {
@@ -103,8 +73,6 @@ export default function IntegrationsPage() {
   const [sources, setSources] = useState<IngestionSourceDTO[]>([]);
   const [runs, setRuns] = useState<Record<number, IngestionRunDTO[]>>({});
   const [decks, setDecks] = useState<Deck[]>([]);
-  const [sourceForm, setSourceForm] = useState<SourceForm>(INITIAL_SOURCE_FORM);
-  const [sourceProvider, setSourceProvider] = useState("rss");
 
   const [notionStatus, setNotionStatus] = useState<NotionConnectionStatusDTO>({ connected: false });
   const [notionPages, setNotionPages] = useState<NotionPageDTO[]>([]);
@@ -114,11 +82,10 @@ export default function IntegrationsPage() {
   const [linking, setLinking] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<number | null>(null);
-  const [creatingSource, setCreatingSource] = useState(false);
   const [connectingNotion, setConnectingNotion] = useState(false);
   const [disconnectingNotion, setDisconnectingNotion] = useState(false);
   const [loadingNotionPages, setLoadingNotionPages] = useState(false);
-  const [creatingNotionSource, setCreatingNotionSource] = useState(false);
+  const [creatingNotionCards, setCreatingNotionCards] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -350,50 +317,6 @@ export default function IntegrationsPage() {
     return Math.min(1, sent / goal);
   };
 
-  const createSource = async () => {
-    if (sourceProvider !== "rss") {
-      setErr("Provider này không tạo trực tiếp ở đây. Hãy dùng khối Notion riêng nếu cần OAuth.");
-      return;
-    }
-    if (!sourceForm.name.trim()) {
-      setErr("Nhập tên nguồn.");
-      return;
-    }
-    if (!sourceForm.source_url.trim()) {
-      setErr("Nguồn RSS cần có URL.");
-      return;
-    }
-
-    const frequency = parseInt(sourceForm.frequency_minutes, 10);
-    const cardsPerItem = parseInt(sourceForm.cards_per_item, 10);
-    const deckId = sourceForm.target_deck_id ? parseInt(sourceForm.target_deck_id, 10) : undefined;
-
-    setCreatingSource(true);
-    setErr(null);
-    setMsg(null);
-    try {
-      await createIngestionSource({
-        provider: "rss",
-        name: sourceForm.name.trim(),
-        source_url: sourceForm.source_url.trim() || undefined,
-        target_deck_id: deckId,
-        auto_tag: sourceForm.auto_tag,
-        frequency_minutes: frequency,
-        cards_per_item: cardsPerItem,
-        sync_mode: sourceForm.sync_mode,
-        config: {},
-      });
-      setSourceForm(INITIAL_SOURCE_FORM);
-      setSourceProvider("rss");
-      setMsg("Đã tạo nguồn ingestion.");
-      await loadIngestion();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Không tạo được nguồn ingestion.");
-    } finally {
-      setCreatingSource(false);
-    }
-  };
-
   const connectNotion = async () => {
     setConnectingNotion(true);
     setErr(null);
@@ -423,94 +346,62 @@ export default function IntegrationsPage() {
     }
   };
 
-  const createNotionSourceFromPage = async () => {
+  const createNotionCardsFromPage = async () => {
     if (!notionForm.page_id) {
-      setErr("Chọn page Notion để sync.");
+      setErr("Chọn một trang Notion.");
+      return;
+    }
+    if (!notionForm.target_deck_id) {
+      setErr("Chọn bộ thẻ để lưu flashcard.");
       return;
     }
 
     const targetDeckId = notionForm.target_deck_id ? parseInt(notionForm.target_deck_id, 10) : undefined;
-    const frequency = parseInt(notionForm.frequency_minutes, 10);
-    const cardsPerItem = parseInt(notionForm.cards_per_item, 10);
     const selectedPage = notionPages.find((page) => page.id === notionForm.page_id);
 
-    setCreatingNotionSource(true);
+    setCreatingNotionCards(true);
     setErr(null);
+    setMsg(null);
     try {
-      await createNotionIngestionSource({
+      const source = await createNotionIngestionSource({
         page_id: notionForm.page_id,
         name: selectedPage?.title,
         target_deck_id: targetDeckId,
-        auto_tag: notionForm.auto_tag,
-        frequency_minutes: frequency,
-        cards_per_item: cardsPerItem,
       });
+      const result = await syncIngestionSource(source.id, false);
       setNotionForm(INITIAL_NOTION_FORM);
-      setMsg("Đã tạo Notion source.");
+      setMsg(`Đã tạo ${result.created_count} flashcard từ Notion. Bạn có thể mở bộ thẻ để bắt đầu học ngay.`);
       await loadIngestion();
       await loadNotion();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Không tạo được Notion source.");
+      setErr(e instanceof Error ? e.message : "Không thể tạo flashcard từ Notion.");
     } finally {
-      setCreatingNotionSource(false);
-    }
-  };
-
-  const updateSource = async (source: IngestionSourceDTO, patch: Partial<SourceForm>) => {
-    const merged = {
-      name: patch.name ?? source.name,
-      source_url: patch.source_url ?? (source.source_url ?? ""),
-      target_deck_id: patch.target_deck_id ?? String(source.target_deck_id ?? ""),
-      frequency_minutes: patch.frequency_minutes ?? String(source.frequency_minutes),
-      cards_per_item: patch.cards_per_item ?? String(source.cards_per_item),
-      auto_tag: patch.auto_tag ?? source.auto_tag,
-      sync_mode: patch.sync_mode ?? source.sync_mode,
-    };
-
-    setErr(null);
-    try {
-      await updateIngestionSource(source.id, {
-        name: merged.name.trim(),
-        source_url: merged.source_url.trim() || undefined,
-        target_deck_id: merged.target_deck_id ? parseInt(merged.target_deck_id, 10) : undefined,
-        frequency_minutes: parseInt(merged.frequency_minutes, 10),
-        cards_per_item: parseInt(merged.cards_per_item, 10),
-        auto_tag: merged.auto_tag,
-        sync_mode: merged.sync_mode,
-      });
-      await loadIngestion();
-      setMsg("Đã cập nhật nguồn ingestion.");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Không cập nhật được nguồn ingestion.");
+      setCreatingNotionCards(false);
     }
   };
 
   const removeSource = async (sourceId: number) => {
-    if (!window.confirm("Xoá nguồn ingestion này?")) return;
+    if (!window.confirm("Xoá kết nối nội dung này?")) return;
     setErr(null);
     try {
       await deleteIngestionSource(sourceId);
       await loadIngestion();
-      setMsg("Đã xoá nguồn ingestion.");
+      setMsg("Đã xoá kết nối Notion.");
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Không xoá được nguồn ingestion.");
+      setErr(e instanceof Error ? e.message : "Không xoá được kết nối Notion.");
     }
   };
 
-  const runSync = async (sourceId: number, previewOnly: boolean) => {
+  const runCreateCardsAgain = async (sourceId: number) => {
     setSyncing(sourceId);
     setErr(null);
     setMsg(null);
     try {
-      const result = await syncIngestionSource(sourceId, previewOnly);
-      setMsg(
-        previewOnly
-          ? `Đã preview sync: tạo tạm ${result.preview_cards} thẻ.`
-          : `Đã sync: lấy ${result.fetched_count} mục, tạo ${result.created_count} thẻ.`
-      );
+      const result = await syncIngestionSource(sourceId, false);
+      setMsg(`Đã tạo ${result.created_count} flashcard từ nội dung Notion mới nhất.`);
       await loadIngestion();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Sync thất bại.");
+      setErr(e instanceof Error ? e.message : "Không thể lấy nội dung từ Notion.");
     } finally {
       setSyncing(null);
     }
@@ -532,8 +423,7 @@ export default function IntegrationsPage() {
           Tích hợp
         </h1>
         <p className="text-muted-foreground text-[0.95rem] max-w-2xl leading-relaxed">
-          Telegram giúp nhắc học. Knowledge ingestion biến RSS, notes và các nguồn second-brain thành flashcards.
-          MVP hiện ưu tiên RSS và Notion sync thật. Obsidian và Roam để sau để tránh nổ scope.
+          Telegram giúp nhắc học. Notion giúp đưa nội dung bạn đang học thành flashcard để ôn tập và ghi nhớ lâu hơn.
         </p>
       </div>
 
@@ -560,7 +450,7 @@ export default function IntegrationsPage() {
             value="ingestion"
             className="rounded-xl px-4 py-2 text-sm font-semibold text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground"
           >
-            Nạp kiến thức
+            Notion
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -788,24 +678,24 @@ export default function IntegrationsPage() {
           <section className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div>
-                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">MVP</p>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Notion</p>
                 <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
                   <BookMarked className="w-5 h-5 text-primary" />
-                  Nạp kiến thức đa nguồn
+                  Biến nội dung Notion thành flashcard
                 </h2>
               </div>
               <div className="text-xs text-muted-foreground max-w-md">
-                RSS và Notion sync 1 chiều vào Memio. Obsidian và Roam vẫn để sau, không trộn vào MVP này.
+                Memio sẽ đọc nội dung từ Notion và tự động tạo flashcard để bạn học và ghi nhớ lâu hơn.
               </div>
             </div>
 
             <div className="mb-6 rounded-2xl border border-border bg-background p-5">
               <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                 <div>
-                  <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Notion</p>
-                  <h3 className="text-base font-semibold tracking-tight">Connect workspace và chọn page để sync</h3>
+                  <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Bước 1</p>
+                  <h3 className="text-base font-semibold tracking-tight">Kết nối Notion và chọn trang bạn muốn học</h3>
                   <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
-                    OAuth kết nối Notion thật, chọn một page, map vào deck, rồi sync 1 chiều thành flashcards.
+                    Chọn một trang trong Notion, Memio sẽ đọc nội dung của trang đó và tạo flashcard để bạn học ngay trong ứng dụng.
                   </p>
                   {notionStatus.connected ? (
                     <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-300">
@@ -834,13 +724,13 @@ export default function IntegrationsPage() {
                 <>
                   <div className="mt-5 grid lg:grid-cols-5 gap-3">
                     <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide lg:col-span-2">
-                      Notion page
+                      Trang Notion
                       <select
                         value={notionForm.page_id}
                         onChange={(e) => setNotionForm((prev) => ({ ...prev, page_id: e.target.value }))}
                         className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
                       >
-                        <option value="">{loadingNotionPages ? "Đang tải pages..." : "Chọn page"}</option>
+                        <option value="">{loadingNotionPages ? "Đang tải trang..." : "Chọn trang"}</option>
                         {notionPages.map((page) => (
                           <option key={page.id} value={page.id}>
                             {page.title}
@@ -849,13 +739,13 @@ export default function IntegrationsPage() {
                       </select>
                     </label>
                     <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Target deck
+                      Bộ thẻ sẽ nhận nội dung này
                       <select
                         value={notionForm.target_deck_id}
                         onChange={(e) => setNotionForm((prev) => ({ ...prev, target_deck_id: e.target.value }))}
                         className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
                       >
-                        <option value="">Chọn deck</option>
+                        <option value="">Chọn bộ thẻ</option>
                         {decks.map((deck) => (
                           <option key={deck.id} value={String(deck.id)}>
                             {deck.name}
@@ -863,137 +753,34 @@ export default function IntegrationsPage() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Frequency
-                      <Input
-                        type="number"
-                        value={notionForm.frequency_minutes}
-                        onChange={(e) => setNotionForm((prev) => ({ ...prev, frequency_minutes: e.target.value }))}
-                      />
-                    </label>
-                    <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Cards / sync
-                      <Input
-                        type="number"
-                        value={notionForm.cards_per_item}
-                        onChange={(e) => setNotionForm((prev) => ({ ...prev, cards_per_item: e.target.value }))}
-                      />
-                    </label>
-                    <label className="flex items-center gap-2 text-sm font-medium text-foreground pt-7">
-                      <input
-                        type="checkbox"
-                        checked={notionForm.auto_tag}
-                        onChange={(e) => setNotionForm((prev) => ({ ...prev, auto_tag: e.target.checked }))}
-                      />
-                      Auto-tag by topic
-                    </label>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-border/70 bg-[hsl(var(--acrylic))] p-4 text-sm text-muted-foreground">
+                    Sau khi tạo flashcard, nội dung từ Notion sẽ được chuyển vào bộ thẻ bạn chọn.
+                    Bạn có thể mở bộ thẻ đó để học, ôn lại và theo dõi tiến độ ghi nhớ như các bộ thẻ khác trong Memio.
                   </div>
 
                   <div className="mt-4 flex justify-end">
                     <Button
                       type="button"
                       variant="primary"
-                      disabled={creatingNotionSource || !notionForm.page_id}
-                      onClick={() => void createNotionSourceFromPage()}
+                      disabled={creatingNotionCards || !notionForm.page_id}
+                      onClick={() => void createNotionCardsFromPage()}
                     >
-                      {creatingNotionSource ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
-                      Tạo Notion source
+                      {creatingNotionCards ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
+                      Tạo flashcard từ Notion
                     </Button>
                   </div>
                 </>
               ) : null}
-            </div>
-
-            <div className="grid lg:grid-cols-6 gap-3">
-              <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide lg:col-span-1">
-                Nguồn
-                <select
-                  value={sourceProvider}
-                  onChange={(e) => setSourceProvider(e.target.value)}
-                  className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
-                >
-                  <option value="rss">RSS</option>
-                  <option value="obsidian">Obsidian</option>
-                  <option value="roam">Roam</option>
-                </select>
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide lg:col-span-2">
-                Tên
-                <Input value={sourceForm.name} onChange={(e) => setSourceForm((prev) => ({ ...prev, name: e.target.value }))} />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide lg:col-span-3">
-                URL nguồn / Endpoint
-                <Input
-                  value={sourceForm.source_url}
-                  onChange={(e) => setSourceForm((prev) => ({ ...prev, source_url: e.target.value }))}
-                  placeholder="https://example.com/rss.xml"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide lg:col-span-2">
-                Deck đích
-                <select
-                  value={sourceForm.target_deck_id}
-                  onChange={(e) => setSourceForm((prev) => ({ ...prev, target_deck_id: e.target.value }))}
-                  className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
-                >
-                  <option value="">Chọn deck</option>
-                  {decks.map((deck) => (
-                    <option key={deck.id} value={String(deck.id)}>
-                      {deck.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Tần suất (phút)
-                <Input
-                  type="number"
-                  value={sourceForm.frequency_minutes}
-                  onChange={(e) => setSourceForm((prev) => ({ ...prev, frequency_minutes: e.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Thẻ / mục
-                <Input
-                  type="number"
-                  value={sourceForm.cards_per_item}
-                  onChange={(e) => setSourceForm((prev) => ({ ...prev, cards_per_item: e.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                Chế độ sync
-                <select
-                  value={sourceForm.sync_mode}
-                  onChange={(e) => setSourceForm((prev) => ({ ...prev, sync_mode: e.target.value }))}
-                  className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
-                >
-                  <option value="one_way">one_way</option>
-                  <option value="two_way">two_way</option>
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium text-foreground pt-7">
-                <input
-                  type="checkbox"
-                  checked={sourceForm.auto_tag}
-                  onChange={(e) => setSourceForm((prev) => ({ ...prev, auto_tag: e.target.checked }))}
-                />
-                Tự gán tag theo chủ đề
-              </label>
-            </div>
-
-            <div className="mt-5 flex justify-end">
-              <Button type="button" variant="primary" disabled={creatingSource} onClick={() => void createSource()}>
-                {creatingSource ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rss className="w-4 h-4" />}
-                Tạo nguồn
-              </Button>
             </div>
           </section>
 
           <section className="rounded-2xl border border-border bg-background p-6 shadow-sm">
             <div className="flex items-end justify-between gap-3 mb-6">
               <div>
-                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Nguồn</p>
-                <h2 className="text-lg font-semibold tracking-tight">RSS, Notion, Obsidian</h2>
+                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">Đã kết nối</p>
+                <h2 className="text-lg font-semibold tracking-tight">Các trang Notion bạn đã dùng để tạo flashcard</h2>
               </div>
             </div>
 
@@ -1001,14 +788,14 @@ export default function IntegrationsPage() {
               <div className="flex justify-center py-12 text-muted-foreground">
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>
-            ) : sources.length === 0 ? (
+            ) : sources.filter((source) => source.provider === "notion").length === 0 ? (
               <div className="border border-dashed border-border/80 rounded-2xl p-8 bg-[hsl(var(--acrylic))] backdrop-blur-md">
-                <p className="text-foreground font-semibold text-lg tracking-tight mb-1">Chưa có nguồn ingestion nào</p>
-                <p className="text-muted-foreground text-sm">Tạo RSS source hoặc kết nối Notion để bắt đầu sync.</p>
+                <p className="text-foreground font-semibold text-lg tracking-tight mb-1">Chưa có trang Notion nào được dùng</p>
+                <p className="text-muted-foreground text-sm">Kết nối Notion, chọn một trang và tạo flashcard để bắt đầu học.</p>
               </div>
             ) : (
               <ul className="space-y-5">
-                {sources.map((source) => {
+                {sources.filter((source) => source.provider === "notion").map((source) => {
                   const latestRun = (runs[source.id] ?? [])[0];
                   return (
                     <li
@@ -1027,19 +814,15 @@ export default function IntegrationsPage() {
                             </span>
                           </div>
                           <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                            <p>Deck đích: {decks.find((d) => d.id === source.target_deck_id)?.name ?? "Chưa chọn"}</p>
-                            <p>Lần sync cuối: {source.last_synced_at ? new Date(source.last_synced_at).toLocaleString("vi-VN") : "Chưa sync"}</p>
+                            <p>Bộ thẻ đang nhận flashcard: {decks.find((d) => d.id === source.target_deck_id)?.name ?? "Chưa chọn"}</p>
+                            <p>Lần lấy nội dung gần nhất: {source.last_synced_at ? new Date(source.last_synced_at).toLocaleString("vi-VN") : "Chưa có"}</p>
                             {source.source_url ? <p className="font-mono break-all">{source.source_url}</p> : null}
                             {source.last_error ? <p className="text-destructive">{source.last_error}</p> : null}
-                            {source.provider === "obsidian" || source.provider === "roam" ? (
-                              <p className="text-amber-600 dark:text-amber-400">
-                                Provider này mới ở mức scaffold. OAuth/plugin sync chưa được implement trong MVP.
-                              </p>
-                            ) : null}
+                            <p>Memio sẽ dùng nội dung này để tạo flashcard mới mỗi khi bạn muốn cập nhật lại bộ thẻ.</p>
                           </div>
                           {latestRun ? (
                             <div className="mt-3 text-xs text-muted-foreground font-mono">
-                              Run gần nhất: {latestRun.status} | fetched {latestRun.fetched_count} | normalized {latestRun.normalized_count} | created {latestRun.created_count}
+                              Lần tạo gần nhất: {latestRun.created_count} flashcard
                             </div>
                           ) : null}
                         </div>
@@ -1047,22 +830,12 @@ export default function IntegrationsPage() {
                           <Button
                             type="button"
                             size="sm"
-                            variant="secondary"
-                            disabled={syncing === source.id}
-                            onClick={() => void runSync(source.id, true)}
-                          >
-                            {syncing === source.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                            Xem trước
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
                             variant="primary"
                             disabled={syncing === source.id || !source.target_deck_id}
-                            onClick={() => void runSync(source.id, false)}
+                            onClick={() => void runCreateCardsAgain(source.id)}
                           >
                             {syncing === source.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookMarked className="w-4 h-4" />}
-                            Sync ngay
+                            Tạo lại flashcard
                           </Button>
                           <Button type="button" size="sm" variant="danger" onClick={() => void removeSource(source.id)}>
                             <Trash2 className="w-4 h-4" />
@@ -1072,67 +845,29 @@ export default function IntegrationsPage() {
                       </div>
 
                       <div className="px-5 pb-5">
-                        <div className="grid md:grid-cols-5 gap-3">
-                          <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide md:col-span-2">
-                            Tên
-                            <Input defaultValue={source.name} onBlur={(e) => void updateSource(source, { name: e.currentTarget.value })} />
-                          </label>
-                          <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide md:col-span-3">
-                            URL nguồn
-                            <Input
-                              defaultValue={source.source_url ?? ""}
-                              onBlur={(e) => void updateSource(source, { source_url: e.currentTarget.value })}
-                            />
-                          </label>
+                        <div className="grid md:grid-cols-2 gap-3">
                           <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Deck
+                            Bộ thẻ đích
                             <select
                               defaultValue={String(source.target_deck_id ?? "")}
-                              onChange={(e) => void updateSource(source, { target_deck_id: e.currentTarget.value })}
+                              onChange={(e) =>
+                                void updateIngestionSource(source.id, {
+                                  target_deck_id: e.currentTarget.value ? parseInt(e.currentTarget.value, 10) : undefined,
+                                })
+                                  .then(() => loadIngestion())
+                                  .catch((apiError) =>
+                                    setErr(apiError instanceof Error ? apiError.message : "Không cập nhật được bộ thẻ.")
+                                  )
+                              }
                               className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
                             >
-                              <option value="">Chọn deck</option>
+                              <option value="">Chọn bộ thẻ</option>
                               {decks.map((deck) => (
                                 <option key={deck.id} value={String(deck.id)}>
                                   {deck.name}
                                 </option>
                               ))}
                             </select>
-                          </label>
-                          <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Tần suất
-                            <Input
-                              type="number"
-                              defaultValue={String(source.frequency_minutes)}
-                              onBlur={(e) => void updateSource(source, { frequency_minutes: e.currentTarget.value })}
-                            />
-                          </label>
-                          <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Thẻ / mục
-                            <Input
-                              type="number"
-                              defaultValue={String(source.cards_per_item)}
-                              onBlur={(e) => void updateSource(source, { cards_per_item: e.currentTarget.value })}
-                            />
-                          </label>
-                          <label className="flex flex-col gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Chế độ sync
-                            <select
-                              defaultValue={source.sync_mode}
-                              onChange={(e) => void updateSource(source, { sync_mode: e.currentTarget.value })}
-                              className="h-10 rounded-xl border border-border bg-background px-3 text-sm text-foreground"
-                            >
-                              <option value="one_way">one_way</option>
-                              <option value="two_way">two_way</option>
-                            </select>
-                          </label>
-                          <label className="flex items-center gap-2 text-sm font-medium text-foreground pt-7">
-                            <input
-                              type="checkbox"
-                              defaultChecked={source.auto_tag}
-                              onChange={(e) => void updateSource(source, { auto_tag: e.currentTarget.checked })}
-                            />
-                            Tự gán tag
                           </label>
                         </div>
                       </div>
