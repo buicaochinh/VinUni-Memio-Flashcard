@@ -21,7 +21,6 @@ type Props = {
 export default function DailyLimitReached({ summary, onHome, onOverride }: Props) {
   const isNewLimitReached = summary.completed_new >= summary.daily_new_limit;
   const isReviewLimitReached = summary.completed_review >= summary.daily_review_limit;
-  const isAllCardsFinished = summary.new_cards === 0 && summary.due_cards === 0;
   
   const title = (isNewLimitReached && isReviewLimitReached) 
     ? "Đã đạt mục tiêu hôm nay!" 

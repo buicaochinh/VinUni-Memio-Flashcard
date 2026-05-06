@@ -369,6 +369,8 @@ CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH GÌ THÊM BÊN NGOÀI."""
 EXPLAIN_PROMPT_FOLLOWUP = PromptTemplate.from_template(
     """Bạn là một gia sư AI thân thiện, giúp học sinh hiểu rõ hơn về kiến thức trong flashcard này.
 Grounding: Hãy dựa vào nội dung gốc (Source Context) bên dưới để giải thích chính xác.
+Scope: Chỉ trả lời các câu hỏi liên quan trực tiếp đến flashcard, đáp án, Source Context, hoặc cách học/hiểu kiến thức trong thẻ này.
+Nếu câu hỏi nằm ngoài phạm vi đó (ví dụ: hỏi quán ăn, thời tiết, giải trí, lập trình, việc cá nhân không liên quan), hãy từ chối ngắn gọn và kéo người học về nội dung thẻ.
 
 Source Context: {source_context}
 
@@ -382,10 +384,18 @@ Lịch sử trò chuyện:
 Câu hỏi của học sinh: {message}
 
 YÊU CẦU:
-1. Trả lời câu hỏi của học sinh dựa trên Source Context.
-2. Giải thích chi tiết, chuyên sâu và dễ hiểu.
-3. Sử dụng các trích dẫn [1], [2],... ngay sau các thông tin quan trọng được trích lục hoặc tóm tắt từ Source Context.
-4. Trả về kết quả dưới dạng JSON DUY NHẤT với cấu trúc:
+1. Trước hết tự kiểm tra câu hỏi có liên quan trực tiếp đến thẻ hay không.
+2. Nếu KHÔNG liên quan, trả về JSON DUY NHẤT:
+{{
+  "answer": "Mình chỉ hỗ trợ giải thích nội dung trong flashcard này. Bạn có thể hỏi về khái niệm, đáp án, ví dụ, hoặc phần nào chưa rõ trong thẻ.",
+  "citations": [],
+  "out_of_scope": true
+}}
+3. Nếu liên quan, trả lời câu hỏi của học sinh dựa trên Source Context.
+4. Giải thích chi tiết, chuyên sâu và dễ hiểu.
+5. Sử dụng các trích dẫn [1], [2],... ngay sau các thông tin quan trọng được trích lục hoặc tóm tắt từ Source Context.
+6. Không bịa thêm thông tin ngoài Source Context. Nếu Source Context không đủ, nói rõ giới hạn đó.
+7. Trả về kết quả dưới dạng JSON DUY NHẤT với cấu trúc:
 {{
   "answer": "Nội dung giải thích (Markdown) có kèm các trích dẫn [1], [2]...",
   "citations": [
@@ -394,6 +404,44 @@ YÊU CẦU:
 }}
 CHỈ TRẢ VỀ JSON, KHÔNG GIẢI THÍCH GÌ THÊM BÊN NGOÀI."""
 )
+
+
+OUT_OF_SCOPE_EXPLAIN_RESPONSE = {
+    "answer": "Mình chỉ hỗ trợ giải thích nội dung trong flashcard này. Bạn có thể hỏi về khái niệm, đáp án, ví dụ, hoặc phần nào chưa rõ trong thẻ.",
+    "citations": [],
+    "out_of_scope": True,
+}
+
+
+def _is_obviously_out_of_scope(message: str) -> bool:
+    text = message.lower()
+    blocked_phrases = (
+        "quán ăn",
+        "nhà hàng",
+        "đặt bàn",
+        "giao đồ ăn",
+        "ăn gì ở",
+        "gợi ý quán",
+        "thời tiết",
+        "dự báo",
+        "xem phim",
+        "bài hát",
+        "du lịch",
+        "khách sạn",
+        "vé máy bay",
+        "viết code",
+        "lập trình",
+        "chứng khoán",
+        "crypto",
+        "restaurant",
+        "weather",
+        "movie",
+        "hotel",
+        "flight",
+        "stock",
+        "bitcoin",
+    )
+    return any(phrase in text for phrase in blocked_phrases)
 
 @router.post("/explain")
 def get_explain(payload: ExplainRequest):
@@ -412,6 +460,9 @@ def get_explain(payload: ExplainRequest):
             "source_context": source_context
         })
     else:
+        if _is_obviously_out_of_scope(payload.message):
+            return OUT_OF_SCOPE_EXPLAIN_RESPONSE
+
         # Use follow-up prompt - respond to user's question
         history_text = "\n".join([f"{msg.get('role', 'user')}: {msg.get('text', '')}" for msg in payload.history])
         chain = EXPLAIN_PROMPT_FOLLOWUP | llm
