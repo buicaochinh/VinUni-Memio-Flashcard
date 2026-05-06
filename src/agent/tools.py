@@ -29,7 +29,6 @@ def fetch_url(url: str) -> str:
         return f"Error: {e}"
 
 
-# Tool registry - the agent uses this dict
 TOOLS = {
     "search_web": {
         "fn": search_web,

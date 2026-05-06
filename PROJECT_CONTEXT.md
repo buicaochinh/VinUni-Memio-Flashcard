@@ -95,6 +95,7 @@ Only entrypoints / index files are listed. Use Glob/Grep for the rest.
 A20-App-001/
 ├── src/                              # BACKEND (FastAPI)
 │   ├── main.py                       # App entry: CORS, init_db, mount /api
+│   ├── agent/                        # Agent subsystem (runtime + tools); app calls it via services/agent_service.py
 │   └── app/
 │       ├── api/
 │       │   ├── api.py                # Central router (auth/decks/cards)
@@ -104,7 +105,7 @@ A20-App-001/
 │       ├── models/domain.py          # 5 SQLModel tables (see §5)
 │       ├── schemas/{user,deck,card}.py   # Pydantic DTOs
 │       ├── services/                 # Business logic (CRUD + analytics)
-│       └── utils/{security,agent,tools}.py
+│       └── utils/{security,jwt_auth,card_pipeline}.py
 ├── frontend/                         # FRONTEND (Next.js 16)
 │   └── src/
 │       ├── app/                      # Routes: page.tsx, login, signup,

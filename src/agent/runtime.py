@@ -6,8 +6,10 @@ Receives user input, calls tools as needed, and returns results.
 import json
 import logging
 import os
+
 from openai import OpenAI
-from .tools import get_tool_schemas, execute_tool
+
+from src.agent.tools import execute_tool, get_tool_schemas
 
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 logging.basicConfig(level=_LOG_LEVEL, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -47,7 +49,7 @@ def run_agent_loop(client: OpenAI, user_input: str, max_turns: int = 10) -> str:
     tools = get_tool_schemas()
 
     for turn in range(max_turns):
-        logger.info(f"Turn {turn + 1}/{max_turns}")
+        logger.info("Turn %s/%s", turn + 1, max_turns)
 
         response = client.chat.completions.create(
             model=_MODEL,
@@ -58,20 +60,19 @@ def run_agent_loop(client: OpenAI, user_input: str, max_turns: int = 10) -> str:
 
         choice = response.choices[0]
 
-        # Agent stops — no more tool calls
+        # Agent stops - no more tool calls.
         if choice.finish_reason == "stop":
             return choice.message.content or ""
 
-        # Handle tool calls
         if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
             messages.append(choice.message)
 
             for tool_call in choice.message.tool_calls:
                 name = tool_call.function.name
                 args = json.loads(tool_call.function.arguments)
-                logger.info(f"Calling tool: {name}({args})")
+                logger.info("Calling tool: %s(%s)", name, args)
                 result = execute_tool(name, args)
-                logger.info(f"Result: {result[:200]}")
+                logger.info("Result: %s", result[:200])
                 messages.append({
                     "role": "tool",
                     "tool_call_id": tool_call.id,
@@ -99,7 +100,7 @@ def main():
             response = run_agent_loop(client, user_input)
             print(f"\nAgent: {response}")
         except Exception as e:
-            logger.error(f"Error: {e}")
+            logger.error("Error: %s", e)
             print(f"\nError: {e}")
 
 

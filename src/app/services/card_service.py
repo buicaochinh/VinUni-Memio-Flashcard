@@ -63,7 +63,7 @@ def delete_flashcard(session: Session, card_id: int):
     progresses = session.exec(progress_statement).all()
     for p in progresses:
         session.delete(p)
-        
+
     card = session.get(Flashcard, card_id)
     if card:
         session.delete(card)
@@ -78,7 +78,7 @@ def get_deck_cards(session: Session, deck_id: int, user_id: int):
         .order_by(Flashcard.created_at.asc())
     )
     results = session.exec(statement).all()
-    
+
     cards = []
     for f, p in results:
         d = f.model_dump()
@@ -98,11 +98,11 @@ def get_public_deck_cards(session: Session, deck_id: int):
 def update_card_progress(session: Session, user_id: int, card_id: int, interval: int, repetition: int, ease_factor: float, quality: int = -1):
     statement = select(Progress).where(Progress.user_id == user_id, Progress.card_id == card_id)
     progress = session.exec(statement).first()
-    
+
     today = local_date_key(get_user_timezone(session, user_id))
     is_new = True
     already_reviewed_today = False
-    
+
     if progress:
         if progress.repetition > 0:
             is_new = False
@@ -130,15 +130,15 @@ def update_card_progress(session: Session, user_id: int, card_id: int, interval:
         progress.last_quality = quality
         progress.last_reviewed = last_reviewed
         progress.next_review = next_review
-        
+
     session.add(progress)
-    
+
     if not already_reviewed_today:
         card = session.get(Flashcard, card_id)
         if card:
             session_statement = select(StudySession).where(
-                StudySession.user_id == user_id, 
-                StudySession.deck_id == card.deck_id, 
+                StudySession.user_id == user_id,
+                StudySession.deck_id == card.deck_id,
                 StudySession.session_date == today
             )
             session_log = session.exec(session_statement).first()
@@ -155,19 +155,19 @@ def update_card_progress(session: Session, user_id: int, card_id: int, interval:
                 else:
                     session_log.review_cards_reviewed += 1
             session.add(session_log)
-            
+
     session.commit()
 
 
 def log_study_session(session: Session, user_id: int, deck_id: int, cards_reviewed: int, avg_quality: float):
     today = local_date_key(get_user_timezone(session, user_id))
     statement = select(StudySession).where(
-        StudySession.user_id == user_id, 
-        StudySession.deck_id == deck_id, 
+        StudySession.user_id == user_id,
+        StudySession.deck_id == deck_id,
         StudySession.session_date == today
     )
     session_log = session.exec(statement).first()
-    
+
     if not session_log:
         session_log = StudySession(
             user_id=user_id,
@@ -181,10 +181,10 @@ def log_study_session(session: Session, user_id: int, deck_id: int, cards_review
         total_old_quality = session_log.avg_quality * session_log.cards_reviewed
         total_session_quality = avg_quality * cards_reviewed
         new_total_cards = session_log.cards_reviewed + cards_reviewed
-        
+
         session_log.cards_reviewed = new_total_cards
         session_log.avg_quality = (total_old_quality + total_session_quality) / new_total_cards
-        
+
     session.add(session_log)
     session.commit()
 
@@ -194,24 +194,24 @@ def get_daily_study_queue(session: Session, deck_id: int, user_id: int, override
     settings = session.exec(select(UserSettings).where(UserSettings.user_id == user_id)).first()
     daily_new_limit = settings.daily_new_limit if settings else 20
     daily_review_limit = settings.daily_review_limit if settings else 50
-    
+
     today = local_date_key(get_user_timezone(session, user_id))
     study_session = session.exec(select(StudySession).where(
         StudySession.user_id == user_id,
         StudySession.deck_id == deck_id,
         StudySession.session_date == today
     )).first()
-    
+
     new_reviewed = study_session.new_cards_reviewed if study_session else 0
     review_reviewed = study_session.review_cards_reviewed if study_session else 0
-    
+
     if override_limit:
         rem_new = 20
         rem_review = 50
     else:
         rem_new = max(0, daily_new_limit - new_reviewed)
         rem_review = max(0, daily_review_limit - review_reviewed)
-    
+
     statement = (
         select(Flashcard, Progress)
         .join(Progress, (Flashcard.id == Progress.card_id) & (Progress.user_id == user_id), isouter=True)
@@ -219,21 +219,21 @@ def get_daily_study_queue(session: Session, deck_id: int, user_id: int, override
         .order_by(Flashcard.created_at.asc())
     )
     results = session.exec(statement).all()
-    
+
     review_cards = []
     new_cards = []
     ahead_cards = [] # Cards due in the future
-    
+
     for f, p in results:
         d = f.model_dump()
         if p:
             p_data = p.model_dump(exclude={"id", "user_id", "card_id"})
             d.update(p_data)
-            
+
             # Check if it was already reviewed today
             if p.last_reviewed == today:
                 continue # Skip cards already answered today
-                
+
             if p.repetition > 0:
                 if (p.next_review is None or p.next_review <= today):
                     review_cards.append(d)
@@ -243,43 +243,43 @@ def get_daily_study_queue(session: Session, deck_id: int, user_id: int, override
                 new_cards.append(d)
         else:
             new_cards.append(d)
-            
+
     # Sort ahead cards by next_review (earliest first)
     ahead_cards.sort(key=lambda x: x.get("next_review") or "")
-            
+
     review_queue = review_cards[:rem_review]
-    
+
     # If overriding and we still have capacity in review_queue, pull from ahead_cards
     if override_limit and len(review_queue) < rem_review:
         needed = rem_review - len(review_queue)
         review_queue += ahead_cards[:needed]
-        
+
     new_queue = new_cards[:rem_new]
-    
+
     return review_queue + new_queue
 
 def get_study_summary(session: Session, deck_id: int, user_id: int):
     settings = session.exec(select(UserSettings).where(UserSettings.user_id == user_id)).first()
     daily_new_limit = settings.daily_new_limit if settings else 20
     daily_review_limit = settings.daily_review_limit if settings else 50
-    
+
     today = local_date_key(get_user_timezone(session, user_id))
     study_session = session.exec(select(StudySession).where(
         StudySession.user_id == user_id,
         StudySession.deck_id == deck_id,
         StudySession.session_date == today
     )).first()
-    
+
     new_reviewed = study_session.new_cards_reviewed if study_session else 0
     review_reviewed = study_session.review_cards_reviewed if study_session else 0
-    
+
     statement = (
         select(Flashcard, Progress)
         .join(Progress, (Flashcard.id == Progress.card_id) & (Progress.user_id == user_id), isouter=True)
         .where(Flashcard.deck_id == deck_id)
     )
     results = session.exec(statement).all()
-    
+
     due_cards = 0
     new_cards = 0
     for f, p in results:
@@ -292,7 +292,7 @@ def get_study_summary(session: Session, deck_id: int, user_id: int):
                 new_cards += 1
         else:
             new_cards += 1
-            
+
     return {
         "due_cards": due_cards,
         "new_cards": new_cards,
