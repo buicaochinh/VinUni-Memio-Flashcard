@@ -186,28 +186,32 @@ export default function WorkspacePage() {
           "before:bg-[radial-gradient(900px_circle_at_20%_-10%,hsl(var(--primary)/0.10),transparent_45%),radial-gradient(700px_circle_at_85%_0%,hsl(var(--primary)/0.06),transparent_40%)]"
         )}
       >
-        <header className="px-6 sm:px-8 pt-7 pb-6 max-w-4xl">
-          <p className="text-[0.8rem] font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-border/70">
-              <FolderKanban className="w-4 h-4 text-primary shrink-0" aria-hidden />
-            </span>
-            Bộ thẻ
-          </p>
-          <div className="flex items-start justify-between">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance mb-4">
-              Xin chào, {user.name}
-            </h1>
+        <header className="px-6 sm:px-8 pt-7 pb-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="max-w-4xl">
+              <p className="text-[0.8rem] font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-border/70">
+                  <FolderKanban className="w-4 h-4 text-primary shrink-0" aria-hidden />
+                </span>
+                Bộ thẻ
+              </p>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-balance mb-4">
+                Xin chào, {user.name}
+              </h1>
+              <p className="text-muted-foreground text-[0.98rem] leading-relaxed">
+                Tạo deck theo chủ đề, thêm tài liệu để sinh thẻ, rồi ôn đều mỗi ngày.
+              </p>
+            </div>
             <button
+              type="button"
               onClick={() => setSettingsModalOpen(true)}
-              className="inline-flex items-center justify-center p-2 rounded-xl text-muted-foreground hover:bg-muted/40 hover:text-foreground transition-colors"
-              title="Cài đặt giới hạn học"
+              className="inline-flex w-fit items-center gap-2 rounded-xl border border-border bg-background/80 px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+              aria-label="Mở cài đặt học"
             >
-              <SlidersHorizontal className="w-5 h-5" />
+              <SlidersHorizontal className="w-4 h-4 text-primary" aria-hidden />
+              Cài đặt học
             </button>
           </div>
-          <p className="text-muted-foreground text-[0.98rem] leading-relaxed">
-            Tạo deck theo chủ đề, thêm tài liệu để sinh thẻ, rồi ôn đều mỗi ngày.
-          </p>
         </header>
 
         {/* Summary + Create */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   cacheCards,
@@ -92,6 +93,67 @@ const RATING: Record<0 | 1 | 2 | 3, { label: string; hint: string; color: string
 const SWIPE_THRESHOLD = 80;  // px
 const SWIPE_VELOCITY  = 0.3; // px/ms
 
+const TUTOR_SUGGESTIONS = [
+  {
+    label: "Tóm tắt ý chính",
+    prompt: "Tóm tắt ý chính của flashcard này trong 3 gạch đầu dòng.",
+  },
+  {
+    label: "Cho ví dụ dễ nhớ",
+    prompt: "Cho một ví dụ thực tế giúp tôi nhớ nội dung trong thẻ này.",
+  },
+  {
+    label: "Vì sao đúng?",
+    prompt: "Vì sao đáp án này đúng? Giải thích từng bước dựa trên tài liệu nguồn.",
+  },
+  {
+    label: "Dễ nhầm chỗ nào?",
+    prompt: "Nội dung này thường dễ nhầm với điều gì? Hãy chỉ ra điểm cần tránh.",
+  },
+  {
+    label: "Hỏi ngược lại tôi",
+    prompt: "Hãy hỏi ngược lại tôi 2 câu kiểm tra nhanh để xem tôi đã hiểu thẻ này chưa.",
+  },
+  {
+    label: "Giải thích đơn giản",
+    prompt: "Giải thích nội dung này bằng ngôn ngữ thật đơn giản, như đang nói với người mới bắt đầu.",
+  },
+  {
+    label: "Liên hệ kiến thức cũ",
+    prompt: "Nội dung này liên hệ với kiến thức nền nào? Hãy giải thích mối liên hệ quan trọng nhất.",
+  },
+  {
+    label: "Khi nào dùng?",
+    prompt: "Kiến thức trong thẻ này thường được dùng trong tình huống nào?",
+  },
+  {
+    label: "Dấu hiệu nhận biết",
+    prompt: "Có dấu hiệu hoặc từ khóa nào giúp tôi nhận ra đáp án này khi làm bài không?",
+  },
+  {
+    label: "So sánh khái niệm",
+    prompt: "So sánh khái niệm trong thẻ này với một khái niệm gần giống hoặc dễ nhầm.",
+  },
+  {
+    label: "Mẹo ghi nhớ",
+    prompt: "Gợi ý một mẹo ghi nhớ ngắn gọn cho flashcard này.",
+  },
+  {
+    label: "Sai lầm thường gặp",
+    prompt: "Người học thường sai ở đâu khi gặp nội dung này?",
+  },
+];
+
+type StudySummary = {
+  due_cards: number;
+  new_cards: number;
+  completed_new: number;
+  completed_review: number;
+  daily_new_limit: number;
+  daily_review_limit: number;
+  total_cards: number;
+};
+
 export default function StudyPage() {
   const params     = useParams<{ deckId: string }>();
   const deckId     = Number(params.deckId);
@@ -111,7 +173,7 @@ export default function StudyPage() {
   const [sessionRatings, setSessionRatings] = useState<number[]>([]);
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [isDailyLimitReached, setIsDailyLimitReached] = useState(false);
-  const [studySummary, setStudySummary] = useState<any>(null);
+  const [studySummary, setStudySummary] = useState<StudySummary | null>(null);
 
   // Explain mode states
   const [isExplainMode, setIsExplainMode] = useState(false);
@@ -121,7 +183,7 @@ export default function StudyPage() {
   const [isChatting, setIsChatting] = useState(false);
 
   const pointerStart = useRef<{ x: number; t: number } | null>(null);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const loadCards = useCallback(async (userId: number, overrideLimit: boolean = false) => {
     setIsLoading(true);
@@ -145,13 +207,13 @@ export default function StudyPage() {
         }
       } else {
         loaded = getCachedCards(deckId) ?? [];
-        if (loaded.length === 0) setMsg("Offline — không có cache cho deck này.");
+        if (loaded.length === 0) setMsg("Offline, không có cache cho deck này.");
       }
       setCards(loaded);
       setIsFlipped(false);
     } catch {
       const cached = getCachedCards(deckId);
-      if (cached) { setCards(cached); setMsg("Offline — đang dùng dữ liệu cache."); }
+      if (cached) { setCards(cached); setMsg("Offline, đang dùng dữ liệu cache."); }
       else         setMsg("Không tải được flashcards.");
     } finally {
       setIsLoading(false);
@@ -215,7 +277,7 @@ export default function StudyPage() {
       }
       setIsSessionComplete(true);
     }
-  }, [cards, deckId, idx, router, sessionRatings, user]);
+  }, [cards, deckId, idx, sessionRatings, user]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!isFlipped) return;
@@ -246,49 +308,18 @@ export default function StudyPage() {
   };
 
   useEffect(() => {
-    if (chatBottomRef.current) chatBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    const el = chatScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [chatHistory]);
 
-  const openTutor = async () => {
+  const openTutor = () => {
     setIsExplainMode(true);
-
-    // If chat history already exists, don't regenerate
-    if (chatHistory.length > 0) return;
-
-    // Automatically generate first explanation from system prompt
-    if (!card) return;
-
-    setIsChatting(true);
-    try {
-      const data = await explainCard(
-        card.front,
-        card.back,
-        "", // Empty user message - system will generate initial explanation
-        [],
-        card.source_context
-      );
-      setChatHistory([{
-        role: "assistant",
-        text: data.answer || data.response || "Không tìm thấy giải thích.",
-        citations: data.citations || []
-      }]);
-    } catch {
-      setChatHistory([{
-        role: "assistant",
-        text: "Xin lỗi, có lỗi khi tải giải thích. Vui lòng thử lại!"
-      }]);
-    }
-    setIsChatting(false);
   };
 
   const handleExplain = async (overrideMessage?: string) => {
     const message = overrideMessage || chatInput;
     if (!message.trim() || !card) return;
-
-    if (chatHistory.length === 0) {
-      openTutor();
-      return;
-    }
 
     if (!overrideMessage) setChatInput("");
     setChatHistory(prev => [...prev, { role: "user", text: message }]);
@@ -296,7 +327,8 @@ export default function StudyPage() {
     if (!isExplainMode) setIsExplainMode(true);
 
     try {
-      const data = await explainCard(card.front, card.back, message, chatHistory, card.source_context);
+      const historyForRequest = chatHistory;
+      const data = await explainCard(card.front, card.back, message, historyForRequest, card.source_context);
       setChatHistory(prev => [...prev, {
         role: "assistant",
         text: data.answer || data.response || "Không tìm thấy giải thích.",
@@ -308,18 +340,61 @@ export default function StudyPage() {
     setIsChatting(false);
   };
 
-  const handleQuickExplain = () => {
-    if (!card) return;
+  const handleTutorSuggestion = (prompt: string) => {
+    setChatInput("");
+    void handleExplain(prompt);
+  };
+
+  const handleQuickExplain = async () => {
+    if (!card || isChatting) return;
+
     if (chatHistory.length === 0) {
-      void openTutor();
+      setIsExplainMode(true);
+      setChatInput("");
+      setChatHistory([{ role: "user", text: "Giải thích thẻ này" }]);
+      setIsChatting(true);
+
+      try {
+        const data = await explainCard(
+          card.front,
+          card.back,
+          "",
+          [],
+          card.source_context
+        );
+        setChatHistory(prev => [...prev, {
+          role: "assistant",
+          text: data.answer || data.response || "Không tìm thấy giải thích.",
+          citations: data.citations || []
+        }]);
+      } catch {
+        setChatHistory(prev => [...prev, {
+          role: "assistant",
+          text: "Xin lỗi, có lỗi khi tải giải thích. Vui lòng thử lại!"
+        }]);
+      }
+
+      setIsChatting(false);
       return;
     }
-    void handleExplain(`Giải thích kỹ hơn flashcard này dựa trên tài liệu nguồn và cho thêm ngữ cảnh học tập cần thiết.\nFront: "${card.front}"\nBack: "${card.back}"`);
+
+    await handleExplain(`Giải thích kỹ hơn flashcard này dựa trên tài liệu nguồn và cho thêm ngữ cảnh học tập cần thiết.\nFront: "${card.front}"\nBack: "${card.back}"`);
+  };
+
+  const stopFlashcardPointer = (e: PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+  };
+
+  const handleExplainButtonClick = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    void handleQuickExplain();
   };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      const target = e.target as HTMLElement;
+      if (target.closest("input, textarea, button, select, a, [role='button'], [contenteditable='true']")) return;
 
       switch (e.key) {
         case ' ':
@@ -428,37 +503,43 @@ export default function StudyPage() {
   const rightHintOpacity = Math.max(0, Math.min(1,  dragX / SWIPE_THRESHOLD));
   const cardRotate       = (dragX / 400) * 8;
   const cardScale        = isDragging ? 1.02 : 1;
+  const difficultyLabel =
+    card?.difficulty === "easy" ? "Dễ" :
+    card?.difficulty === "medium" ? "Trung bình" :
+    "Khó";
+  const deckTempo = cards.length < 5 ? "Khởi động" : cards.length < 15 ? "Đang vào nhịp" : "Bền nhịp";
 
   return (
-    <main className="min-h-screen bg-background relative overflow-hidden flex flex-col">
+    <main className="h-[100dvh] max-h-[100dvh] bg-background relative overflow-hidden flex flex-col">
       {/* ── Offline banner ── */}
       {offline && (
-        <div className="bg-amber-500 text-white py-2 px-4 text-center font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 animate-in slide-in-from-top duration-300">
-          <WifiOff className="w-4 h-4" /> Đang offline — tiến độ sẽ được đồng bộ khi có mạng
+        <div className="shrink-0 bg-amber-500 text-white py-2 px-4 text-center font-semibold text-xs flex items-center justify-center gap-2 animate-in slide-in-from-top duration-300">
+          <WifiOff className="w-4 h-4" /> Đang offline, tiến độ sẽ được đồng bộ khi có mạng
         </div>
       )}
 
       {/* ── Header ── */}
-      <header className="sticky top-0 z-50 bg-surface/80 backdrop-blur-xl border-b border-border p-4 md:px-8 flex justify-between items-center gap-4">
-        <div className="flex items-center gap-4 overflow-hidden">
+      <header className="shrink-0 z-50 bg-surface border-b border-border px-4 py-3 md:px-7 flex justify-between items-center gap-4">
+        <div className="flex items-center gap-3 overflow-hidden">
           <button
             onClick={() => router.push("/workspace")}
-            className="w-10 h-10 rounded-xl flex items-center justify-center border border-border hover:bg-muted/35 transition-colors"
+            aria-label="Về workspace"
+            className="w-10 h-10 rounded-xl flex items-center justify-center border border-border bg-background hover:bg-muted/50 transition-colors"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-5 h-5" />
           </button>
-          <div>
-            <div className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold text-primary uppercase tracking-widest mb-0.5">
-              <Sparkles className="w-3 h-3" /> Ôn tập thông minh
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-1.5 text-[0.68rem] font-semibold text-primary uppercase tracking-[0.12em]">
+              <Sparkles className="w-3.5 h-3.5" /> Ôn tập thông minh
             </div>
-            <h1 className="text-xl font-bold tracking-tight truncate max-w-[200px] md:max-w-none">Deck #{deckId}</h1>
+            <h1 className="text-lg md:text-xl font-bold tracking-tight truncate max-w-[220px] md:max-w-none">Deck #{deckId}</h1>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             className={cn(
-              "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[0.88rem] transition-all",
-              isExplainMode ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-[hsl(var(--acrylic))] border border-border/70 text-subtle hover:bg-muted/35"
+              "flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-[0.88rem] transition-colors border",
+              isExplainMode ? "bg-primary text-white border-primary" : "bg-background border-border text-foreground hover:bg-muted/50"
             )}
             onClick={() => {
               if (isExplainMode) setIsExplainMode(false);
@@ -471,35 +552,56 @@ export default function StudyPage() {
       </header>
 
       <div className={cn(
-        "flex-1 min-h-0 flex flex-col md:flex-row gap-6 p-4 md:p-8 max-w-[1400px] mx-auto w-full h-[calc(100vh-80px)]",
+        "flex-1 min-h-0 flex flex-col md:flex-row gap-4 md:gap-5 p-3 md:p-6 max-w-[1360px] mx-auto w-full max-h-full overflow-hidden",
         isExplainMode ? "overflow-hidden" : ""
       )}>
         {/* ── Explain Sidebar ── */}
         {isExplainMode && (
-          <aside className="w-full md:w-[380px] min-h-0 flex flex-col bg-surface-raised border border-border rounded-[28px] shadow-sm backdrop-blur-xl animate-in slide-in-from-left-4 duration-500 overflow-hidden">
-            <div className="p-6 border-b border-border bg-surface/50">
+          <aside className="w-full md:w-[360px] h-[42%] md:h-full max-h-full min-h-0 flex flex-col bg-surface-raised border border-border rounded-2xl shadow-sm animate-in slide-in-from-left-4 duration-300 overflow-hidden">
+            <div className="shrink-0 p-4 border-b border-border bg-surface">
               <div className="flex justify-between items-center mb-1">
-                <h3 className="font-extrabold text-lg flex items-center gap-2">
-                  <Bot className="w-6 h-6 text-primary" /> Trợ lý học tập AI
+                <h3 className="font-bold text-base flex items-center gap-2">
+                  <Bot className="w-5 h-5 text-primary" /> Trợ lý học tập AI
                 </h3>
-                <button onClick={() => setIsExplainMode(false)} className="md:hidden p-1 opacity-50"><X/></button>
+                <button
+                  onClick={() => setIsExplainMode(false)}
+                  className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted/50 transition-colors"
+                  aria-label="Đóng tutor"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <p className="text-muted-foreground text-[0.88rem] underline decoration-primary/30 decoration-2 underline-offset-4">Hỏi thêm về kiến thức trong thẻ này</p>
+              <p className="text-muted-foreground text-[0.82rem] leading-relaxed">Hỏi trong phạm vi flashcard hiện tại.</p>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+            <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3 custom-scrollbar">
               {chatHistory.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center opacity-40 text-center px-4">
-                  <Sparkles className="w-12 h-12 mb-4" />
-                  <p className="text-sm font-medium">Bắt đầu trò chuyện để hiểu sâu hơn về kiến thức trong thẻ này.</p>
+                <div className="min-h-full flex flex-col justify-center px-1 py-3 text-muted-foreground">
+                  <div className="text-center px-4">
+                    <Sparkles className="w-9 h-9 mb-4 text-primary mx-auto" />
+                    <p className="text-sm font-medium leading-relaxed">Chọn một câu hỏi để bắt đầu nhanh.</p>
+                  </div>
+                  <div className="mt-5 grid max-h-[280px] gap-2 overflow-y-auto pr-1 custom-scrollbar">
+                    {TUTOR_SUGGESTIONS.map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        onClick={() => handleTutorSuggestion(item.prompt)}
+                        disabled={isChatting}
+                        className="w-full rounded-xl border border-border bg-surface px-3.5 py-3 text-left text-sm font-semibold text-foreground hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:opacity-50 transition-colors"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 chatHistory.map((m, i) => (
                   <div key={i} className={cn(
-                    "p-4 rounded-[20px] text-[0.92rem] leading-relaxed max-w-[90%] relative group/msg",
+                    "p-3.5 rounded-2xl text-[0.9rem] leading-relaxed max-w-[92%] relative group/msg break-words",
                     m.role === "user"
-                      ? "ml-auto bg-primary text-white font-medium rounded-tr-none shadow-sm"
-                      : "mr-auto bg-surface border border-border text-foreground font-medium rounded-tl-none shadow-sm"
+                      ? "ml-auto bg-primary text-white font-medium rounded-tr-sm"
+                      : "mr-auto bg-surface border border-border text-foreground font-medium rounded-tl-sm"
                   )}>
                     {m.role === "user" ? m.text : (
                       <div className="space-y-2">
@@ -521,38 +623,45 @@ export default function StudyPage() {
                 ))
               )}
               {isChatting && (
-                <div className="mr-auto bg-surface border border-border p-4 rounded-[20px] rounded-tl-none shadow-sm flex items-center gap-2 text-muted-foreground italic text-sm">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
-                  AI đang viết...
+                <div className="mr-auto max-w-[92%] bg-surface border border-border p-3.5 rounded-2xl rounded-tl-sm text-muted-foreground text-sm">
+                  <div className="flex items-center gap-2 font-medium">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+                    </div>
+                    Đang tạo giải thích dựa trên thẻ này...
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    <div className="h-2 w-44 rounded-full bg-muted animate-pulse" />
+                    <div className="h-2 w-32 rounded-full bg-muted animate-pulse" />
+                  </div>
                 </div>
               )}
-              <div ref={chatBottomRef} />
             </div>
 
             {/* Citation Popover */}
             {activeCitation && (
-              <div className="absolute inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end p-4 animate-in fade-in duration-300">
-                <div className="w-full bg-surface border-t border-border rounded-t-[32px] p-8 shadow-2xl animate-in slide-in-from-bottom-full duration-500 relative">
+              <div className="absolute inset-0 z-[60] bg-foreground/25 flex items-end p-3 animate-in fade-in duration-200">
+                <div className="w-full bg-surface border border-border rounded-2xl p-5 shadow-lg animate-in slide-in-from-bottom-4 duration-300 relative">
                   <button
                     onClick={() => setActiveCitation(null)}
-                    className="absolute right-6 top-6 w-10 h-10 rounded-full bg-surface-muted flex items-center justify-center hover:bg-border transition-colors"
+                    className="absolute right-4 top-4 w-9 h-9 rounded-xl bg-surface-muted flex items-center justify-center hover:bg-border transition-colors"
                   >
                     <X className="w-5 h-5"/>
                   </button>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-bold text-xs">
                       {activeCitation.id}
                     </div>
-                    <h4 className="font-extrabold text-xl">Điểm chính</h4>
+                    <h4 className="font-bold text-lg">Điểm chính</h4>
                   </div>
-                  <p className="text-lg font-bold leading-relaxed mb-6 text-foreground">
+                  <p className="text-base font-semibold leading-relaxed mb-5 text-foreground">
                     {activeCitation.text}
                   </p>
-                  <div className="space-y-4">
-                    <div className="p-5 rounded-2xl bg-surface-muted/50 border border-border/60">
-                      <div className="text-[0.7rem] font-semibold uppercase tracking-wider text-primary mb-2 flex items-center gap-2">
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-xl bg-surface-muted border border-border/60">
+                      <div className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-primary mb-2 flex items-center gap-2">
                         <Info className="w-3.5 h-3.5" /> Tài liệu nguồn
                       </div>
                       <p className="text-sm font-medium italic text-muted-foreground leading-relaxed">
@@ -567,20 +676,36 @@ export default function StudyPage() {
               </div>
             )}
 
-            <div className="p-4 bg-surface/50 border-t border-border mt-auto">
+            <div className="shrink-0 p-3 bg-surface border-t border-border mt-auto">
+              {chatHistory.length > 0 && !isChatting && (
+                <div className="mb-2 flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                  {TUTOR_SUGGESTIONS.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => handleTutorSuggestion(item.prompt)}
+                      disabled={isChatting}
+                      className="shrink-0 rounded-full border border-border bg-background px-3 py-1.5 text-[0.76rem] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-50 transition-colors"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="relative group">
                 <input
-                  className="w-full pl-5 pr-12 py-4 rounded-2xl border border-border bg-surface text-foreground font-medium placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
-                  placeholder="Nhập câu hỏi của bạn..."
+                  className="w-full pl-4 pr-12 py-3.5 rounded-xl border border-border bg-background text-foreground font-medium placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+                  placeholder={isChatting ? "AI đang chuẩn bị câu trả lời..." : "Nhập câu hỏi của bạn..."}
                   value={chatInput}
                   onChange={e => setChatInput(e.target.value)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter') handleExplain();
+                    if (e.key === 'Enter' && !isChatting) handleExplain();
                     e.stopPropagation();
                   }}
+                  disabled={isChatting}
                 />
                 <button
-                  className="absolute right-2 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 shadow-md shadow-primary/20"
+                  className="absolute right-2 top-2 w-9 h-9 flex items-center justify-center rounded-lg bg-primary text-white transition-all hover:brightness-105 active:scale-95 disabled:opacity-50"
                   onClick={() => handleExplain()}
                   disabled={!chatInput.trim() || isChatting}
                 >
@@ -592,17 +717,17 @@ export default function StudyPage() {
         )}
 
         {/* ── Main content ── */}
-        <section className="flex-1 min-h-0 flex flex-col items-center justify-center max-w-[800px] mx-auto w-full relative">
+        <section className="flex-1 min-h-0 flex flex-col items-center justify-center w-full relative overflow-hidden">
           {card && (
-            <div className="w-full flex flex-col gap-8">
+            <div className="w-full max-w-[860px] h-full min-h-0 flex flex-col gap-4">
               {/* Progress and status */}
-              <div className="flex items-center gap-6">
+              <div className="shrink-0 flex items-center gap-4 rounded-2xl border border-border bg-surface px-4 py-3 shadow-sm">
                 <div className="flex-1">
-                  <div className="flex justify-between items-end mb-2.5">
-                    <span className="text-[0.75rem] font-semibold uppercase tracking-wider text-muted-foreground">Thẻ {idx + 1} / {cards.length}</span>
-                    <span className="text-[1.2rem] font-bold text-foreground tabular-nums">{Math.round(progress)}%</span>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[0.76rem] font-semibold text-muted-foreground">Thẻ {idx + 1} trong {cards.length}</span>
+                    <span className="text-sm font-bold text-foreground tabular-nums">{Math.round(progress)}%</span>
                   </div>
-                  <div className="h-2.5 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
+                  <div className="h-2 w-full bg-surface-muted rounded-full overflow-hidden border border-border">
                     <div
                       className="h-full bg-primary transition-all duration-300"
                       style={{ width: `${progress}%` }}
@@ -610,26 +735,26 @@ export default function StudyPage() {
                   </div>
                 </div>
                 <div className="flex flex-col items-end shrink-0">
-                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.75rem] font-semibold shadow-sm tracking-wide">
-                    {cards.length < 5 ? "Bắt đầu" : cards.length < 15 ? "Tiến bộ" : "Thành thạo"}
+                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border border-border text-primary text-[0.75rem] font-semibold tracking-wide">
+                    {deckTempo}
                   </div>
                 </div>
               </div>
 
               {/* Card area */}
-              <div className="relative group w-full h-[400px] md:h-[460px]">
+              <div className="relative group w-full flex-1 min-h-[320px]">
                 {/* Swipe hints */}
                 <div
-                  className="absolute top-1/2 right-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-bold scale-125 md:scale-150 transition-opacity bg-[hsl(var(--acrylic-strong))] backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-primary/80"
+                  className="absolute top-1/2 right-8 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-primary font-bold transition-opacity bg-surface px-4 py-2 rounded-xl shadow-lg border border-primary/60"
                   style={{ opacity: rightHintOpacity }}
                 >
-                  <Zap className="w-6 h-6" /> Dễ
+                  <Zap className="w-5 h-5" /> Dễ
                 </div>
                 <div
-                  className="absolute top-1/2 left-10 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-bold scale-125 md:scale-150 transition-opacity bg-[hsl(var(--acrylic-strong))] backdrop-blur-md px-4 py-2 rounded-2xl shadow-xl border-2 border-rose-500/80"
+                  className="absolute top-1/2 left-8 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 text-rose-500 font-bold transition-opacity bg-surface px-4 py-2 rounded-xl shadow-lg border border-rose-500/60"
                   style={{ opacity: leftHintOpacity }}
                 >
-                  <RotateCcw className="w-6 h-6" /> Lại
+                  <RotateCcw className="w-5 h-5" /> Lại
                 </div>
 
                 {/* Flip card */}
@@ -649,53 +774,68 @@ export default function StudyPage() {
                   onPointerCancel={() => { setIsDragging(false); setDragX(0); }}
                 >
                   {/* Front */}
-                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-surface-muted border-2 border-border/80 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] flex flex-col">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="text-[0.82rem] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-primary" /> Câu hỏi
+                  <div className="absolute inset-0 w-full h-full rounded-[28px] p-6 md:p-8 bg-surface-muted border border-border shadow-sm [backface-visibility:hidden] flex flex-col">
+                    <div className="flex justify-between items-start gap-4 mb-6">
+                      <div>
+                        <div className="text-[0.74rem] font-semibold text-muted-foreground uppercase tracking-[0.12em] flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" /> Câu hỏi
+                        </div>
+                        <div className="mt-2 text-xs font-semibold text-muted-foreground">Nhấn vào thẻ hoặc bấm Space để lật.</div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.7rem] font-bold shadow-sm hover:bg-muted/35 transition-colors"
+                          type="button"
+                          onPointerDown={stopFlashcardPointer}
+                          onPointerUp={stopFlashcardPointer}
+                          onClick={handleExplainButtonClick}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border border-border text-primary text-[0.72rem] font-semibold hover:bg-muted/50 transition-colors"
                         >
                           <Bot className="w-3.5 h-3.5" /> Giải thích
                         </button>
                         <span className={cn(
-                          "px-3 py-1 rounded-full text-[0.7rem] font-black uppercase tracking-widest shadow-sm",
-                          card.difficulty === "easy" ? "bg-green-500 text-white" :
-                          card.difficulty === "medium" ? "bg-amber-500 text-white" :
-                          "bg-rose-500 text-white"
+                          "px-3 py-1 rounded-full text-[0.72rem] font-semibold",
+                          card.difficulty === "easy" ? "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800" :
+                          card.difficulty === "medium" ? "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800" :
+                          "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-800"
                         )}>
-                          {card.difficulty === "easy" ? "DỄ" : card.difficulty === "medium" ? "TB" : "KHÓ"}
+                          {difficultyLabel}
                         </span>
                       </div>
                     </div>
-                    <div className="flex-1 flex items-center justify-center text-center text-xl md:text-2xl lg:text-3xl font-extrabold leading-tight tracking-tight text-foreground">
-                      {card.front}
+                    <div className="flex-1 min-h-0 flex items-center justify-center">
+                      <div className="max-w-[720px] text-center text-xl md:text-2xl lg:text-[1.85rem] font-bold leading-tight text-foreground">
+                        {card.front}
+                      </div>
                     </div>
-                    <div className="pt-6 mt-auto border-t border-border/60 flex items-center justify-center gap-2 text-subtle font-bold text-xs uppercase tracking-widest opacity-60">
+                    <div className="pt-5 mt-auto border-t border-border/60 flex items-center justify-center gap-2 text-muted-foreground font-semibold text-xs">
                       Nhấn để lật đáp án
                     </div>
                   </div>
 
                   {/* Back */}
-                  <div className="absolute inset-0 w-full h-full rounded-[40px] p-8 md:p-12 pb-20 bg-primary/10 border-2 border-primary/20 shadow-[0_20px_50px_rgba(0,0,0,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="text-[0.82rem] font-bold text-foreground uppercase tracking-widest flex items-center gap-2">
+                  <div className="absolute inset-0 w-full h-full rounded-[28px] p-6 md:p-8 bg-surface border border-primary/30 shadow-sm [backface-visibility:hidden] [transform:rotateY(180deg)] flex flex-col">
+                    <div className="flex justify-between items-start gap-4 mb-6">
+                      <div className="text-[0.74rem] font-semibold text-foreground uppercase tracking-[0.12em] flex items-center gap-2">
                         <CheckCircle2 className="w-5 h-5 text-[hsl(var(--success))]" /> Đáp án
                       </div>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleQuickExplain(); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] border border-border/70 text-primary text-[0.7rem] font-bold shadow-sm hover:bg-muted/35 transition-colors"
+                        type="button"
+                        onPointerDown={stopFlashcardPointer}
+                        onPointerUp={stopFlashcardPointer}
+                        onClick={handleExplainButtonClick}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border border-border text-primary text-[0.72rem] font-semibold hover:bg-muted/50 transition-colors"
                       >
                         <Bot className="w-3.5 h-3.5" /> Giải thích
                       </button>
                     </div>
-                    <div className="flex-1 flex items-center justify-center text-center text-lg md:text-xl lg:text-2xl font-bold leading-relaxed text-foreground overflow-y-auto custom-scrollbar px-2">
-                      {card.back}
+                    <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-1">
+                      <div className="min-h-full flex items-center justify-center">
+                        <p className="max-w-[720px] text-center text-base md:text-lg lg:text-xl font-semibold leading-relaxed text-foreground">
+                          {card.back}
+                        </p>
+                      </div>
                     </div>
-                    <div className="pt-6 mt-auto border-t border-border/60 flex items-center justify-center gap-2 text-muted-foreground font-bold text-xs uppercase tracking-widest opacity-60">
+                    <div className="pt-5 mt-auto border-t border-border/60 flex items-center justify-center gap-2 text-muted-foreground font-semibold text-xs">
                       Chấm điểm bên dưới để tiếp tục
                     </div>
                   </div>
@@ -703,29 +843,29 @@ export default function StudyPage() {
               </div>
 
               {/* Bottom UI area */}
-              <div className="min-h-[140px] flex flex-col items-center">
+              <div className="shrink-0 min-h-[116px] flex flex-col items-center justify-center">
                 {!isFlipped ? (
-                  <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     {idx === 0 && (
-                      <div className="flex gap-4 items-center px-5 py-3 rounded-2xl bg-surface-raised border border-border shadow-sm">
+                      <div className="flex gap-4 items-center px-4 py-2.5 rounded-xl bg-surface border border-border shadow-sm">
                         <Keyboard className="w-5 h-5 text-muted-foreground" />
-                        <div className="flex gap-3 text-[0.75rem] font-bold text-subtle">
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border bg-[hsl(var(--acrylic))] shadow-xs">Space</kbd> Lật</span>
-                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border bg-[hsl(var(--acrylic))] shadow-xs">←/→</kbd> Chuyển</span>
+                        <div className="flex gap-3 text-[0.75rem] font-semibold text-muted-foreground">
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border bg-background">Space</kbd> Lật</span>
+                          <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded border border-border bg-background">←/→</kbd> Chuyển</span>
                         </div>
                       </div>
                     )}
                     <button
                       onClick={() => setIsFlipped(true)}
-                      className="group flex items-center gap-2 text-subtle hover:text-primary transition-colors py-2"
+                      className="group flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors py-2"
                     >
                       <HelpCircle className="w-5 h-5" />
-                      <span className="text-sm font-bold uppercase tracking-widest underline decoration-2 underline-offset-8">Kiểm tra kết quả</span>
+                      <span className="text-sm font-semibold underline decoration-2 underline-offset-8">Kiểm tra kết quả</span>
                       <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </button>
                   </div>
                 ) : (
-                  <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-3 animate-in fade-in zoom-in-95 duration-300">
+                  <div className="w-full grid grid-cols-2 sm:grid-cols-4 gap-3 animate-in fade-in zoom-in-95 duration-200">
                     {([0, 1, 2, 3] as const).map((q) => {
                       const r = RATING[q];
                       const Icon = r.icon;
@@ -735,14 +875,14 @@ export default function StudyPage() {
                           key={q}
                           onClick={() => handleRate(q)}
                           className={cn(
-                            "flex flex-col items-center gap-1.5 p-4 rounded-3xl transition-all duration-200 active:scale-95 shadow-lg",
+                            "flex flex-col items-center gap-1.5 p-3.5 rounded-2xl transition-all duration-200 active:scale-95 shadow-sm",
                             r.color,
                             isActive ? "scale-90 opacity-50 ring-4 ring-background/80" : "hover:-translate-y-1 hover:brightness-105"
                           )}
                         >
                           <Icon className="w-6 h-6 mb-0.5" strokeWidth={3} />
-                          <span className="text-[0.9rem] font-black uppercase tracking-tighter">{r.label}</span>
-                          <span className="text-[0.65rem] font-bold opacity-80 uppercase tracking-widest">{r.hint}</span>
+                          <span className="text-[0.9rem] font-bold">{r.label}</span>
+                          <span className="text-[0.68rem] font-semibold opacity-85">{r.hint}</span>
                           <kbd className="mt-1 px-1.5 py-0.5 rounded-md bg-foreground/10 text-[0.65rem] font-bold border border-white/20">
                             {q + 1}
                           </kbd>
@@ -756,7 +896,7 @@ export default function StudyPage() {
           )}
 
           {msg && (
-            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 px-8 py-4 bg-foreground/90 text-[hsl(var(--background))] rounded-[24px] font-bold text-lg shadow-2xl animate-in slide-in-from-bottom shadow-primary/20 flex items-center gap-3 z-50">
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 bg-foreground/90 text-[hsl(var(--background))] rounded-2xl font-semibold text-sm shadow-lg animate-in slide-in-from-bottom flex items-center gap-3 z-50">
               <Sparkles className="text-primary w-6 h-6" /> {msg}
             </div>
           )}
