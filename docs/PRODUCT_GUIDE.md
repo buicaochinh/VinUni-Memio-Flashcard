@@ -62,6 +62,11 @@ Trong Memio, người dùng chấm điểm chất lượng nhớ (quality) theo 
 Các trường liên quan được lưu trong bảng `progress`:
 - `interval`, `repetition`, `ease_factor`, `last_quality`, `next_review`, ...
 
+### 3.3. Future feature: FSRS
+SM-2 là lựa chọn hiện tại vì đơn giản, dễ kiểm soát và phù hợp giai đoạn pilot. Một hướng nâng cấp tương lai là FSRS (Free Spaced Repetition Scheduler), thuật toán dùng các biến `difficulty`, `stability`, `retrievability` để dự đoán xác suất nhớ và tối ưu lịch ôn theo dữ liệu học thật.
+
+Memio chưa nên chuyển ngay sang FSRS khi chưa có đủ review history. Trước khi triển khai, cần lưu `review_logs` chi tiết cho từng lần ôn, thêm cấu hình `scheduler_type`/`desired_retention`, và giữ SM-2 làm fallback để đảm bảo progress hiện tại vẫn hoạt động ổn định.
+
 ---
 
 ## 4) Sử dụng Memio (Web)

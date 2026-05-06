@@ -8,6 +8,19 @@ Ghi lại các quyết định kỹ thuật, phân công, và brainstorming củ
 
 ## Cập nhật gần đây (Pilot deploy + Docs) — 30/04/2026
 
+### [Future Feature] Cân nhắc nâng cấp scheduler từ SM-2 sang FSRS — 06/05/2026
+
+- **Bối cảnh**: Memio hiện dùng SM-2 cho spaced repetition. SM-2 đơn giản, phù hợp pilot, nhưng chỉ cá nhân hóa qua `ease_factor` và không mô hình hóa xác suất nhớ.
+- **Ý tưởng**: Sau khi có đủ review history, nghiên cứu thêm FSRS (Free Spaced Repetition Scheduler) như một scheduler opt-in hoặc bản nâng cấp. FSRS dùng memory state gồm `difficulty`, `stability`, `retrievability` và có thể tối ưu theo dữ liệu học thật của user.
+- **Điều kiện trước khi triển khai**:
+  - thêm bảng `review_logs` để lưu từng lần ôn: `user_id`, `card_id`, rating, thời điểm ôn, scheduled interval, elapsed days, nguồn review (web/Telegram);
+  - thêm config `scheduler_type` (`sm2`/`fsrs`) và `desired_retention`;
+  - bổ sung cột hoặc metadata cho FSRS như `stability`, `difficulty`, scheduler version;
+  - giữ SM-2 làm fallback để không phá dữ liệu/progress hiện có.
+- **Hướng triển khai đề xuất**: chưa thay ngay trong pilot; trước mắt chỉ thu thập review logs sạch, sau đó thử FSRS trên dữ liệu lịch sử và so sánh workload/retention trước khi bật cho user.
+
+---
+
 ### [ADR-6] Chọn Docker Swarm single-node cho pilot deploy — 30/04/2026
 
 - **Bối cảnh**: PILOT, cần deploy ổn định.
@@ -167,4 +180,3 @@ Xem `docs/templates/WORKLOG.template.md`.
 - Cập nhật `tailwind.config.js` để dùng `darkMode: "class"` và chuyển `surface`/`border-strong` sang CSS variables.
 - Cập nhật `globals.css` với bộ biến `.dark` đầy đủ (bao gồm điều chỉnh primary trong dark mode sang tông sáng hơn để tăng tương phản).
 - Layout root và shell component thay đổi để hỗ trợ chuyển theme runtime.
-
