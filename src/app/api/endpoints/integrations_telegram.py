@@ -10,6 +10,7 @@ from src.app.db.session import get_session
 from src.app.models.domain import ChatIntegration, LinkCode, Progress, Flashcard
 from src.app.services.telegram_service import TelegramConfigError, send_message
 from src.app.core.sm2 import get_updated_sm2_values
+from src.app.core.time import utc_now_naive
 from src.app.services import card_service
 from src.app.utils.jwt_auth import new_link_code
 
@@ -120,7 +121,7 @@ async def telegram_webhook(request: Request, session: Session = Depends(get_sess
 
     if _is_start_command(text):
         code = new_link_code()
-        expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+        expires_at = utc_now_naive() + datetime.timedelta(minutes=10)
         link = LinkCode(
             code=code,
             provider="telegram",
@@ -195,4 +196,3 @@ async def telegram_webhook(request: Request, session: Session = Depends(get_sess
         return {"ok": True}
 
     return {"ok": True}
-

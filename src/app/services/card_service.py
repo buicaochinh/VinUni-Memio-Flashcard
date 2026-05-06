@@ -1,6 +1,7 @@
-import datetime
 from sqlmodel import Session, select
+from src.app.core.time import add_days_to_date_key, local_date_key
 from src.app.models.domain import Flashcard, Progress, StudySession
+from src.app.services.timezone_service import get_user_timezone
 
 def add_flashcard(session: Session, deck_id: int, front: str, back: str, difficulty: str = "medium"):
     card = Flashcard(deck_id=deck_id, front=front, back=back, difficulty=difficulty)
@@ -98,7 +99,7 @@ def update_card_progress(session: Session, user_id: int, card_id: int, interval:
     statement = select(Progress).where(Progress.user_id == user_id, Progress.card_id == card_id)
     progress = session.exec(statement).first()
     
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    today = local_date_key(get_user_timezone(session, user_id))
     is_new = True
     already_reviewed_today = False
     
@@ -109,9 +110,7 @@ def update_card_progress(session: Session, user_id: int, card_id: int, interval:
             already_reviewed_today = True
 
     last_reviewed = today
-    next_review = (
-        datetime.datetime.now() + datetime.timedelta(days=interval)
-    ).strftime("%Y-%m-%d")
+    next_review = add_days_to_date_key(today, interval)
 
     if not progress:
         progress = Progress(
@@ -161,7 +160,7 @@ def update_card_progress(session: Session, user_id: int, card_id: int, interval:
 
 
 def log_study_session(session: Session, user_id: int, deck_id: int, cards_reviewed: int, avg_quality: float):
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    today = local_date_key(get_user_timezone(session, user_id))
     statement = select(StudySession).where(
         StudySession.user_id == user_id, 
         StudySession.deck_id == deck_id, 
@@ -196,7 +195,7 @@ def get_daily_study_queue(session: Session, deck_id: int, user_id: int, override
     daily_new_limit = settings.daily_new_limit if settings else 20
     daily_review_limit = settings.daily_review_limit if settings else 50
     
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    today = local_date_key(get_user_timezone(session, user_id))
     study_session = session.exec(select(StudySession).where(
         StudySession.user_id == user_id,
         StudySession.deck_id == deck_id,
@@ -264,7 +263,7 @@ def get_study_summary(session: Session, deck_id: int, user_id: int):
     daily_new_limit = settings.daily_new_limit if settings else 20
     daily_review_limit = settings.daily_review_limit if settings else 50
     
-    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    today = local_date_key(get_user_timezone(session, user_id))
     study_session = session.exec(select(StudySession).where(
         StudySession.user_id == user_id,
         StudySession.deck_id == deck_id,

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { clearStoredUser, User } from "../lib/app-client";
+import { clearStoredUser, syncBrowserTimezone, User } from "../lib/app-client";
 import { BarChart3, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
@@ -26,6 +26,12 @@ export default function AppShell({ children, user }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    syncBrowserTimezone(user.id).catch(() => {
+      /* non-critical */
+    });
+  }, [user.id]);
 
   const handleLogout = () => {
     clearStoredUser();

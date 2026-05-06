@@ -1,15 +1,19 @@
 import datetime
 from sqlmodel import Session, select, func, case
+from src.app.core.time import date_key, local_date
 from src.app.models.domain import Deck, Flashcard, Progress, StudySession, User
+from src.app.services.timezone_service import get_user_timezone
 
 def get_analytics(session: Session, user_id: int):
+    user_timezone = get_user_timezone(session, user_id)
     # 1. Streak
     date_statement = select(StudySession.session_date).where(StudySession.user_id == user_id).distinct().order_by(StudySession.session_date.desc())
     dates = session.exec(date_statement).all()
-    streak = _calculate_streak(dates)
+    streak = _calculate_streak(dates, user_timezone)
 
     # 2. Heatmap
-    since_date = (datetime.datetime.now() - datetime.timedelta(days=35)).strftime("%Y-%m-%d")
+    today_local = local_date(user_timezone)
+    since_date = date_key(today_local - datetime.timedelta(days=34))
     heatmap_statement = select(StudySession.session_date, func.sum(StudySession.cards_reviewed)).where(
         StudySession.user_id == user_id,
         StudySession.session_date >= since_date
@@ -19,7 +23,7 @@ def get_analytics(session: Session, user_id: int):
 
     # 2.5 Predicted mastery timeline (30 ngày tới)
     # Ý tưởng: "mastery" ~ % các thẻ mà SM-2 dự đoán sẽ đến hạn ôn trong khoảng tới ngày đó.
-    today = datetime.datetime.now().date()
+    today = today_local
     next_review_statement = select(Progress.next_review).where(
         Progress.user_id == user_id,
         Progress.repetition > 0,
@@ -172,11 +176,11 @@ def get_analytics(session: Session, user_id: int):
     }
 
 
-def _calculate_streak(dates):
+def _calculate_streak(dates, timezone_name: str | None = None):
     if not dates:
         return 0
     streak = 0
-    current = datetime.datetime.now().date()
+    current = local_date(timezone_name)
     yesterday = current - datetime.timedelta(days=1)
     
     # Clean up dates to set of date objects for easier comparison

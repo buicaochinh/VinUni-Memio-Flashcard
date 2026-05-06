@@ -1,8 +1,7 @@
-import datetime
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
+from src.app.core.time import utc_now_naive
 from src.app.db.session import get_session
 from src.app.models.domain import AuthSession
 from src.app.services import user_service
@@ -42,7 +41,7 @@ def login_google_session(request: GoogleLoginRequest, session: Session = Depends
 
     refresh_token = create_refresh_token(session_id=auth_sess.id, user_id=int(user["id"]))
     auth_sess.refresh_token_hash = hash_refresh_token(refresh_token)
-    auth_sess.last_used_at = datetime.datetime.utcnow()
+    auth_sess.last_used_at = utc_now_naive()
     session.add(auth_sess)
     session.commit()
 
@@ -83,7 +82,7 @@ def login_username_session(request: UsernameLoginRequest, session: Session = Dep
 
     refresh_token = create_refresh_token(session_id=auth_sess.id, user_id=int(user["id"]))
     auth_sess.refresh_token_hash = hash_refresh_token(refresh_token)
-    auth_sess.last_used_at = datetime.datetime.utcnow()
+    auth_sess.last_used_at = utc_now_naive()
     session.add(auth_sess)
     session.commit()
 
@@ -112,7 +111,7 @@ def refresh_session(payload: RefreshRequest, session: Session = Depends(get_sess
     if auth_sess.refresh_token_hash != hash_refresh_token(payload.refresh_token):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-    auth_sess.last_used_at = datetime.datetime.utcnow()
+    auth_sess.last_used_at = utc_now_naive()
     session.add(auth_sess)
     session.commit()
 

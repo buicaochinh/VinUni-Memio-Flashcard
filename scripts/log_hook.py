@@ -135,17 +135,30 @@ def normalize(data: dict, tool: str) -> Optional[dict]:
 
 def main():
     raw = sys.stdin.read().strip()
+    tool = os.environ.get("AI_TOOL_NAME", "").lower()
+
+    def emit_success() -> None:
+        # Codex validates hook stdout against its hook output schema. Extra
+        # fields such as {"status": "..."} are rejected for Stop/UserPromptSubmit.
+        if tool == "codex":
+            print(json.dumps({"continue": True, "suppressOutput": True}))
+        else:
+            print(json.dumps({"status": "logged"}))
+
     if not raw:
+        emit_success()
         sys.exit(0)
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
+        emit_success()
         sys.exit(0)
 
     tool = detect_tool(data)
     entry = normalize(data, tool)
     if not entry:
+        emit_success()
         sys.exit(0)
 
     log_dir = Path(os.environ.get("AI_LOG_DIR", ".ai-log"))
@@ -155,8 +168,8 @@ def main():
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
-    # Output valid JSON (required by some tools like Gemini)
-    print(json.dumps({"status": "logged"}))
+    # Output valid hook JSON for tools that parse stdout.
+    emit_success()
 
 
 if __name__ == "__main__":
