@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     # App Config
     DEFAULT_MODEL: str = "claude-3-5-sonnet-20240620"
     LOG_LEVEL: str = "INFO"
+    APP_TIMEZONE: str = "Asia/Ho_Chi_Minh"
     
     # Database
     DATABASE_URL: str = ""
@@ -54,6 +55,7 @@ OPENAI_API_KEY = settings.OPENAI_API_KEY
 OPENROUTER_API_KEY = settings.OPENROUTER_API_KEY
 DEFAULT_MODEL = settings.DEFAULT_MODEL
 LOG_LEVEL = settings.LOG_LEVEL
+APP_TIMEZONE = settings.APP_TIMEZONE
 DATABASE_URL = settings.DATABASE_URL
 JWT_SECRET = settings.JWT_SECRET
 JWT_ACCESS_TOKEN_MINUTES = settings.JWT_ACCESS_TOKEN_MINUTES

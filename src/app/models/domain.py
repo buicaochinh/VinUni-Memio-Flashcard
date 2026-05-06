@@ -1,6 +1,7 @@
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship, UniqueConstraint, Index
 from datetime import datetime
+from src.app.core.time import default_timezone_name, local_date_key, utc_now_naive
 
 
 class AuthSession(SQLModel, table=True):
@@ -17,7 +18,7 @@ class AuthSession(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", index=True)
     refresh_token_hash: str
     device_name: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)
     last_used_at: Optional[datetime] = None
     revoked_at: Optional[datetime] = Field(default=None, index=True)
 
@@ -41,7 +42,7 @@ class ChatIntegration(SQLModel, table=True):
     send_window: str = "19:00-22:00"  # local time window
     daily_goal: int = 20
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)
     last_sent_at: Optional[datetime] = None
     sent_today: int = 0
     sent_today_date: Optional[str] = None  # local YYYY-MM-DD (based on timezone)
@@ -64,7 +65,7 @@ class LinkCode(SQLModel, table=True):
     expires_at: datetime
     consumed_at: Optional[datetime] = None
     consumed_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -88,7 +89,7 @@ class Deck(SQLModel, table=True):
     description: str = ""
     is_public: int = 0
     share_token: Optional[str] = Field(default=None, unique=True)
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=utc_now_naive)
 
     user: Optional[User] = Relationship(back_populates="decks")
     flashcards: List["Flashcard"] = Relationship(back_populates="deck")
@@ -101,7 +102,7 @@ class Flashcard(SQLModel, table=True):
     back: str
     difficulty: str = "medium"
     source_context: Optional[str] = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)
 
     deck: Optional[Deck] = Relationship(back_populates="flashcards")
     progress: List["Progress"] = Relationship(back_populates="flashcard")
@@ -133,7 +134,7 @@ class StudySession(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id")
     deck_id: int = Field(foreign_key="decks.id")
-    session_date: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
+    session_date: str = Field(default_factory=local_date_key)
     cards_reviewed: int = 0
     new_cards_reviewed: int = 0
     review_cards_reviewed: int = 0
@@ -161,8 +162,8 @@ class IngestionSource(SQLModel, table=True):
     config_json: Optional[str] = None
     last_synced_at: Optional[datetime] = None
     last_error: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)
+    updated_at: datetime = Field(default_factory=utc_now_naive)
 
 
 class IngestionItem(SQLModel, table=True):
@@ -183,7 +184,7 @@ class IngestionItem(SQLModel, table=True):
     checksum: str = Field(index=True)
     published_at: Optional[datetime] = None
     last_processed_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)
 
 
 class IngestionRun(SQLModel, table=True):
@@ -195,7 +196,7 @@ class IngestionRun(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     source_id: int = Field(foreign_key="ingestion_sources.id", index=True)
     status: str = "running"  # "running" | "success" | "failed"
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=utc_now_naive)
     finished_at: Optional[datetime] = None
     fetched_count: int = 0
     normalized_count: int = 0
@@ -219,8 +220,8 @@ class ExternalNote(SQLModel, table=True):
     content_text: Optional[str] = None
     highlights_text: Optional[str] = None
     graph_refs_json: Optional[str] = None
-    last_seen_at: datetime = Field(default_factory=datetime.utcnow)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_seen_at: datetime = Field(default_factory=utc_now_naive)
+    created_at: datetime = Field(default_factory=utc_now_naive)
 
 
 class IngestionCursor(SQLModel, table=True):
@@ -233,7 +234,7 @@ class IngestionCursor(SQLModel, table=True):
     source_id: int = Field(foreign_key="ingestion_sources.id", index=True)
     cursor_type: str = "timestamp"
     cursor_value: Optional[str] = None
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utc_now_naive)
 
 
 class UserSettings(SQLModel, table=True):
@@ -243,6 +244,7 @@ class UserSettings(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", index=True, unique=True)
     daily_new_limit: int = Field(default=20)
     daily_review_limit: int = Field(default=50)
+    timezone: str = Field(default_factory=default_timezone_name)
 
 
 class OAuthConnection(SQLModel, table=True):
@@ -262,8 +264,8 @@ class OAuthConnection(SQLModel, table=True):
     workspace_icon: Optional[str] = None
     owner_type: Optional[str] = None
     capabilities_json: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)
+    updated_at: datetime = Field(default_factory=utc_now_naive)
 
 
 class IngestionCardMap(SQLModel, table=True):
@@ -276,4 +278,4 @@ class IngestionCardMap(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     ingestion_item_id: int = Field(foreign_key="ingestion_items.id", index=True)
     flashcard_id: int = Field(foreign_key="flashcards.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now_naive)

@@ -17,6 +17,7 @@ from src.app.core.config import (
     NOTION_FRONTEND_REDIRECT_URL,
     NOTION_REDIRECT_URI,
 )
+from src.app.core.time import utc_now, utc_now_naive
 from src.app.models.domain import OAuthConnection
 from src.app.utils.jwt_auth import JWT_SECRET
 
@@ -36,7 +37,7 @@ class NotionApiError(RuntimeError):
 
 
 def _now() -> datetime.datetime:
-    return datetime.datetime.utcnow()
+    return utc_now_naive()
 
 
 def _require_oauth_config() -> None:
@@ -47,7 +48,7 @@ def _require_oauth_config() -> None:
 
 
 def _encode_state(user_id: int) -> str:
-    issued = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    issued = int(utc_now().timestamp())
     payload = {"user_id": user_id, "iat": issued}
     raw = json.dumps(payload, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
     b64 = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
@@ -72,7 +73,7 @@ def decode_state(state: str, max_age_seconds: int = 900) -> int:
         raise HTTPException(status_code=400, detail="Invalid OAuth state") from exc
     user_id = int(payload.get("user_id") or 0)
     issued = int(payload.get("iat") or 0)
-    now_ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    now_ts = int(utc_now().timestamp())
     if user_id <= 0 or issued <= 0 or now_ts - issued > max_age_seconds:
         raise HTTPException(status_code=400, detail="OAuth state expired")
     return user_id

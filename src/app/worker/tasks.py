@@ -4,9 +4,17 @@ from celery import shared_task
 from sqlmodel import Session, select
 
 from src.app.db.session import engine
+from src.app.core.time import (
+    ensure_utc_aware,
+    iso_week_key_for_local_date,
+    last_n_local_date_keys,
+    local_date_key,
+    local_now,
+    seconds_since_utc,
+    utc_now_naive,
+)
 from src.app.models.domain import ChatIntegration, Flashcard, Progress, StudySession
 from src.app.services.telegram_service import send_message_sync
-from zoneinfo import ZoneInfo
 from sqlalchemy import func
 
 
@@ -40,8 +48,7 @@ def send_due_cards():
 
     Next step: fetch card content and send to Telegram/Discord.
     """
-    now_utc = datetime.datetime.utcnow()
-    today_utc = now_utc.strftime("%Y-%m-%d")
+    now_utc = utc_now_naive()
     max_per_run = 3
     with Session(engine) as session:
         # Find integrations
@@ -51,13 +58,8 @@ def send_due_cards():
 
         due_counts = {}
         for integ in integrations:
-            tz = None
-            try:
-                tz = ZoneInfo(integ.timezone or "Asia/Ho_Chi_Minh")
-            except Exception:
-                tz = ZoneInfo("Asia/Ho_Chi_Minh")
-            now_local = now_utc.replace(tzinfo=datetime.timezone.utc).astimezone(tz)
-            today_local = now_local.strftime("%Y-%m-%d")
+            now_local = local_now(integ.timezone)
+            today_local = local_date_key(integ.timezone)
 
             # reset daily counters when local date changes
             if integ.sent_today_date != today_local:
@@ -75,7 +77,7 @@ def send_due_cards():
             # basic cooldown to prevent duplicate sends on frequent runs
             if integ.last_sent_at is not None:
                 try:
-                    if (now_utc - integ.last_sent_at).total_seconds() < 240:
+                    if seconds_since_utc(integ.last_sent_at, now=ensure_utc_aware(now_utc)) < 240:
                         continue
                 except Exception:
                     pass
@@ -88,7 +90,7 @@ def send_due_cards():
                 .where(
                     Progress.user_id == integ.user_id,
                     Progress.next_review.is_not(None),
-                    Progress.next_review <= today_utc,
+                    Progress.next_review <= today_local,
                 )
                 .order_by(Progress.next_review.asc(), Progress.ease_factor.asc(), Progress.id.asc())
             )
@@ -140,7 +142,7 @@ def send_due_cards():
                 session.add(integ)
                 session.commit()
 
-    return {"today": today_utc, "due_counts": due_counts}
+    return {"today": local_date_key(), "due_counts": due_counts}
 
 
 @shared_task(name="src.app.worker.tasks.send_weekly_report")
@@ -150,15 +152,7 @@ def send_weekly_report():
     - sends to group_target_id if set, else dm_chat_id
     - idempotent per ISO week via ChatIntegration.weekly_report_week
     """
-    now_utc = datetime.datetime.utcnow()
-    # Use ISO week key (YYYY-WW)
-    iso_year, iso_week, _ = now_utc.isocalendar()
-    week_key = f"{iso_year}-{iso_week:02d}"
-
-    # last 7 days inclusive, based on UTC date keys stored in StudySession.session_date
-    end = now_utc.date()
-    start = end - datetime.timedelta(days=6)
-    day_keys = [(start + datetime.timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    now_utc = utc_now_naive()
 
     sent_to = []
     with Session(engine) as session:
@@ -170,8 +164,10 @@ def send_weekly_report():
             target = integ.group_target_id or integ.dm_chat_id
             if not target:
                 continue
+            week_key = iso_week_key_for_local_date(integ.timezone)
             if integ.weekly_report_week == week_key:
                 continue
+            day_keys = last_n_local_date_keys(7, integ.timezone)
 
             rows = session.exec(
                 select(StudySession).where(
@@ -200,14 +196,14 @@ def send_weekly_report():
             active_days = sum(1 for k in day_keys if by_day[k]["cards"] > 0)
             best_day = max(day_keys, key=lambda k: by_day[k]["cards"])
 
-            today_utc = now_utc.strftime("%Y-%m-%d")
+            today_local = local_date_key(integ.timezone)
             backlog = session.exec(
                 select(func.count()).select_from(
                     select(Progress)
                     .where(
                         Progress.user_id == integ.user_id,
                         Progress.next_review.is_not(None),
-                        Progress.next_review <= today_utc,
+                        Progress.next_review <= today_local,
                     )
                     .subquery()
                 )
@@ -246,5 +242,4 @@ def send_weekly_report():
             session.commit()
             sent_to.append(integ.user_id)
 
-    return {"week": week_key, "sent_users": sent_to}
-
+    return {"sent_users": sent_to}

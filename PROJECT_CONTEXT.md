@@ -130,6 +130,7 @@ A20-App-001/
 | `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `created_at` | `source_context` stores original text for citations |
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
 | `study_sessions` | `id`, `user_id`, `deck_id`, `session_date`, `cards_reviewed`, `avg_quality` | UniqueConstraint on (user_id, deck_id, session_date) |
+| `user_settings` | `id`, `user_id`, `daily_new_limit`, `daily_review_limit`, `timezone` | Per-user study limits and IANA timezone for local-date features |
 
 **Schema is managed via Alembic migrations.**
 
@@ -224,6 +225,7 @@ Base: `/api` (mounted in `src/main.py`)
 | `NEXT_PUBLIC_API_URL` | Yes (build-time) | Backend URL for frontend fetch calls |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | For Google login | Google OAuth client ID |
 | `DEFAULT_MODEL` | No | LLM model name (default: claude-3-5-sonnet) |
+| `APP_TIMEZONE` | No | Default IANA timezone for local-date features such as study day, due cards, analytics, and Celery schedules (default: `Asia/Ho_Chi_Minh`) |
 
 ## 10. Known Issues & Gotchas
 

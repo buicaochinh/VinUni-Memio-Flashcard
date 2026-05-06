@@ -71,6 +71,13 @@ function ForgetBar({ rate }: { rate: number }) {
   );
 }
 
+function toLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function Heatmap({ data }: { data: Record<string, number> }) {
   const today = new Date();
   const cells: Array<{ date: string; level: number }> = [];
@@ -78,7 +85,7 @@ function Heatmap({ data }: { data: Record<string, number> }) {
   for (let i = 34; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = toLocalDateKey(d);
     const count = data[key] ?? 0;
     const level = count === 0 ? 0 : count < 5 ? 1 : count < 15 ? 2 : 3;
     cells.push({ date: key, level });

@@ -33,6 +33,12 @@ export type Card = {
   next_review?: string | null;
 };
 
+export type UserSettings = {
+  daily_new_limit: number;
+  daily_review_limit: number;
+  timezone: string;
+};
+
 export type PreviewCard = {
   front: string;
   back: string;
@@ -973,18 +979,47 @@ export async function fetchStudySummary(deckId: number, userId: number): Promise
   return await r.json();
 }
 
-export async function fetchUserSettings(userId: number) {
+export function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Ho_Chi_Minh";
+  } catch {
+    return "Asia/Ho_Chi_Minh";
+  }
+}
+
+export async function fetchUserSettings(userId: number): Promise<UserSettings> {
   const r = await fetch(apiUrl(`/api/users/${userId}/settings`));
   if (!r.ok) throw new Error("Failed to fetch user settings");
   return await r.json();
 }
 
-export async function updateUserSettings(userId: number, dailyNew: number, dailyReview: number) {
+export async function updateUserSettings(userId: number, dailyNew: number, dailyReview: number, timezone?: string) {
   const r = await fetch(apiUrl(`/api/users/${userId}/settings`), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ daily_new_limit: dailyNew, daily_review_limit: dailyReview })
+    body: JSON.stringify({ daily_new_limit: dailyNew, daily_review_limit: dailyReview, timezone })
   });
   if (!r.ok) throw new Error("Failed to update user settings");
   return await r.json();
+}
+
+export async function updateUserTimezone(userId: number, timezone: string) {
+  const r = await fetch(apiUrl(`/api/users/${userId}/settings/timezone`), {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ timezone }),
+  });
+  if (!r.ok) throw new Error("Failed to update user timezone");
+  return await r.json();
+}
+
+export async function syncBrowserTimezone(userId: number) {
+  if (typeof window === "undefined") return;
+  const timezone = getBrowserTimezone();
+  const key = `fc_timezone_sync:${userId}`;
+  const today = new Date();
+  const syncKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}:${timezone}`;
+  if (localStorage.getItem(key) === syncKey) return;
+  await updateUserTimezone(userId, timezone);
+  localStorage.setItem(key, syncKey);
 }

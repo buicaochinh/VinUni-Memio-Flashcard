@@ -1,6 +1,8 @@
 from celery import Celery
 from celery.schedules import crontab
 
+from src.app.core.config import settings
+
 
 celery_app = Celery(
     "memio_worker",
@@ -9,7 +11,7 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
-    timezone="Asia/Ho_Chi_Minh",
+    timezone=settings.APP_TIMEZONE,
     enable_utc=True,
     task_serializer="json",
     accept_content=["json"],
@@ -33,4 +35,3 @@ def setup_periodic_tasks(sender, **kwargs):
         "src.app.worker.tasks.send_weekly_report",
         name="send_weekly_report",
     )
-

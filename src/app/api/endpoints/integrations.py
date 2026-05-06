@@ -1,9 +1,14 @@
-import datetime
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from src.app.api.deps import get_current_user_id
+from src.app.core.time import (
+    last_n_local_date_keys,
+    local_date_key,
+    utc_now_naive,
+    validate_timezone,
+)
 from src.app.db.session import get_session
 from src.app.models.domain import ChatIntegration, LinkCode, StudySession, Progress, Flashcard
 from src.app.schemas.integrations import (
@@ -35,7 +40,7 @@ def link_integration(
     if not link:
         raise HTTPException(status_code=404, detail="Invalid code")
 
-    now = datetime.datetime.utcnow()
+    now = utc_now_naive()
     if link.expires_at < now:
         raise HTTPException(status_code=400, detail="Code expired")
     if link.consumed_at is not None:
@@ -113,7 +118,10 @@ def update_integration(
         raise HTTPException(status_code=404, detail="Integration not found")
 
     if payload.timezone is not None:
-        row.timezone = payload.timezone.strip() or row.timezone
+        try:
+            row.timezone = validate_timezone(payload.timezone.strip() or row.timezone)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     if payload.send_window is not None:
         sw = payload.send_window.strip()
         if not _SEND_WINDOW_RE.match(sw):
@@ -173,10 +181,7 @@ def test_weekly_report(
     if not target:
         raise HTTPException(status_code=400, detail="Missing target chat id (setgroup or link DM)")
 
-    now_utc = datetime.datetime.utcnow()
-    end = now_utc.date()
-    start = end - datetime.timedelta(days=6)
-    day_keys = [(start + datetime.timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+    day_keys = last_n_local_date_keys(7, integ.timezone)
 
     rows = session.exec(
         select(StudySession).where(
@@ -223,7 +228,7 @@ def test_send_due_cards(
     if not integ.dm_chat_id:
         raise HTTPException(status_code=400, detail="Missing dm_chat_id (DM bot /start then link again)")
 
-    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    today = local_date_key(integ.timezone)
     due_rows = session.exec(
         select(Progress)
         .where(

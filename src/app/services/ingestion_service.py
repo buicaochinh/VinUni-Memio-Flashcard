@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from src.app.api.endpoints.cards import _generate_cards_chunked
+from src.app.core.time import utc_now_naive
 from src.app.models.domain import (
     Deck,
     ExternalNote,
@@ -42,7 +43,7 @@ class SimplePage:
 
 
 def _now() -> datetime.datetime:
-    return datetime.datetime.utcnow()
+    return utc_now_naive()
 
 
 def _parse_config(raw: str | None) -> dict[str, Any]:

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { X, Settings, Loader2 } from "lucide-react";
-import { fetchUserSettings, updateUserSettings } from "../lib/app-client";
+import { X, Settings, Loader2, MapPin } from "lucide-react";
+import { fetchUserSettings, getBrowserTimezone, updateUserSettings } from "../lib/app-client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
@@ -18,6 +18,7 @@ export default function UserSettingsModal({
 }) {
   const [dailyNew, setDailyNew] = useState(20);
   const [dailyReview, setDailyReview] = useState(50);
+  const [timezone, setTimezone] = useState("Asia/Ho_Chi_Minh");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -29,6 +30,7 @@ export default function UserSettingsModal({
         .then((s) => {
           setDailyNew(s.daily_new_limit);
           setDailyReview(s.daily_review_limit);
+          setTimezone(s.timezone);
         })
         .catch(() => setMsg("Không tải được cài đặt"))
         .finally(() => setLoading(false));
@@ -41,7 +43,7 @@ export default function UserSettingsModal({
     setSaving(true);
     setMsg("");
     try {
-      await updateUserSettings(userId, dailyNew, dailyReview);
+      await updateUserSettings(userId, dailyNew, dailyReview, timezone);
       onOpenChange(false);
     } catch {
       setMsg("Lỗi khi lưu cài đặt");
@@ -67,7 +69,7 @@ export default function UserSettingsModal({
           </div>
 
           <Dialog.Description className="text-muted-foreground text-[0.95rem]">
-            Điều chỉnh giới hạn thẻ mới và thẻ ôn tập mỗi ngày để không bị ngợp.
+            Điều chỉnh giới hạn thẻ mới, thẻ ôn tập và múi giờ học mỗi ngày.
           </Dialog.Description>
 
           {loading ? (
@@ -93,6 +95,25 @@ export default function UserSettingsModal({
                   value={dailyReview}
                   onChange={(e) => setDailyReview(parseInt(e.target.value) || 0)}
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[0.9rem] font-semibold">Múi giờ</label>
+                <div className="flex gap-2">
+                  <Input
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    placeholder="Asia/Ho_Chi_Minh"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setTimezone(getBrowserTimezone())}
+                    className="shrink-0"
+                    title="Dùng múi giờ thiết bị"
+                  >
+                    <MapPin className="w-4 h-4" aria-hidden />
+                  </Button>
+                </div>
               </div>
 
               {msg && <p className="text-danger text-[0.85rem]">{msg}</p>}
