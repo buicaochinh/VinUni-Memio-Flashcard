@@ -10,7 +10,7 @@ Biểu đồ này mô tả cách các thành phần trong hệ thống tương t
 graph TD
     User((Người dùng)) <--> Frontend[Next.js 16 Frontend<br/>Tailwind CSS / TypeScript]
     Frontend <--> API[FastAPI Backend<br/>Python 3.11+]
-    API <--> LLM{AI Engine<br/>Anthropic Claude / OpenAI}
+    API <--> LLM{AI Engine<br/>OpenAI}
     API <--> DB[(Database<br/>PostgreSQL)]
     API <--> Auth[Google OAuth<br/>Xác thực người dùng]
 ```
@@ -100,7 +100,7 @@ sequenceDiagram
 flowchart LR
     PDF[Tài liệu PDF/DOCX] --> Extract[Trích xuất Text]
     Extract --> Prompt[Kết hợp System Prompt]
-    Prompt --> LLM[AI Model - Claude]
+    Prompt --> LLM[AI Model - OpenAI GPT-4o mini]
     LLM --> JSON[Dữ liệu JSON thô]
     JSON --> Save[Lưu vào Database]
     Save --> Ready[Deck sẵn sàng học]
