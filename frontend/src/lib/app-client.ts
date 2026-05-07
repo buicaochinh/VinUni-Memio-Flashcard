@@ -151,6 +151,63 @@ export type GameCompleteResponse = {
   accuracy: number;
 };
 
+export type CoachCitation = {
+  id: string;
+  label: string;
+  text: string;
+  source_type: "card" | "web" | string;
+  deck_id?: number | null;
+  card_id?: number | null;
+  url?: string | null;
+};
+
+export type CoachAction = {
+  type: string;
+  label: string;
+  href?: string | null;
+  payload?: Record<string, unknown>;
+  requires_confirmation?: boolean;
+};
+
+export type CoachThread = {
+  id: number;
+  title: string;
+  context_deck_id?: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CoachMessage = {
+  id?: number;
+  role: "user" | "assistant";
+  content: string;
+  citations?: CoachCitation[];
+  actions?: CoachAction[];
+  created_at?: string;
+};
+
+export type CoachReply = {
+  thread_id: number;
+  answer: string;
+  citations: CoachCitation[];
+  actions: CoachAction[];
+};
+
+export type CoachQuizQuestion = {
+  id: string;
+  card_id: number;
+  deck_id: number;
+  deck_name: string;
+  prompt: string;
+  choices: string[];
+  answer_index: number;
+  explanation: string;
+  difficulty: "easy" | "medium" | "hard" | string;
+  ease_factor?: number | null;
+  repetition?: number | null;
+  interval?: number | null;
+};
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 export const API_BASE_URL =
@@ -582,6 +639,57 @@ export async function completeAdventureCampaign(
   });
   if (!res.ok) throw new Error("COMPLETE_GAME_FAILED");
   return res.json() as Promise<GameCompleteResponse>;
+}
+
+// ─── Memio Coach ─────────────────────────────────────────────────────────────
+
+export async function fetchCoachThreads(userId: number): Promise<CoachThread[]> {
+  const res = await fetch(apiUrl(`/api/coach/threads?user_id=${userId}`));
+  if (!res.ok) throw new Error("FETCH_COACH_THREADS_FAILED");
+  return res.json() as Promise<CoachThread[]>;
+}
+
+export async function fetchCoachMessages(threadId: number, userId: number): Promise<CoachMessage[]> {
+  const res = await fetch(apiUrl(`/api/coach/threads/${threadId}/messages?user_id=${userId}`));
+  if (!res.ok) throw new Error("FETCH_COACH_MESSAGES_FAILED");
+  return res.json() as Promise<CoachMessage[]>;
+}
+
+export async function sendCoachMessage(payload: {
+  user_id: number;
+  message: string;
+  thread_id?: number | null;
+  context_deck_id?: number | null;
+  mode?: string | null;
+}): Promise<CoachReply> {
+  const res = await fetch(apiUrl("/api/coach/message"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? "COACH_MESSAGE_FAILED");
+  }
+  return res.json() as Promise<CoachReply>;
+}
+
+export async function startCoachQuiz(payload: {
+  user_id: number;
+  deck_id?: number | null;
+  count?: number;
+}): Promise<CoachQuizQuestion[]> {
+  const res = await fetch(apiUrl("/api/coach/quiz/start"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? "START_COACH_QUIZ_FAILED");
+  }
+  const data = await res.json();
+  return data.questions as CoachQuizQuestion[];
 }
 
 export async function logStudySession(

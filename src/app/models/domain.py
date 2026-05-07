@@ -164,6 +164,36 @@ class GameSession(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now_naive)
 
 
+class CoachThread(SQLModel, table=True):
+    __tablename__ = "coach_threads"
+    __table_args__ = (
+        Index("ix_coach_threads_user_updated", "user_id", "updated_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    title: str = "Memio Coach"
+    context_deck_id: Optional[int] = Field(default=None, foreign_key="decks.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now_naive)
+    updated_at: datetime = Field(default_factory=utc_now_naive)
+
+
+class CoachMessage(SQLModel, table=True):
+    __tablename__ = "coach_messages"
+    __table_args__ = (
+        Index("ix_coach_messages_thread_created", "thread_id", "created_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    thread_id: int = Field(foreign_key="coach_threads.id", index=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    role: str
+    content: str
+    citations_json: Optional[str] = None
+    actions_json: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
 class IngestionSource(SQLModel, table=True):
     __tablename__ = "ingestion_sources"
     __table_args__ = (
