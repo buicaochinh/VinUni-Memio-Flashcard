@@ -40,7 +40,7 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 
 ## 1. Product Overview
 
-**Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (Anthropic Claude) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
+**Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (OpenAI via `langchain-openai`) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
 
 **Core user flow:**
 1. Login (Google OAuth / Username-Password / Guest)
@@ -48,7 +48,8 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 3. Upload documents → AI generates flashcards → User reviews & edits → Save
 4. Study with flip-card UI (rate 0-3) → SM-2 schedules next review
 5. View Analytics (streak, heatmap, hardest cards, forgetting rate)
-6. Optionally share decks via public link
+6. Play an AI Adventure Campaign from a deck → answer staged quiz challenges, update SM-2, save score/XP
+7. Optionally share decks via public link
 
 **Live domain:** `mem.io.vn` (frontend) / `api.mem.io.vn` (backend)
 
@@ -61,9 +62,9 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 │   Port 3000     │       │   Port 8000      │       │   Port 5432      │
 └────────┬────────┘       └────────┬─────────┘       └──────────────────┘
          │                         │
-         │ GIS SDK                 │ Anthropic API
+         │ GIS SDK                 │ OpenAI API
          ▼                         ▼
-   Google OAuth             Claude 3.5 Sonnet
+   Google OAuth             GPT-4o mini
 ```
 
 - **Monorepo** — backend (`src/`) and frontend (`frontend/`) live in the same repo
@@ -82,7 +83,7 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 | **Backend** | FastAPI (Python) | 0.115+ |
 | **ORM** | SQLModel (SQLAlchemy + Pydantic hybrid) | — |
 | **Database** | PostgreSQL (remote server) | — |
-| **AI** | Anthropic Claude via `langchain-anthropic` | claude-3-5-sonnet |
+| **AI** | OpenAI via `langchain-openai` | gpt-4o-mini |
 | **Doc parsing** | PyPDFLoader, Docx2txtLoader, TextLoader | — |
 | **Containerisation** | Docker Compose + Caddy | Alpine images |
 | **Password hashing** | passlib[bcrypt] | — |
@@ -98,19 +99,19 @@ A20-App-001/
 │   ├── agent/                        # Agent subsystem (runtime + tools); app calls it via services/agent_service.py
 │   └── app/
 │       ├── api/
-│       │   ├── api.py                # Central router (auth/decks/cards)
-│       │   └── endpoints/{auth,decks,cards}.py
+│       │   ├── api.py                # Central router (auth/decks/cards/games/etc.)
+│       │   └── endpoints/{auth,decks,cards,games}.py
 │       ├── core/{config.py, sm2.py}  # Settings + SM-2 algorithm
 │       ├── db/session.py             # SQLModel engine, get_session, init_db
-│       ├── models/domain.py          # 5 SQLModel tables (see §5)
-│       ├── schemas/{user,deck,card}.py   # Pydantic DTOs
+│       ├── models/domain.py          # SQLModel tables (see §5)
+│       ├── schemas/{user,deck,card,game}.py   # Pydantic DTOs
 │       ├── services/                 # Business logic (CRUD + analytics)
 │       └── utils/{security,jwt_auth,card_pipeline}.py
 ├── frontend/                         # FRONTEND (Next.js 16)
 │   └── src/
 │       ├── app/                      # Routes: page.tsx, login, signup,
 │       │                             # workspace, generate, analytics,
-│       │                             # study/[deckId], deck/[shareToken]
+│       │                             # study/[deckId], play/[deckId], deck/[shareToken]
 │       ├── components/{AppShell,ThemeProvider,ThemeToggle}.tsx
 │       └── lib/app-client.ts         # API client + localStorage auth + offline cache
 ├── scripts/{deploy.sh, setup_hooks.sh, log_hook.py}
@@ -131,6 +132,7 @@ A20-App-001/
 | `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `created_at` | `source_context` stores original text for citations |
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
 | `study_sessions` | `id`, `user_id`, `deck_id`, `session_date`, `cards_reviewed`, `avg_quality` | UniqueConstraint on (user_id, deck_id, session_date) |
+| `game_sessions` | `id`, `user_id`, `deck_id`, `mode`, `status`, `campaign_json`, `score`, `xp_earned`, `accuracy`, `total_questions`, `correct_answers`, `started_at`, `completed_at`, `created_at` | Stores AI Adventure Campaign payloads and final score/XP |
 | `user_settings` | `id`, `user_id`, `daily_new_limit`, `daily_review_limit`, `timezone` | Per-user study limits and IANA timezone for local-date features |
 
 **Schema is managed via Alembic migrations.**
@@ -176,13 +178,37 @@ Base: `/api` (mounted in `src/main.py`)
 | POST | `/explain` | `{front, back, message, source_context?, history[]}` | AI explain card with citations |
 | GET | `/{deck_id}/analytics` | `?user_id=N` | Per-deck analytics |
 
+### Games (`/api/games/`)
+| Method | Path | Params/Body | Description |
+|---|---|---|---|
+| POST | `/campaign/{deck_id}/start` | `{user_id, card_count}` | AI calls OpenAI once to create an Adventure Campaign from deck cards; saves `game_sessions` row |
+| POST | `/campaign/{session_id}/complete` | `{user_id, score, xp_earned, accuracy, total_questions, correct_answers}` | Mark campaign complete and persist score/XP |
+| GET | `/sessions` | `?user_id=N&limit=10` | List recent game sessions |
+
 ## 7. AI Integration
 
-- **Provider:** Anthropic Claude via `langchain-anthropic.ChatAnthropic`
-- **Base URL:** `https://api.shopaikey.com` (proxy, configured in `cards.py:get_llm()`)
+- **Provider:** OpenAI via `langchain_openai.ChatOpenAI`
+- **Model:** `gpt-4o-mini` in `cards.py:get_llm()`
+- **API key:** `OPENAI_API_KEY` loaded from environment / `.env`
 - **Card generation prompt** (`CARD_PROMPT`): Generates N flashcards as JSON array, auto-detects language, includes `source_context` for citation grounding
 - **Explain prompt** (`EXPLAIN_PROMPT`): Tutor-style explanation with `[1]`, `[2]` citation markers + JSON response with `{answer, citations[{id, text, source}]}`
 - **Chunked generation:** Documents are split into chunks of 4 pages, each generating 8-30 cards
+- **Adventure Campaign prompt** (`CAMPAIGN_PROMPT` in `src/app/api/endpoints/games.py`): Calls OpenAI once at game start, returns a staged multiple-choice campaign with title, premise, final goal, stages, questions, smart distractors, hints, and explanations.
+- **Game fallback:** if OpenAI fails during campaign start, backend builds a deterministic fallback campaign from deck cards so the play route can still start.
+
+## 7.1 Gamification / Adventure Campaign
+
+- **Frontend route:** `frontend/src/app/play/[deckId]/page.tsx`
+- **Entry points:** Workspace summary and each deck card expose a `Chơi` action when the deck has at least 2 cards.
+- **Backend router:** `src/app/api/endpoints/games.py`, mounted at `/api/games`.
+- **Service:** `src/app/services/game_service.py` normalizes AI output, builds fallback campaigns, creates/completes `game_sessions`, and lists sessions.
+- **Session storage:** campaign JSON + score/XP/accuracy are persisted in `game_sessions`.
+- **Learning integration:** each answer maps to existing SM-2 quality and calls `/api/cards/progress`:
+  - correct without hint → quality `3`
+  - correct with hint → quality `2`
+  - wrong with hint → quality `1`
+  - wrong without hint → quality `0`
+- **MVP scope:** solo Adventure Campaign only; no multiplayer, public leaderboard, or anti-cheat yet.
 
 ## 8. Frontend Design System
 
@@ -221,25 +247,26 @@ Base: `/api` (mounted in `src/main.py`)
 
 | Env Var | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Yes | API key for Claude |
+| `OPENAI_API_KEY` | Yes | API key for OpenAI card generation, explanations, and Adventure Campaign generation |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `NEXT_PUBLIC_API_URL` | Yes (build-time) | Backend URL for frontend fetch calls |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | For Google login | Google OAuth client ID |
-| `DEFAULT_MODEL` | No | LLM model name (default: claude-3-5-sonnet) |
+| `DEFAULT_MODEL` | No | LLM model name (default: gpt-4o-mini) |
 | `APP_TIMEZONE` | No | Default IANA timezone for local-date features such as study day, due cards, analytics, and Celery schedules (default: `Asia/Ho_Chi_Minh`) |
 
 ## 10. Known Issues & Gotchas
 
 1. **No auth middleware** — `user_id` is passed as a query param/body field. Anyone can impersonate any user. Known prototype-phase limitation.
-2. **No Alembic migrations** — Schema changes must be applied manually with `ALTER TABLE` on production PostgreSQL.
+2. **Alembic is required for schema changes** — Runtime `create_all()` is disabled; run `./.venv/bin/alembic upgrade head` after pulling migrations.
 3. **`source_context` column** — Added after initial schema. If production DB was created before, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
-4. **Anthropic base_url** — Backend uses a proxy (`api.shopaikey.com`), NOT the official Anthropic API. Hardcoded in `cards.py:get_llm()`.
+4. **OpenAI generation model** — `cards.py:get_llm()` currently hardcodes `gpt-4o-mini` instead of reading `DEFAULT_MODEL`.
 5. **`@app.on_event("startup")` is deprecated** in newer FastAPI — should eventually migrate to lifespan.
 6. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
 7. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.
 8. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
-9. **CORS origins** — Hardcoded in `main.py`: `mem.io.vn`, `api.mem.io.vn`, `localhost:3000`. Add new domains there.
-10. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
+9. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
+10. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
+11. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
 
 ## 11. Development Workflow
 
