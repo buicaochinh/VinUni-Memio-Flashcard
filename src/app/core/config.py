@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     
     # App Config
-    DEFAULT_MODEL: str = "claude-3-5-sonnet-20240620"
+    DEFAULT_MODEL: str = "gpt-4o-mini"
     LOG_LEVEL: str = "INFO"
     APP_TIMEZONE: str = "Asia/Ho_Chi_Minh"
     
