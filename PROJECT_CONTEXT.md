@@ -48,8 +48,9 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 3. Upload documents → AI generates flashcards → User reviews & edits → Save
 4. Study with flip-card UI (rate 0-3) → SM-2 schedules next review
 5. View Analytics (streak, heatmap, hardest cards, forgetting rate)
-6. Play an AI Adventure Campaign from a deck → answer staged quiz challenges, update SM-2, save score/XP
-7. Optionally share decks via public link
+6. Ask Memio Coach for personalized guidance, explanations, quizzes, citations, and next actions
+7. Play an AI Adventure Campaign from a deck → answer staged quiz challenges, update SM-2, save score/XP
+8. Optionally share decks via public link
 
 **Live domain:** `mem.io.vn` (frontend) / `api.mem.io.vn` (backend)
 
@@ -99,19 +100,20 @@ A20-App-001/
 │   ├── agent/                        # Agent subsystem (runtime + tools); app calls it via services/agent_service.py
 │   └── app/
 │       ├── api/
-│       │   ├── api.py                # Central router (auth/decks/cards/games/etc.)
-│       │   └── endpoints/{auth,decks,cards,games}.py
+│       │   ├── api.py                # Central router (auth/decks/cards/games/coach/etc.)
+│       │   └── endpoints/{auth,decks,cards,games,coach}.py
 │       ├── core/{config.py, sm2.py}  # Settings + SM-2 algorithm
 │       ├── db/session.py             # SQLModel engine, get_session, init_db
 │       ├── models/domain.py          # SQLModel tables (see §5)
-│       ├── schemas/{user,deck,card,game}.py   # Pydantic DTOs
+│       ├── schemas/{user,deck,card,game,coach}.py   # Pydantic DTOs
 │       ├── services/                 # Business logic (CRUD + analytics)
 │       └── utils/{security,jwt_auth,card_pipeline}.py
 ├── frontend/                         # FRONTEND (Next.js 16)
 │   └── src/
 │       ├── app/                      # Routes: page.tsx, login, signup,
 │       │                             # workspace, generate, analytics,
-│       │                             # study/[deckId], play/[deckId], deck/[shareToken]
+│       │                             # study/[deckId], play/[deckId], coach,
+│       │                             # deck/[shareToken]
 │       ├── components/{AppShell,ThemeProvider,ThemeToggle}.tsx
 │       └── lib/app-client.ts         # API client + localStorage auth + offline cache
 ├── scripts/{deploy.sh, setup_hooks.sh, log_hook.py}
@@ -133,6 +135,8 @@ A20-App-001/
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
 | `study_sessions` | `id`, `user_id`, `deck_id`, `session_date`, `cards_reviewed`, `avg_quality` | UniqueConstraint on (user_id, deck_id, session_date) |
 | `game_sessions` | `id`, `user_id`, `deck_id`, `mode`, `status`, `campaign_json`, `score`, `xp_earned`, `accuracy`, `total_questions`, `correct_answers`, `started_at`, `completed_at`, `created_at` | Stores AI Adventure Campaign payloads and final score/XP |
+| `coach_threads` | `id`, `user_id`, `title`, `context_deck_id`, `created_at`, `updated_at` | Memio Coach conversation threads |
+| `coach_messages` | `id`, `thread_id`, `user_id`, `role`, `content`, `citations_json`, `actions_json`, `created_at` | Stored Coach messages, citations, and suggested actions |
 | `user_settings` | `id`, `user_id`, `daily_new_limit`, `daily_review_limit`, `timezone` | Per-user study limits and IANA timezone for local-date features |
 
 **Schema is managed via Alembic migrations.**
@@ -185,6 +189,14 @@ Base: `/api` (mounted in `src/main.py`)
 | POST | `/campaign/{session_id}/complete` | `{user_id, score, xp_earned, accuracy, total_questions, correct_answers}` | Mark campaign complete and persist score/XP |
 | GET | `/sessions` | `?user_id=N&limit=10` | List recent game sessions |
 
+### Coach (`/api/coach/`)
+| Method | Path | Params/Body | Description |
+|---|---|---|---|
+| GET | `/threads` | `?user_id=N&limit=20` | List Memio Coach threads |
+| GET | `/threads/{thread_id}/messages` | `?user_id=N` | List stored messages for a thread |
+| POST | `/message` | `{user_id, message, thread_id?, context_deck_id?, mode?}` | Send a message to Memio Coach; returns answer, citations, and suggested actions |
+| POST | `/quiz/start` | `{user_id, deck_id?, count}` | Build an inline multiple-choice quiz for Coach chat from weak/due cards |
+
 ## 7. AI Integration
 
 - **Provider:** OpenAI via `langchain_openai.ChatOpenAI`
@@ -195,6 +207,7 @@ Base: `/api` (mounted in `src/main.py`)
 - **Chunked generation:** Documents are split into chunks of 4 pages, each generating 8-30 cards
 - **Adventure Campaign prompt** (`CAMPAIGN_PROMPT` in `src/app/api/endpoints/games.py`): Calls OpenAI once at game start, returns a staged multiple-choice campaign with title, premise, final goal, stages, questions, smart distractors, hints, and explanations.
 - **Game fallback:** if OpenAI fails during campaign start, backend builds a deterministic fallback campaign from deck cards so the play route can still start.
+- **Memio Coach prompt** (`COACH_SYSTEM_PROMPT` in `src/app/services/coach_service.py`): AI study companion that prioritizes internal decks/cards/progress/analytics, uses `source_context` citations, falls back to web search when needed, and returns structured JSON `{answer, citation_ids, actions}`.
 
 ## 7.1 Gamification / Adventure Campaign
 
@@ -209,6 +222,21 @@ Base: `/api` (mounted in `src/main.py`)
   - wrong with hint → quality `1`
   - wrong without hint → quality `0`
 - **MVP scope:** solo Adventure Campaign only; no multiplayer, public leaderboard, or anti-cheat yet.
+
+## 7.2 Memio Coach
+
+- **UI name:** Memio Coach.
+- **Frontend surfaces:** floating panel in `AppShell` (`CoachLauncher`) and full-page route `frontend/src/app/coach/page.tsx`.
+- **Shared chat UI:** `frontend/src/components/CoachChat.tsx`.
+- **Backend router:** `src/app/api/endpoints/coach.py`, mounted at `/api/coach`.
+- **Service:** `src/app/services/coach_service.py`.
+- **Memory:** `coach_threads` and `coach_messages` store conversations globally by user, optionally attached to a deck.
+- **Context priority:** internal data (decks, flashcards, progress, analytics, weak cards) → `source_context` citations → web search fallback.
+- **Web search:** MVP uses DuckDuckGo Instant Answer API opportunistically when the user asks for web/latest/outside-document help; web citations must not override internal data.
+- **Inline quiz:** `quiz_in_chat` stays inside the Coach panel/page, uses `/api/coach/quiz/start`, renders multiple-choice questions in chat, and updates SM-2 via `/api/cards/progress` on each answer.
+- **Citations:** if the model omits `citation_ids`, backend attaches the most relevant internal card citations as fallback.
+- **Action model:** Coach returns suggested actions such as `start_study`, `start_challenge`, `create_cards`, and `quiz_in_chat`. Backend sanitizes all actions against decks owned by the user before returning them. Navigation/challenge actions do not require confirmation; content-changing actions should require confirmation. Prefer `quiz_in_chat` over redirecting when the user is already chatting.
+- **Quick actions:** "Hôm nay học gì?", "Quiz tôi", "Giải thích thẻ khó", "Tạo thử thách".
 
 ## 8. Frontend Design System
 
@@ -265,8 +293,9 @@ Base: `/api` (mounted in `src/main.py`)
 7. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.
 8. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
 9. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
-10. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
-11. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
+10. **Memio Coach migration** — Missing `coach_threads`/`coach_messages` means migration `0012_coach_threads` has not been applied; run `./.venv/bin/alembic upgrade head`.
+11. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
+12. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
 
 ## 11. Development Workflow
 
