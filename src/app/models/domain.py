@@ -141,6 +141,29 @@ class StudySession(SQLModel, table=True):
     avg_quality: float = 0
 
 
+class GameSession(SQLModel, table=True):
+    __tablename__ = "game_sessions"
+    __table_args__ = (
+        Index("ix_game_sessions_user_deck", "user_id", "deck_id"),
+        Index("ix_game_sessions_created_at", "created_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    deck_id: int = Field(foreign_key="decks.id", index=True)
+    mode: str = "adventure_campaign"
+    status: str = "started"
+    campaign_json: str
+    score: int = 0
+    xp_earned: int = 0
+    accuracy: float = 0
+    total_questions: int = 0
+    correct_answers: int = 0
+    started_at: datetime = Field(default_factory=utc_now_naive)
+    completed_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
 class IngestionSource(SQLModel, table=True):
     __tablename__ = "ingestion_sources"
     __table_args__ = (
