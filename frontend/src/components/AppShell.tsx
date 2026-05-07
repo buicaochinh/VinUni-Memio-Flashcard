@@ -5,10 +5,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { clearStoredUser, syncBrowserTimezone, User } from "../lib/app-client";
-import { BarChart3, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon } from "lucide-react";
+import { BarChart3, Bot, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
 import { Button } from "./ui/button";
+import CoachLauncher from "./CoachLauncher";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ type AppShellProps = {
 const NAV_ITEMS = [
   { href: "/workspace",  label: "Bộ thẻ",      icon: LibraryBig },
   { href: "/generate",   label: "Tạo thẻ",     icon: Sparkles },
+  { href: "/coach",      label: "Coach",       icon: Bot },
   { href: "/analytics",  label: "Thống kê",    icon: BarChart3 },
   { href: "/integrations", label: "Liên kết", icon: Plug },
 ];
@@ -151,6 +153,7 @@ export default function AppShell({ children, user }: AppShellProps) {
           <span className="text-[11px] font-bold">Thoát</span>
         </button>
       </nav>
+      <CoachLauncher user={user} />
     </div>
   );
 }
