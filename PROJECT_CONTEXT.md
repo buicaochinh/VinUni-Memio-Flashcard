@@ -40,7 +40,7 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 
 ## 1. Product Overview
 
-**Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (Anthropic Claude) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
+**Memio** is an AI-powered flashcard learning platform. Users upload PDF/DOCX/TXT documents, the AI (OpenAI via `langchain-openai`) extracts key concepts and generates flashcards, and users study them with the SM-2 spaced-repetition algorithm.
 
 **Core user flow:**
 1. Login (Google OAuth / Username-Password / Guest)
@@ -61,9 +61,9 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 │   Port 3000     │       │   Port 8000      │       │   Port 5432      │
 └────────┬────────┘       └────────┬─────────┘       └──────────────────┘
          │                         │
-         │ GIS SDK                 │ Anthropic API
+         │ GIS SDK                 │ OpenAI API
          ▼                         ▼
-   Google OAuth             Claude 3.5 Sonnet
+   Google OAuth             GPT-4o mini
 ```
 
 - **Monorepo** — backend (`src/`) and frontend (`frontend/`) live in the same repo
@@ -82,7 +82,7 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 | **Backend** | FastAPI (Python) | 0.115+ |
 | **ORM** | SQLModel (SQLAlchemy + Pydantic hybrid) | — |
 | **Database** | PostgreSQL (remote server) | — |
-| **AI** | Anthropic Claude via `langchain-anthropic` | claude-3-5-sonnet |
+| **AI** | OpenAI via `langchain-openai` | gpt-4o-mini |
 | **Doc parsing** | PyPDFLoader, Docx2txtLoader, TextLoader | — |
 | **Containerisation** | Docker Compose + Caddy | Alpine images |
 | **Password hashing** | passlib[bcrypt] | — |
@@ -178,8 +178,9 @@ Base: `/api` (mounted in `src/main.py`)
 
 ## 7. AI Integration
 
-- **Provider:** Anthropic Claude via `langchain-anthropic.ChatAnthropic`
-- **Base URL:** `https://api.shopaikey.com` (proxy, configured in `cards.py:get_llm()`)
+- **Provider:** OpenAI via `langchain_openai.ChatOpenAI`
+- **Model:** `gpt-4o-mini` in `cards.py:get_llm()`
+- **API key:** `OPENAI_API_KEY` loaded from environment / `.env`
 - **Card generation prompt** (`CARD_PROMPT`): Generates N flashcards as JSON array, auto-detects language, includes `source_context` for citation grounding
 - **Explain prompt** (`EXPLAIN_PROMPT`): Tutor-style explanation with `[1]`, `[2]` citation markers + JSON response with `{answer, citations[{id, text, source}]}`
 - **Chunked generation:** Documents are split into chunks of 4 pages, each generating 8-30 cards
@@ -221,11 +222,11 @@ Base: `/api` (mounted in `src/main.py`)
 
 | Env Var | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Yes | API key for Claude |
+| `OPENAI_API_KEY` | Yes | API key for OpenAI card generation/explanations |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `NEXT_PUBLIC_API_URL` | Yes (build-time) | Backend URL for frontend fetch calls |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | For Google login | Google OAuth client ID |
-| `DEFAULT_MODEL` | No | LLM model name (default: claude-3-5-sonnet) |
+| `DEFAULT_MODEL` | No | LLM model name (default: gpt-4o-mini) |
 | `APP_TIMEZONE` | No | Default IANA timezone for local-date features such as study day, due cards, analytics, and Celery schedules (default: `Asia/Ho_Chi_Minh`) |
 
 ## 10. Known Issues & Gotchas
@@ -233,7 +234,7 @@ Base: `/api` (mounted in `src/main.py`)
 1. **No auth middleware** — `user_id` is passed as a query param/body field. Anyone can impersonate any user. Known prototype-phase limitation.
 2. **No Alembic migrations** — Schema changes must be applied manually with `ALTER TABLE` on production PostgreSQL.
 3. **`source_context` column** — Added after initial schema. If production DB was created before, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
-4. **Anthropic base_url** — Backend uses a proxy (`api.shopaikey.com`), NOT the official Anthropic API. Hardcoded in `cards.py:get_llm()`.
+4. **OpenAI generation model** — `cards.py:get_llm()` currently hardcodes `gpt-4o-mini` instead of reading `DEFAULT_MODEL`.
 5. **`@app.on_event("startup")` is deprecated** in newer FastAPI — should eventually migrate to lifespan.
 6. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
 7. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.

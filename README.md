@@ -119,10 +119,10 @@ Sao chép `.env.example` thành `.env` và điền các giá trị. Danh sách d
 
 | Biến | Bắt buộc | Mặc định | Mô tả |
 | --- | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | **Có** | — | API key Anthropic Claude |
-| `OPENAI_API_KEY` | Tùy chọn | — | API key OpenAI (fallback) |
+| `OPENAI_API_KEY` | **Có** | — | API key OpenAI cho sinh thẻ/giải thích |
+| `ANTHROPIC_API_KEY` | Tùy chọn | — | Biến legacy, hiện không dùng cho luồng sinh thẻ chính |
 | `OPENROUTER_API_KEY` | Tùy chọn | — | API key OpenRouter (fallback) |
-| `DEFAULT_MODEL` | Không | `claude-3-5-sonnet-20240620` | Model LLM mặc định |
+| `DEFAULT_MODEL` | Không | `gpt-4o-mini` | Model LLM mặc định |
 | `NEXT_PUBLIC_API_URL` | **Có (deploy)** | — | URL backend dùng khi build Docker frontend (`docker-compose.yml` truyền build-arg) |
 | `NEXT_PUBLIC_API_BASE_URL` | **Có (dev)** | `http://localhost:8000` | URL backend dùng trong dev (frontend đọc trong `frontend/src/lib/app-client.ts`) |
 | `DATABASE_URL` | **Có** | — | PostgreSQL connection string |

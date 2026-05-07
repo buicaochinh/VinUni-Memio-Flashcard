@@ -155,6 +155,16 @@ Xem `docs/templates/WORKLOG.template.md`.
 
 ---
 
+### [ADR-6] Chuyển luồng sinh thẻ chính sang OpenAI — 07/05/2026
+
+**Bối cảnh:** Luồng sinh thẻ hiện tại đã được chuyển khỏi Anthropic Claude và dùng OpenAI API cho card generation/explanations.
+
+**Quyết định:** Dùng `OPENAI_API_KEY` làm key bắt buộc cho luồng AI chính. Backend gọi `langchain_openai.ChatOpenAI` với model mặc định `gpt-4o-mini`.
+
+**Hệ quả:** Tài liệu vận hành, `.env.example`, README, `PROJECT_CONTEXT.md`, diagrams, default model và message lỗi cần phản ánh OpenAI là provider hiện tại. `ANTHROPIC_API_KEY` chỉ còn là biến legacy/optional trong config.
+
+---
+
 ### Sprint 3 — 14/04 → 21/04/2026
 
 - Cập nhật SQL ORM & Model Mapping (Cao Chinh Bùi) — 20/04 — ✅

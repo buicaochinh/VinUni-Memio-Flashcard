@@ -255,7 +255,7 @@ async def preview_cards(
         err = str(e).lower()
         if "429" in str(e):
             if "invalid" in err or "new_api_error" in err:
-                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra ANTHROPIC_API_KEY trong file .env") from e
+                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
             raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
 
@@ -303,7 +303,7 @@ async def generate_cards(
         err = str(e).lower()
         if "429" in str(e):
             if "invalid" in err or "new_api_error" in err:
-                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra ANTHROPIC_API_KEY trong file .env") from e
+                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
             raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
 
