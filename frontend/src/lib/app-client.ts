@@ -112,6 +112,45 @@ export type ExplainResponse = {
   citations?: ExplainCitation[];
 };
 
+export type GameQuestion = {
+  id: string;
+  card_id: number;
+  stage_id: string;
+  prompt: string;
+  choices: string[];
+  answer_index: number;
+  hint: string;
+  explanation: string;
+  difficulty: "easy" | "medium" | "hard" | string;
+};
+
+export type GameStage = {
+  id: string;
+  title: string;
+  mission: string;
+  questions: GameQuestion[];
+};
+
+export type GameCampaign = {
+  title: string;
+  premise: string;
+  final_goal: string;
+  stages: GameStage[];
+};
+
+export type GameStartResponse = {
+  session_id: number;
+  campaign: GameCampaign;
+};
+
+export type GameCompleteResponse = {
+  session_id: number;
+  status: string;
+  score: number;
+  xp_earned: number;
+  accuracy: number;
+};
+
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 export const API_BASE_URL =
@@ -504,6 +543,45 @@ export async function updateCardProgress(
     }),
   });
   if (!res.ok) throw new Error("UPDATE_PROGRESS_FAILED");
+}
+
+// ─── Games ───────────────────────────────────────────────────────────────────
+
+export async function startAdventureCampaign(
+  deckId: number,
+  userId: number,
+  cardCount = 12
+): Promise<GameStartResponse> {
+  const res = await fetch(apiUrl(`/api/games/campaign/${deckId}/start`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, card_count: cardCount }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? "START_GAME_FAILED");
+  }
+  return res.json() as Promise<GameStartResponse>;
+}
+
+export async function completeAdventureCampaign(
+  sessionId: number,
+  payload: {
+    user_id: number;
+    score: number;
+    xp_earned: number;
+    accuracy: number;
+    total_questions: number;
+    correct_answers: number;
+  }
+): Promise<GameCompleteResponse> {
+  const res = await fetch(apiUrl(`/api/games/campaign/${sessionId}/complete`), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("COMPLETE_GAME_FAILED");
+  return res.json() as Promise<GameCompleteResponse>;
 }
 
 export async function logStudySession(
