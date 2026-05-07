@@ -5,6 +5,7 @@ from src.app.api.endpoints import integrations_telegram
 from src.app.api.endpoints import ingestion
 from src.app.api.endpoints import notion
 from src.app.api.endpoints import games
+from src.app.api.endpoints import coach
 
 api_router = APIRouter()
 
@@ -17,3 +18,4 @@ api_router.include_router(integrations_telegram.router, prefix="/integrations", 
 api_router.include_router(ingestion.router, prefix="/ingestion", tags=["Ingestion"])
 api_router.include_router(notion.router, prefix="/notion", tags=["Notion"])
 api_router.include_router(games.router, prefix="/games", tags=["Games"])
+api_router.include_router(coach.router, prefix="/coach", tags=["Coach"])
