@@ -8,6 +8,8 @@ from src.app.schemas.coach import (
     CoachMessageResponse,
     CoachQuizStartRequest,
     CoachQuizStartResponse,
+    CoachQuizSummaryRequest,
+    CoachQuizSummaryResponse,
     CoachStoredMessage,
     CoachThreadSummary,
 )
@@ -70,3 +72,30 @@ def start_inline_quiz(payload: CoachQuizStartRequest, session: Session = Depends
     if not questions:
         raise HTTPException(status_code=422, detail="Cần ít nhất 2 flashcards để quiz trong chat.")
     return {"questions": questions}
+
+
+@router.post("/quiz/summary", response_model=CoachQuizSummaryResponse)
+def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, session: Session = Depends(get_session)):
+    summary = payload.summary.strip()
+    if not summary:
+        raise HTTPException(status_code=422, detail="Tóm tắt quiz không được để trống.")
+
+    thread = coach_service.get_or_create_thread(
+        session,
+        payload.user_id,
+        payload.thread_id,
+        payload.context_deck_id,
+    )
+    message = coach_service.save_message(
+        session,
+        thread,
+        payload.user_id,
+        "assistant",
+        summary,
+        citations=[],
+        actions=[action.model_dump() for action in payload.actions],
+    )
+    return {
+        "thread_id": thread.id,
+        "message": coach_service.stored_message_to_dict(message),
+    }
