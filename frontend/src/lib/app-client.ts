@@ -31,6 +31,9 @@ export type Card = {
   last_quality?: number | null;
   last_reviewed?: string | null;
   next_review?: string | null;
+  image_type?: "diagram" | "real_image" | null;
+  image_url?: string | null;
+  diagram_spec?: string | null;
 };
 
 export type UserSettings = {
@@ -43,6 +46,9 @@ export type PreviewCard = {
   front: string;
   back: string;
   difficulty: "easy" | "medium" | "hard";
+  image_type?: "diagram" | "real_image" | null;
+  image_url?: string | null;
+  diagram_spec?: string | null;
 };
 
 export type AnalyticsData = {
@@ -554,6 +560,36 @@ export async function previewCards(deckId: number, files: File[], count = 100): 
   }
   const data = await res.json();
   return (data.cards ?? []) as PreviewCard[];
+}
+
+/** Trigger DALL-E 3 image generation for saved cards in a deck that have image_type="real_image" */
+export async function generateDeckImages(deckId: number): Promise<{ generated: number; total_candidates: number }> {
+  const res = await fetch(apiUrl(`/api/cards/${deckId}/generate_images`), { method: "POST" });
+  if (!res.ok) throw new Error("GENERATE_IMAGES_FAILED");
+  return res.json();
+}
+
+/** Upload document → LLM picks visual concepts → DALL-E generates images → save cards to deck */
+export async function generateImageCards(
+  deckId: number,
+  files: File[],
+  count = 15,
+): Promise<{ saved: number; real_image: number; diagram: number }> {
+  const form = new FormData();
+  files.forEach((f) => form.append("files", f));
+  form.append("count", String(count));
+  const res = await fetch(apiUrl(`/api/cards/${deckId}/generate_image_cards`), {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map((e: { msg?: string; loc?: string[] }) => `${e.loc?.join(".")}: ${e.msg}`).join("; ")
+      : (body.detail ?? `HTTP ${res.status}`);
+    throw new Error(detail);
+  }
+  return res.json();
 }
 
 /** Save the reviewed/edited cards from preview to the deck */
