@@ -22,8 +22,12 @@ scratch/
 
 # AI logs — tracked structure, ignored content
 .ai-log/*.jsonl
+frontend/.ai-log/
 
 # Claude Code — personal settings only, project settings.json is tracked
 .claude/settings.local.json
 .claude/
 .codex/
+
+#image:
+frontend/public/generated-images/
