@@ -52,6 +52,8 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 7. Play an AI Adventure Campaign from a deck → answer staged quiz challenges, update SM-2, save score/XP
 8. Optionally share decks via public link
 
+**Current product improvement focus (Sprint 1):** Workspace now uses a Daily Mission / best-next-action module instead of a passive summary. It computes the priority deck from due/new cards, shows estimated study time, and routes the primary CTA to create a deck, generate cards, study, or challenge based on the user's state.
+
 **Live domain:** `mem.io.vn` (frontend) / `api.mem.io.vn` (backend)
 
 ## 2. Architecture
@@ -196,6 +198,7 @@ Base: `/api` (mounted in `src/main.py`)
 | GET | `/threads/{thread_id}/messages` | `?user_id=N` | List stored messages for a thread |
 | POST | `/message` | `{user_id, message, thread_id?, context_deck_id?, mode?}` | Send a message to Memio Coach; returns answer, citations, and suggested actions |
 | POST | `/quiz/start` | `{user_id, deck_id?, count}` | Build an inline multiple-choice quiz for Coach chat from weak/due cards |
+| POST | `/quiz/summary` | `{user_id, summary, thread_id?, context_deck_id?, actions[]}` | Persist an inline quiz result summary into a Coach thread |
 
 ## 7. AI Integration
 
@@ -227,13 +230,15 @@ Base: `/api` (mounted in `src/main.py`)
 
 - **UI name:** Memio Coach.
 - **Frontend surfaces:** floating panel in `AppShell` (`CoachLauncher`) and full-page route `frontend/src/app/coach/page.tsx`.
+- **Proactive launcher:** `CoachLauncher` fetches the user's decks and study summaries to show one non-blocking suggestion before chat is opened, such as create deck, add cards, review due cards, start challenge, or quiz in chat.
 - **Shared chat UI:** `frontend/src/components/CoachChat.tsx`.
+- **Thread continuity:** when a floating Coach conversation has a `threadId`, the expand button links to `/coach?threadId={id}` and the full Coach page hydrates stored messages with `/api/coach/threads/{thread_id}/messages`. In-progress client-only chat/quiz state is also mirrored in `localStorage` as `memio_coach_draft_{userId}` so expanding the panel can continue an unfinished inline quiz before it has been summarized to the backend.
 - **Backend router:** `src/app/api/endpoints/coach.py`, mounted at `/api/coach`.
 - **Service:** `src/app/services/coach_service.py`.
 - **Memory:** `coach_threads` and `coach_messages` store conversations globally by user, optionally attached to a deck.
 - **Context priority:** internal data (decks, flashcards, progress, analytics, weak cards) → `source_context` citations → web search fallback.
 - **Web search:** MVP uses DuckDuckGo Instant Answer API opportunistically when the user asks for web/latest/outside-document help; web citations must not override internal data.
-- **Inline quiz:** `quiz_in_chat` stays inside the Coach panel/page, uses `/api/coach/quiz/start`, renders multiple-choice questions in chat, and updates SM-2 via `/api/cards/progress` on each answer.
+- **Inline quiz:** `quiz_in_chat` stays inside the Coach panel/page, uses `/api/coach/quiz/start`, renders multiple-choice questions in chat, updates SM-2 via `/api/cards/progress` on each answer, then persists a score/XP/weak-question summary via `/api/coach/quiz/summary`.
 - **Citations:** if the model omits `citation_ids`, backend attaches the most relevant internal card citations as fallback.
 - **Action model:** Coach returns suggested actions such as `start_study`, `start_challenge`, `create_cards`, and `quiz_in_chat`. Backend sanitizes all actions against decks owned by the user before returning them. Navigation/challenge actions do not require confirmation; content-changing actions should require confirmation. Prefer `quiz_in_chat` over redirecting when the user is already chatting.
 - **Quick actions:** "Hôm nay học gì?", "Quiz tôi", "Giải thích thẻ khó", "Tạo thử thách".
@@ -246,6 +251,8 @@ Base: `/api` (mounted in `src/main.py`)
 - **Component patterns:**
   - `AppShell` wraps authenticated pages (sidebar 260px desktop + mobile bottom nav).
   - `ThemeToggle` uses `mounted` state to prevent SSR hydration mismatch.
+  - Workspace hero is action-first: the Daily Mission module shows one primary next action, compact supporting stats, and secondary Coach/deck actions.
+  - `CoachLauncher` floats above mobile bottom nav (`bottom-24`) and returns to lower-right on desktop (`md:bottom-6`).
   - Cards/buttons use `rounded-2xl`, `border border-border`, `bg-surface-raised`.
   - CTA buttons: `bg-primary` + `shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)]`.
 - **Auth flow (client-side):** user stored in `localStorage` key `flashcard_user`. Helpers: `getStoredUser()`, `saveStoredUser()`, `clearStoredUser()` in `app-client.ts`. All private pages check `getStoredUser()` in `useEffect` and redirect to `/` if null. Google JWT decoded client-side (`decodeGoogleJwt`) — no server-side validation.

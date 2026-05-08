@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, ExternalLink, Loader2, Send, Sparkles } from "lucide-react";
+import { Bot, CheckCircle2, ExternalLink, Loader2, Send, Sparkles, Trophy } from "lucide-react";
 import {
   CoachAction,
   CoachMessage,
   CoachQuizQuestion,
+  fetchCoachMessages,
+  saveCoachQuizSummary,
   sendCoachMessage,
   startCoachQuiz,
   updateCardProgress,
@@ -18,6 +21,9 @@ type CoachChatProps = {
   user: User;
   compact?: boolean;
   initialPrompt?: string;
+  initialQuiz?: boolean;
+  initialThreadId?: number | null;
+  onThreadChange?: (threadId: number) => void;
 };
 
 const QUICK_ACTIONS = [
@@ -51,32 +57,258 @@ function ActionButton({ action, onQuiz }: { action: CoachAction; onQuiz: () => v
   );
 }
 
+function renderInlineMarkdown(text: string) {
+  const parts: ReactNode[] = [];
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text))) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    const token = match[0];
+    if (token.startsWith("**")) {
+      parts.push(<strong key={`${token}-${match.index}`}>{token.slice(2, -2)}</strong>);
+    } else if (token.startsWith("`")) {
+      parts.push(
+        <code key={`${token}-${match.index}`} className="rounded-md bg-muted px-1.5 py-0.5 text-[0.9em] font-semibold">
+          {token.slice(1, -1)}
+        </code>
+      );
+    } else {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        parts.push(
+          <a
+            key={`${token}-${match.index}`}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            {linkMatch[1]}
+          </a>
+        );
+      }
+    }
+    lastIndex = pattern.lastIndex;
+  }
+
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
+
+function MarkdownMessage({ content, inverted = false }: { content: string; inverted?: boolean }) {
+  const blocks = content.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+
+  return (
+    <div className={cn("space-y-2", inverted ? "text-[hsl(var(--primary-foreground))]" : "text-foreground")}>
+      {blocks.map((block, blockIndex) => {
+        const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+        const heading = block.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+          const levelClass = heading[1].length === 1 ? "text-base" : "text-[0.95rem]";
+          return (
+            <h3 key={blockIndex} className={cn("font-bold tracking-tight", levelClass)}>
+              {renderInlineMarkdown(heading[2])}
+            </h3>
+          );
+        }
+
+        const isList = lines.every((line) => /^([-*]\s+|\d+\.\s+)/.test(line));
+        if (isList) {
+          const ordered = lines.every((line) => /^\d+\.\s+/.test(line));
+          const items = lines.map((line) => line.replace(/^([-*]\s+|\d+\.\s+)/, ""));
+          const ListTag = ordered ? "ol" : "ul";
+          return (
+            <ListTag
+              key={blockIndex}
+              className={cn(
+                "space-y-1 pl-5",
+                ordered ? "list-decimal" : "list-disc",
+                inverted ? "marker:text-[hsl(var(--primary-foreground))]/75" : "marker:text-muted-foreground"
+              )}
+            >
+              {items.map((item, itemIndex) => (
+                <li key={`${blockIndex}-${itemIndex}`}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ListTag>
+          );
+        }
+
+        return (
+          <p key={blockIndex} className={cn("leading-relaxed", inverted ? "text-[hsl(var(--primary-foreground))]" : "text-foreground")}>
+            {renderInlineMarkdown(lines.join(" "))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 type InlineQuizState = {
   questions: CoachQuizQuestion[];
   index: number;
   selected: number | null;
   correct: number;
+  answered: Array<{
+    question: CoachQuizQuestion;
+    selected: number;
+    correct: boolean;
+  }>;
 };
 
-export default function CoachChat({ user, compact = false, initialPrompt }: CoachChatProps) {
-  const [threadId, setThreadId] = useState<number | null>(null);
+type CoachDraft = {
+  threadId: number | null;
+  messages: CoachMessage[];
+  quiz: InlineQuizState | null;
+  updatedAt: number;
+};
+
+const COACH_DRAFT_TTL_MS = 6 * 60 * 60 * 1000;
+
+function coachDraftKey(userId: number) {
+  return `memio_coach_draft_${userId}`;
+}
+
+function readCoachDraft(userId: number): CoachDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(coachDraftKey(userId));
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as CoachDraft;
+    if (!draft.updatedAt || Date.now() - draft.updatedAt > COACH_DRAFT_TTL_MS) {
+      window.localStorage.removeItem(coachDraftKey(userId));
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+}
+
+function writeCoachDraft(userId: number, draft: Omit<CoachDraft, "updatedAt">) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(coachDraftKey(userId), JSON.stringify({ ...draft, updatedAt: Date.now() }));
+  } catch {
+    /* ignore local draft failures */
+  }
+}
+
+function clearCoachDraft(userId: number) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(coachDraftKey(userId));
+  } catch {
+    /* ignore */
+  }
+}
+
+function quizXp(correct: number, total: number) {
+  return correct * 12 + Math.max(0, total - correct) * 3;
+}
+
+function buildQuizSummary(answered: InlineQuizState["answered"], total: number) {
+  const correct = answered.filter((item) => item.correct).length;
+  const wrong = answered.filter((item) => !item.correct);
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const xp = quizXp(correct, total);
+  const weakLines = wrong.slice(0, 3).map((item, index) => `${index + 1}. ${item.question.prompt}`);
+  const weakText = weakLines.length > 0
+    ? `\n\nCác câu nên xem lại:\n${weakLines.join("\n")}`
+    : "\n\nBạn không sai câu nào trong lượt này.";
+
+  return {
+    correct,
+    wrong,
+    accuracy,
+    xp,
+    text: `Quiz xong: bạn đúng ${correct}/${total} câu (${accuracy}%). Bạn nhận ${xp} XP.${weakText}\n\nBước tiếp theo: quiz tiếp nếu muốn kiểm tra thêm, hoặc ôn flashcards để củng cố lịch nhớ.`,
+  };
+}
+
+export default function CoachChat({
+  user,
+  compact = false,
+  initialPrompt,
+  initialQuiz = false,
+  initialThreadId = null,
+  onThreadChange,
+}: CoachChatProps) {
+  const [threadId, setThreadId] = useState<number | null>(initialThreadId);
   const [messages, setMessages] = useState<CoachMessage[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [quiz, setQuiz] = useState<InlineQuizState | null>(null);
   const [isStartingQuiz, setIsStartingQuiz] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const initialQuizStartedRef = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isSending]);
 
   useEffect(() => {
-    if (!initialPrompt || messages.length > 0) return;
+    const draft = readCoachDraft(user.id);
+    if (draft && (!initialThreadId || draft.threadId === initialThreadId || draft.quiz)) {
+      setThreadId(draft.threadId ?? initialThreadId);
+      setMessages(draft.messages ?? []);
+      setQuiz(draft.quiz ?? null);
+      if (draft.threadId) onThreadChange?.(draft.threadId);
+    }
+    setDraftReady(true);
+  }, [initialThreadId, onThreadChange, user.id]);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    if (messages.length === 0 && !quiz && !threadId) {
+      clearCoachDraft(user.id);
+      return;
+    }
+    writeCoachDraft(user.id, { threadId, messages, quiz });
+  }, [draftReady, messages, quiz, threadId, user.id]);
+
+  useEffect(() => {
+    if (!initialThreadId) return;
+    const draft = readCoachDraft(user.id);
+    if (draft?.quiz && (!draft.threadId || draft.threadId === initialThreadId)) return;
+    const threadToLoad = initialThreadId;
+    setThreadId(threadToLoad);
+    onThreadChange?.(threadToLoad);
+    let cancelled = false;
+
+    async function hydrateThread() {
+      setError(null);
+      try {
+        const storedMessages = await fetchCoachMessages(threadToLoad, user.id);
+        if (!cancelled) setMessages(storedMessages);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Không tải được hội thoại Coach.");
+        }
+      }
+    }
+
+    void hydrateThread();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialThreadId, onThreadChange, user.id]);
+
+  useEffect(() => {
+    if (!draftReady || !initialPrompt || messages.length > 0) return;
     void handleSend(initialPrompt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPrompt]);
+  }, [draftReady, initialPrompt]);
+
+  useEffect(() => {
+    if (!draftReady || !initialQuiz || quiz || isStartingQuiz || initialQuizStartedRef.current) return;
+    initialQuizStartedRef.current = true;
+    void startInlineQuiz();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftReady, initialQuiz, quiz, isStartingQuiz]);
 
   const handleSend = async (override?: string) => {
     const text = (override ?? input).trim();
@@ -94,6 +326,7 @@ export default function CoachChat({ user, compact = false, initialPrompt }: Coac
         thread_id: threadId,
       });
       setThreadId(reply.thread_id);
+      onThreadChange?.(reply.thread_id);
       setMessages((prev) => [
         ...prev,
         {
@@ -116,7 +349,7 @@ export default function CoachChat({ user, compact = false, initialPrompt }: Coac
     setError(null);
     try {
       const questions = await startCoachQuiz({ user_id: user.id, count: 5 });
-      setQuiz({ questions, index: 0, selected: null, correct: 0 });
+      setQuiz({ questions, index: 0, selected: null, correct: 0, answered: [] });
       setMessages((prev) => [
         ...prev,
         {
@@ -136,7 +369,12 @@ export default function CoachChat({ user, compact = false, initialPrompt }: Coac
     const question = quiz.questions[quiz.index];
     const isCorrect = choiceIndex === question.answer_index;
     const quality: 0 | 1 | 2 | 3 = isCorrect ? 3 : 0;
-    setQuiz({ ...quiz, selected: choiceIndex, correct: quiz.correct + (isCorrect ? 1 : 0) });
+    setQuiz({
+      ...quiz,
+      selected: choiceIndex,
+      correct: quiz.correct + (isCorrect ? 1 : 0),
+      answered: [...quiz.answered, { question, selected: choiceIndex, correct: isCorrect }],
+    });
     await updateCardProgress(user.id, {
       id: question.card_id,
       front: question.prompt,
@@ -150,21 +388,34 @@ export default function CoachChat({ user, compact = false, initialPrompt }: Coac
     });
   };
 
-  const nextQuizQuestion = () => {
+  const nextQuizQuestion = async () => {
     if (!quiz) return;
     if (quiz.index >= quiz.questions.length - 1) {
       const total = quiz.questions.length;
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `Quiz xong: bạn đúng ${quiz.correct}/${total} câu. Muốn mình giải thích các câu sai hoặc tạo quiz tiếp không?`,
-          actions: [
-            { type: "quiz_in_chat", label: "Quiz tiếp", payload: {}, requires_confirmation: false },
-            { type: "start_study", label: "Ôn flashcards", href: "/workspace", payload: {}, requires_confirmation: false },
-          ],
-        },
-      ]);
+      const summary = buildQuizSummary(quiz.answered, total);
+      const primaryDeckId = quiz.questions[0]?.deck_id;
+      const actions: CoachAction[] = [
+        { type: "quiz_in_chat", label: "Quiz tiếp", payload: { deck_id: primaryDeckId }, requires_confirmation: false },
+        { type: "start_study", label: "Ôn flashcards", href: primaryDeckId ? `/study/${primaryDeckId}` : "/workspace", payload: { deck_id: primaryDeckId }, requires_confirmation: false },
+      ];
+      const localMessage: CoachMessage = {
+        role: "assistant",
+        content: summary.text,
+        actions,
+      };
+      setMessages((prev) => [...prev, localMessage]);
+      saveCoachQuizSummary({
+        user_id: user.id,
+        summary: summary.text,
+        thread_id: threadId,
+        context_deck_id: primaryDeckId,
+        actions,
+      }).then((saved) => {
+        setThreadId(saved.thread_id);
+        onThreadChange?.(saved.thread_id);
+      }).catch(() => {
+        setError("Quiz đã hoàn tất, nhưng chưa lưu được tóm tắt vào lịch sử Coach.");
+      });
       setQuiz(null);
       return;
     }
@@ -220,7 +471,7 @@ export default function CoachChat({ user, compact = false, initialPrompt }: Coac
                     : "mr-auto border border-border bg-background/85 text-foreground"
                 )}
               >
-                <div className="whitespace-pre-wrap">{message.content}</div>
+                <MarkdownMessage content={message.content} inverted={message.role === "user"} />
                 {message.citations && message.citations.length > 0 && (
                   <div className="mt-3 space-y-2 border-t border-border/70 pt-3">
                     {message.citations.map((citation) => (
@@ -246,12 +497,18 @@ export default function CoachChat({ user, compact = false, initialPrompt }: Coac
                   const question = quiz.questions[quiz.index];
                   const answered = quiz.selected !== null;
                   const isCorrect = quiz.selected === question.answer_index;
+                  const projectedCorrect = quiz.correct;
+                  const projectedAccuracy = Math.round((projectedCorrect / quiz.questions.length) * 100);
                   return (
                     <div className="space-y-4">
                       <div>
-                        <p className="text-xs font-semibold text-primary">
-                          Quiz {quiz.index + 1}/{quiz.questions.length} · {question.deck_name}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-primary">
+                          <span>Quiz {quiz.index + 1}/{quiz.questions.length}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span>{question.deck_name}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span>{projectedCorrect}/{quiz.questions.length} đúng</span>
+                        </div>
                         <h3 className="mt-2 font-semibold leading-relaxed">{question.prompt}</h3>
                       </div>
                       <div className="grid gap-2">
@@ -278,14 +535,24 @@ export default function CoachChat({ user, compact = false, initialPrompt }: Coac
                       </div>
                       {answered && (
                         <div className="rounded-xl bg-muted/30 px-3 py-3">
-                          <p className="font-semibold">{isCorrect ? "Đúng rồi" : "Chưa đúng"}</p>
+                          <p className="flex items-center gap-2 font-semibold">
+                            {isCorrect ? (
+                              <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" aria-hidden />
+                            ) : (
+                              <Trophy className="h-4 w-4 text-[hsl(var(--warning))]" aria-hidden />
+                            )}
+                            {isCorrect ? "Đúng rồi" : "Chưa đúng"}
+                          </p>
                           <p className="mt-1 text-muted-foreground">{question.explanation}</p>
+                          <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                            Tạm tính: {projectedAccuracy}% · {quizXp(projectedCorrect, quiz.questions.length)} XP
+                          </p>
                         </div>
                       )}
                       <div className="flex justify-end">
                         <button
                           type="button"
-                          onClick={nextQuizQuestion}
+                          onClick={() => void nextQuizQuestion()}
                           disabled={!answered}
                           className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-[hsl(var(--primary-foreground))] disabled:cursor-not-allowed disabled:opacity-50"
                         >

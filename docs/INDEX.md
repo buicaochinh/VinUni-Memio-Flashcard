@@ -5,6 +5,9 @@ Tài liệu trong repo được chia theo mục đích:
 ### Product / Người dùng
 
 - `docs/PRODUCT_GUIDE.md`: Triết lý sản phẩm, SM-2, hướng dẫn sử dụng web và Telegram Study Buddy Bot.
+- `docs/PRD_MEMIO_PRODUCT_IMPROVEMENT.md`: PRD cải tiến sản phẩm từ pilot sang growth-ready, tập trung Daily Learning Loop và Memio Coach.
+- `docs/SPRINT_PLAN_MEMIO_PRODUCT_IMPROVEMENT.md`: Sprint plan triển khai PRD cải tiến sản phẩm theo các release/sprint.
+- `docs/SPRINT_EXECUTION_LOG_MEMIO_PRODUCT_IMPROVEMENT.md`: Log kết quả triển khai theo từng sprint.
 
 ### Kỹ thuật / Dev / Vận hành (source of truth)
 
@@ -25,4 +28,3 @@ Tài liệu trong repo được chia theo mục đích:
 ### Bàn giao / ghi chú theo phiên
 
 - `handoff/SESSION_NOTES.md`: Handoff notes (không phải source of truth).
-

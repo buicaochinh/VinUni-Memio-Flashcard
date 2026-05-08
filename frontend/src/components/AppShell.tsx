@@ -153,7 +153,7 @@ export default function AppShell({ children, user }: AppShellProps) {
           <span className="text-[11px] font-bold">Thoát</span>
         </button>
       </nav>
-      <CoachLauncher user={user} />
+      {pathname !== "/coach" && <CoachLauncher user={user} />}
     </div>
   );
 }

@@ -16,7 +16,7 @@ import {
   User,
 } from "../../lib/app-client";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Copy, FolderKanban, Link2, Map, Plus, SlidersHorizontal, Sparkles, Trash, X, Lock, Globe2, Repeat } from "lucide-react";
+import { Check, Copy, FolderKanban, Link2, Map, Plus, SlidersHorizontal, Sparkles, Target, Trash, X, Lock, Globe2, Repeat } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -29,6 +29,19 @@ function shareUrl(token: string) {
 }
 
 type StudySummary = Awaited<ReturnType<typeof fetchStudySummary>>;
+
+type MissionState = "no_deck" | "no_cards" | "ready" | "complete";
+
+function actionableCount(summary?: StudySummary | null) {
+  return (summary?.due_cards ?? 0) + (summary?.new_cards ?? 0);
+}
+
+function todayProgress(summary?: StudySummary | null) {
+  const total = summary?.total_cards ?? 0;
+  if (total <= 0) return 0;
+  const remaining = Math.min(total, actionableCount(summary));
+  return Math.max(0, Math.min(100, Math.round(((total - remaining) / total) * 100)));
+}
 
 export default function WorkspacePage() {
   const router = useRouter();
@@ -82,30 +95,69 @@ export default function WorkspacePage() {
   };
 
   const totalCards = useMemo(() => Object.values(cardCounts).reduce((s, n) => s + (n?.total_cards ?? 0), 0), [cardCounts]);
+  const totalDueCards = useMemo(() => Object.values(cardCounts).reduce((s, n) => s + (n?.due_cards ?? 0), 0), [cardCounts]);
+  const totalNewCards = useMemo(() => Object.values(cardCounts).reduce((s, n) => s + (n?.new_cards ?? 0), 0), [cardCounts]);
+  const totalActionableCards = totalDueCards + totalNewCards;
   const readyDecks = useMemo(() => decks.filter((d) => {
     const sum = cardCounts[d.id];
-    return sum && (sum.due_cards + sum.new_cards) > 0;
+    return actionableCount(sum) > 0;
   }).length, [decks, cardCounts]);
-  const maxCardsInAnyDeck = useMemo(() => {
-    const vals = Object.values(cardCounts).map((s) => s?.total_cards ?? 0);
-    return vals.length ? Math.max(...vals) : 0;
-  }, [cardCounts]);
   const decksByActivity = useMemo(() => {
     return [...decks].sort((a, b) => {
       const suma = cardCounts[a.id];
       const sumb = cardCounts[b.id];
-      const aDue = suma ? suma.due_cards + suma.new_cards : 0;
-      const bDue = sumb ? sumb.due_cards + sumb.new_cards : 0;
-      return bDue - aDue;
+      const aPriority = (suma?.due_cards ?? 0) * 2 + (suma?.new_cards ?? 0);
+      const bPriority = (sumb?.due_cards ?? 0) * 2 + (sumb?.new_cards ?? 0);
+      if (bPriority !== aPriority) return bPriority - aPriority;
+      return (sumb?.total_cards ?? 0) - (suma?.total_cards ?? 0);
     });
   }, [decks, cardCounts]);
-  const firstReadyDeckId = useMemo(() => {
+  const priorityDeck = useMemo(() => {
     const d = decksByActivity.find((x) => {
       const sum = cardCounts[x.id];
-      return sum && (sum.due_cards + sum.new_cards) > 0;
+      return actionableCount(sum) > 0;
     });
-    return d?.id ?? null;
+    return d ?? decksByActivity.find((x) => (cardCounts[x.id]?.total_cards ?? 0) >= 2) ?? decksByActivity[0] ?? null;
   }, [decksByActivity, cardCounts]);
+  const prioritySummary = priorityDeck ? cardCounts[priorityDeck.id] : null;
+  const missionState: MissionState = decks.length === 0
+    ? "no_deck"
+    : totalCards === 0
+      ? "no_cards"
+      : totalActionableCards > 0
+        ? "ready"
+        : "complete";
+  const estimatedMinutes = Math.max(3, Math.min(25, Math.ceil(Math.max(1, actionableCount(prioritySummary)) * 0.75)));
+  const missionCopy = {
+    no_deck: {
+      eyebrow: "Bắt đầu",
+      title: "Tạo bộ thẻ đầu tiên",
+      body: "Đặt tên theo môn học hoặc chủ đề. Sau đó Memio sẽ giúp bạn biến tài liệu thành flashcards để ôn mỗi ngày.",
+      cta: "Tạo deck đầu tiên",
+    },
+    no_cards: {
+      eyebrow: "Cần nội dung",
+      title: "Deck đã sẵn sàng, hãy thêm thẻ",
+      body: "Bạn đã có deck nhưng chưa có flashcards. Tải tài liệu hoặc thêm thẻ để Memio tạo phiên học đầu tiên.",
+      cta: "Thêm thẻ ngay",
+    },
+    ready: {
+      eyebrow: "Nhiệm vụ hôm nay",
+      title: priorityDeck ? `Ôn ${priorityDeck.name}` : "Bắt đầu phiên học hôm nay",
+      body: priorityDeck
+        ? `${actionableCount(prioritySummary)} thẻ đang chờ trong deck này. Ưu tiên hoàn thành phiên ngắn trước khi chuyển sang thử thách.`
+        : "Bạn có thẻ cần ôn hôm nay. Hoàn thành một phiên ngắn để giữ nhịp nhớ.",
+      cta: "Bắt đầu phiên học hôm nay",
+    },
+    complete: {
+      eyebrow: "Đã ổn hôm nay",
+      title: "Không còn thẻ đến hạn",
+      body: priorityDeck
+        ? "Bạn đã xử lý xong nhịp ôn chính. Nếu còn thời gian, làm một thử thách ngắn để kiểm tra độ chắc."
+        : "Bạn đã ổn hôm nay. Có thể thêm thẻ mới để chuẩn bị phiên học tiếp theo.",
+      cta: "Kiểm tra lại bằng thử thách",
+    },
+  }[missionState];
   const filteredDecks = useMemo(() => {
     const query = q.trim().toLowerCase();
     const base = sort === "activity"
@@ -114,7 +166,7 @@ export default function WorkspacePage() {
 
     return base.filter((d) => {
       const sum = cardCounts[d.id];
-      const due = sum ? sum.due_cards + sum.new_cards : 0;
+      const due = actionableCount(sum);
       if (showReadyOnly && due <= 0) return false;
       if (!query) return true;
       const hay = `${d.name ?? ""} ${d.description ?? ""}`.toLowerCase();
@@ -174,6 +226,30 @@ export default function WorkspacePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handlePrimaryMission = () => {
+    if (missionState === "no_deck") {
+      document.getElementById("new-deck-name")?.focus();
+      return;
+    }
+    if (missionState === "no_cards") {
+      router.push(priorityDeck ? `/generate?deckId=${priorityDeck.id}` : "/generate");
+      return;
+    }
+    if (missionState === "ready" && priorityDeck) {
+      router.push(`/study/${priorityDeck.id}`);
+      return;
+    }
+    if (priorityDeck && (prioritySummary?.total_cards ?? 0) >= 2) {
+      router.push(`/play/${priorityDeck.id}`);
+      return;
+    }
+    router.push("/generate");
+  };
+
+  const goToCoachQuiz = () => {
+    router.push("/coach");
+  };
+
   if (!user) return null;
 
   return (
@@ -214,78 +290,98 @@ export default function WorkspacePage() {
           </div>
         </header>
 
-        {/* Summary + Create */}
+        {/* Daily Mission + Create */}
         <section className="grid grid-cols-1 lg:grid-cols-[1fr_360px] items-start gap-6 px-6 sm:px-8 pb-8">
         <section
-          aria-label="Tóm tắt"
-          className="self-start rounded-2xl ring-1 ring-border/80 bg-background/70 overflow-hidden shadow-sm"
+          aria-label="Nhiệm vụ hôm nay"
+          className="self-start overflow-hidden rounded-2xl ring-1 ring-border/80 bg-background/75 shadow-sm"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border">
-            {[
-              { label: "Deck", value: decks.length, hint: "tổng số" },
-              { label: "Flashcards", value: totalCards, hint: "đã tạo" },
-              { label: "Sẵn sàng", value: readyDecks, hint: "deck có thẻ" },
-            ].map((m) => (
-              <div
-                key={m.label}
-                className="px-6 py-6 flex flex-col gap-2 hover:bg-muted/40 transition-colors duration-200"
-              >
-                <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {m.label}
-                </p>
-                <p className="text-2xl sm:text-[1.65rem] font-bold tabular-nums tracking-tight">
-                  {m.value}
-                </p>
-                <p className="text-[0.8rem] text-muted-foreground leading-snug">{m.hint}</p>
-              </div>
-            ))}
-          </div>
-          <div className="px-6 py-5 border-t border-border bg-muted/20">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[0.82rem] font-semibold text-foreground">
-                  Bước tiếp theo
-                </p>
-                <p className="text-[0.85rem] text-muted-foreground leading-relaxed">
-                  {readyDecks > 0
-                    ? "Ưu tiên ôn deck đang đến hạn. Khi muốn đổi nhịp, thử chế độ Thử thách AI."
-                    : decks.length > 0
-                      ? "Deck đang trống. Thêm tài liệu để sinh flashcards trước khi ôn."
-                      : "Tạo deck đầu tiên, sau đó thêm tài liệu để sinh flashcards."}
-                </p>
+          <div>
+            <div className="px-6 py-6 sm:px-7 sm:py-7">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted/35 px-3 py-1.5 text-[0.78rem] font-semibold text-muted-foreground">
+                <Target className="h-3.5 w-3.5 text-primary" aria-hidden />
+                {missionCopy.eyebrow}
               </div>
 
-              <div className="flex flex-col gap-2 sm:min-w-[260px]">
+              <h2 className="text-2xl font-bold tracking-tight text-balance">
+                {missionCopy.title}
+              </h2>
+              <p className="mt-3 max-w-2xl text-[0.95rem] leading-relaxed text-muted-foreground">
+                {missionCopy.body}
+              </p>
+
+              {priorityDeck && totalCards > 0 && (
+                <div className="mt-5 rounded-2xl border border-border/70 bg-muted/20 px-4 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[0.78rem] font-semibold text-muted-foreground">
+                        Deck ưu tiên
+                      </p>
+                      <p className="mt-1 truncate text-[0.95rem] font-semibold text-foreground">
+                        {priorityDeck.name}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[300px]">
+                      <div className="rounded-xl bg-background/70 px-3 py-2 ring-1 ring-border/70">
+                        <p className="text-lg font-bold tabular-nums">{prioritySummary?.due_cards ?? 0}</p>
+                        <p className="text-[0.72rem] text-muted-foreground">đến hạn</p>
+                      </div>
+                      <div className="rounded-xl bg-background/70 px-3 py-2 ring-1 ring-border/70">
+                        <p className="text-lg font-bold tabular-nums">{prioritySummary?.new_cards ?? 0}</p>
+                        <p className="text-[0.72rem] text-muted-foreground">thẻ mới</p>
+                      </div>
+                      <div className="rounded-xl bg-background/70 px-3 py-2 ring-1 ring-border/70">
+                        <p className="text-lg font-bold tabular-nums">{estimatedMinutes}</p>
+                        <p className="text-[0.72rem] text-muted-foreground">phút</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-[0.95rem] text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] shadow-sm hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => firstReadyDeckId ? router.push(`/study/${firstReadyDeckId}`) : (decks.length > 0 && router.push(`/study/${decks[0].id}`))}
-                  disabled={decks.length === 0 || totalCards === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold text-[0.95rem] text-[hsl(var(--primary-foreground))] bg-[hsl(var(--primary))] shadow-sm hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-opacity"
+                  onClick={handlePrimaryMission}
                 >
-                  <Repeat className="w-4 h-4" aria-hidden />
-                  Ôn deck cần ôn nhất
+                  {missionState === "no_deck" || missionState === "no_cards" ? (
+                    <Sparkles className="w-4 h-4" aria-hidden />
+                  ) : missionState === "complete" ? (
+                    <Map className="w-4 h-4" aria-hidden />
+                  ) : (
+                    <Repeat className="w-4 h-4" aria-hidden />
+                  )}
+                  {missionCopy.cta}
                 </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 border border-border bg-background/70 text-foreground font-semibold text-[0.88rem] hover:bg-muted/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={() => firstReadyDeckId ? router.push(`/play/${firstReadyDeckId}`) : (decks.length > 0 && router.push(`/play/${decks[0].id}`))}
-                    disabled={decks.length === 0 || totalCards < 2}
-                    title="Làm thử thách quiz do AI tạo từ deck này"
-                  >
-                    <Map className="w-4 h-4 text-primary" aria-hidden />
-                    Thử thách
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 border border-border bg-background/70 text-foreground font-semibold text-[0.88rem] hover:bg-muted/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] transition-colors"
-                    onClick={() => router.push("/generate")}
-                    title="Tải tài liệu hoặc thêm flashcards vào deck"
-                  >
-                    <Sparkles className="w-4 h-4 text-primary" aria-hidden />
-                    Thêm thẻ
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background/70 px-4 py-3 text-[0.92rem] font-semibold text-foreground transition-colors hover:bg-muted/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={goToCoachQuiz}
+                  disabled={totalCards < 2}
+                  title="Mở Memio Coach để quiz nhanh trong chat"
+                >
+                  <FolderKanban className="w-4 h-4 text-primary" aria-hidden />
+                  Quiz nhanh với Coach
+                </button>
+              </div>
+            </div>
+
+            <div className="border-t border-border bg-muted/20 px-6 py-4 sm:px-7">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {[
+                  { label: "Deck", value: decks.length, hint: "đang quản lý" },
+                  { label: "Flashcards", value: totalCards, hint: "đã tạo" },
+                  { label: "Cần xử lý", value: totalActionableCards, hint: readyDecks > 0 ? `${readyDecks} deck sẵn sàng` : "không có thẻ đến hạn" },
+                ].map((m) => (
+                  <div key={m.label} className="flex min-w-0 items-center justify-between gap-4 rounded-xl bg-background/70 px-4 py-3 ring-1 ring-border/70">
+                    <div className="min-w-0">
+                      <p className="truncate text-[0.8rem] font-semibold text-foreground">{m.label}</p>
+                      <p className="truncate text-[0.72rem] text-muted-foreground">{m.hint}</p>
+                    </div>
+                    <p className="shrink-0 text-xl font-bold tabular-nums">{m.value}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -436,10 +532,12 @@ export default function WorkspacePage() {
               {filteredDecks.map((deck) => {
                 const summary = cardCounts[deck.id];
                 const count = summary?.total_cards ?? 0;
-                const due = summary ? summary.due_cards + summary.new_cards : 0;
+                const due = actionableCount(summary);
                 const isReady = due > 0;
-                const progressW =
-                  maxCardsInAnyDeck > 0 ? Math.max(6, Math.round((count / maxCardsInAnyDeck) * 100)) : 6;
+                const progressW = count > 0 ? Math.max(6, todayProgress(summary)) : 6;
+                const recommendedLabel = count === 0 ? "Thêm thẻ" : isReady ? "Ôn ngay" : "Thử thách AI";
+                const recommendedIcon = count === 0 ? Sparkles : isReady ? Repeat : Map;
+                const RecommendedIcon = recommendedIcon;
 
                 return (
                   <article
@@ -526,9 +624,12 @@ export default function WorkspacePage() {
                             />
                           </span>
                           <span className="text-[0.78rem] tabular-nums text-muted-foreground w-[3ch] text-right">
-                            {Math.min(100, progressW)}%
+                            {count > 0 ? `${progressW}%` : "0%"}
                           </span>
                         </div>
+                        <p className="text-[0.76rem] text-muted-foreground">
+                          {count > 0 ? "tiến độ hoàn thành nhịp hôm nay" : "chưa có dữ liệu học"}
+                        </p>
                       </div>
 
                       <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
@@ -561,21 +662,12 @@ export default function WorkspacePage() {
                             ? "before:bg-[radial-gradient(560px_circle_at_var(--x,50%)_var(--y,50%),rgba(255,255,255,0.20),transparent_45%)]"
                             : "before:bg-[radial-gradient(520px_circle_at_var(--x,50%)_var(--y,50%),hsl(var(--primary)/0.08),transparent_55%)]"
                         )}
-                        onClick={() => router.push(isReady ? `/study/${deck.id}` : `/play/${deck.id}`)}
+                        onClick={() => router.push(count === 0 ? `/generate?deckId=${deck.id}` : isReady ? `/study/${deck.id}` : `/play/${deck.id}`)}
                         onPointerMove={setRevealVars}
-                        disabled={count === 0 || (!isReady && count < 2)}
+                        disabled={!isReady && count === 1}
                       >
-                        {isReady ? (
-                          <>
-                            <Repeat className="w-4 h-4" aria-hidden />
-                            Ôn ngay
-                          </>
-                        ) : (
-                          <>
-                            <Map className="w-4 h-4 text-primary" aria-hidden />
-                            Thử thách AI
-                          </>
-                        )}
+                        <RecommendedIcon className={cn("w-4 h-4", !isReady && count > 0 ? "text-primary" : "")} aria-hidden />
+                        {recommendedLabel}
                       </button>
 
                       <div className="grid grid-cols-3 gap-2">
