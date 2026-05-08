@@ -1,107 +1,241 @@
-# Biểu đồ thiết kế dự án Memio
+# Bieu do thiet ke du an Memio
 
-Dưới đây là các biểu đồ Mermaid giúp bạn hình dung kiến trúc, cấu trúc dữ liệu và quy trình hoạt động của dự án Memio.
+Tai lieu nay tong hop cac bieu do Mermaid de mo ta dung kien truc, mo hinh du lieu, va cac luong chinh cua Memio theo trang thai pilot hien tai.
 
-## 1. Kiến trúc hệ thống (System Architecture)
-
-Biểu đồ này mô tả cách các thành phần trong hệ thống tương tác với nhau.
+## 1. Kien truc he thong
 
 ```mermaid
-graph TD
-    User((Người dùng)) <--> Frontend[Next.js 16 Frontend<br/>Tailwind CSS / TypeScript]
-    Frontend <--> API[FastAPI Backend<br/>Python 3.11+]
-    API <--> LLM{AI Engine<br/>OpenAI}
-    API <--> DB[(Database<br/>PostgreSQL)]
-    API <--> Auth[Google OAuth<br/>Xác thực người dùng]
+flowchart TD
+    User[Users]
+
+    subgraph Frontend["Frontend - Next.js 16"]
+        Workspace[Workspace / Daily Mission]
+        Study[Study UI]
+        CoachUI[Memio Coach UI]
+        PlayUI[Adventure Campaign UI]
+        AuthUI[Login / Signup / Guest]
+    end
+
+    subgraph Backend["Backend - FastAPI"]
+        API[API Router]
+        DeckSvc[Deck / Card Services]
+        StudySvc[SM-2 Progress Service]
+        CoachSvc[Coach Service]
+        GameSvc[Game Service]
+        AuthSvc[Auth Endpoints]
+    end
+
+    subgraph Data["Data Layer"]
+        Postgres[(PostgreSQL)]
+    end
+
+    subgraph External["External Services"]
+        OpenAI[OpenAI\nGPT-4o-mini]
+        Google[Google OAuth]
+        Duck[DuckDuckGo Instant Answer]
+    end
+
+    User --> Workspace
+    User --> Study
+    User --> CoachUI
+    User --> PlayUI
+    User --> AuthUI
+
+    Workspace --> API
+    Study --> API
+    CoachUI --> API
+    PlayUI --> API
+    AuthUI --> API
+
+    API --> DeckSvc
+    API --> StudySvc
+    API --> CoachSvc
+    API --> GameSvc
+    API --> AuthSvc
+
+    DeckSvc --> Postgres
+    StudySvc --> Postgres
+    CoachSvc --> Postgres
+    GameSvc --> Postgres
+    AuthSvc --> Postgres
+
+    DeckSvc --> OpenAI
+    CoachSvc --> OpenAI
+    GameSvc --> OpenAI
+    CoachSvc --> Duck
+    AuthSvc --> Google
 ```
 
----
-
-## 2. Mô hình thực thể - quan hệ (ER Diagram)
-
-**cấu trúc cơ sở dữ liệu**
+## 2. ER diagram
 
 ```mermaid
 erDiagram
-    User ||--o{ Deck : owns
-    User ||--o{ Progress : tracks
-    User ||--o{ StudySession : records
-    Deck ||--o{ Flashcard : contains
-    Deck ||--o{ StudySession : involved_in
-    Flashcard ||--o{ Progress : has_history
+    USERS ||--o{ DECKS : owns
+    USERS ||--o{ PROGRESS : tracks
+    USERS ||--o{ STUDY_SESSIONS : logs
+    USERS ||--o{ GAME_SESSIONS : plays
+    USERS ||--o{ COACH_THREADS : starts
+    USERS ||--o{ COACH_MESSAGES : sends
+    USERS ||--|| USER_SETTINGS : configures
 
-    User {
+    DECKS ||--o{ FLASHCARDS : contains
+    DECKS ||--o{ STUDY_SESSIONS : summarizes
+    DECKS ||--o{ GAME_SESSIONS : powers
+    DECKS ||--o{ COACH_THREADS : contextualizes
+
+    FLASHCARDS ||--o{ PROGRESS : schedules
+    COACH_THREADS ||--o{ COACH_MESSAGES : stores
+
+    USERS {
         int id PK
         string google_id UK
+        string username UK
+        string password_hash
         string name
         string email
+        string photo_url
+        string auth_type
+        bool is_guest
     }
 
-    Deck {
+    DECKS {
         int id PK
         int user_id FK
         string name
+        string description
+        int is_public
         string share_token UK
-        bool is_public
+        datetime created_at
     }
 
-    Flashcard {
+    FLASHCARDS {
         int id PK
         int deck_id FK
         string front
         string back
-        string source_context
+        string difficulty
+        text source_context
+        datetime created_at
     }
 
-    Progress {
+    PROGRESS {
         int id PK
         int user_id FK
         int card_id FK
         int interval
+        int repetition
         float ease_factor
+        int last_quality
+        datetime last_reviewed
         datetime next_review
+    }
+
+    STUDY_SESSIONS {
+        int id PK
+        int user_id FK
+        int deck_id FK
+        date session_date
+        int cards_reviewed
+        float avg_quality
+    }
+
+    GAME_SESSIONS {
+        int id PK
+        int user_id FK
+        int deck_id FK
+        string mode
+        string status
+        json campaign_json
+        int score
+        int xp_earned
+        float accuracy
+        int total_questions
+        int correct_answers
+        datetime started_at
+        datetime completed_at
+        datetime created_at
+    }
+
+    COACH_THREADS {
+        int id PK
+        int user_id FK
+        int context_deck_id FK
+        string title
+        datetime created_at
+        datetime updated_at
+    }
+
+    COACH_MESSAGES {
+        int id PK
+        int thread_id FK
+        int user_id FK
+        string role
+        text content
+        json citations_json
+        json actions_json
+        datetime created_at
+    }
+
+    USER_SETTINGS {
+        int id PK
+        int user_id FK
+        int daily_new_limit
+        int daily_review_limit
+        string timezone
     }
 ```
 
----
-
-## 3. Quy trình ôn tập (Study Flow - SM-2)
-
-**luồng xử lý khi người dùng học một thẻ và hệ thống tính toán thời gian ôn tập tiếp theo.**
+## 3. Luong hoc va cap nhat SM-2
 
 ```mermaid
 sequenceDiagram
-    participant U as Người dùng
-    participant F as Frontend (Next.js)
-    participant B as Backend (FastAPI)
-    participant D as Database
+    participant U as User
+    participant F as Frontend Study UI
+    participant A as FastAPI
+    participant S as Study Service
+    participant D as PostgreSQL
 
-    U->>F: Bắt đầu học Deck
-    F->>B: Lấy thẻ cần học (due cards)
-    B->>D: Truy vấn cards & progress
-    D-->>B: Trả về danh sách thẻ
-    B-->>F: Gửi danh sách thẻ đến hạn
-    U->>F: Lật thẻ & Đánh giá (0-3)
-    F->>B: Gửi kết quả đánh giá (quality)
-    rect rgb(240, 240, 240)
-        Note over B: Tính toán thuật toán SM-2
-        Note over B: New Interval & Ease Factor
-    end
-    B->>D: Cập nhật bảng Progress
-    D-->>B: Xác nhận lưu thành công
-    B-->>F: Trả về kết quả & Thẻ tiếp theo
+    U->>F: Mo deck va bat dau hoc
+    F->>A: GET /api/cards/{deck_id}?user_id=N
+    A->>S: Lay cards + progress cua user
+    S->>D: Query flashcards, progress, analytics lien quan
+    D-->>S: Due cards / new cards / progress
+    S-->>A: Danh sach cards can hoc
+    A-->>F: Tra cards cho study UI
+
+    U->>F: Lat the va danh gia chat luong 0-3
+    F->>A: POST /api/cards/progress
+    A->>S: Tinh toan lai thong so SM-2
+    Note over S: interval, repetition,\n ease_factor, next_review
+    S->>D: Upsert progress theo user_id + card_id
+    D-->>S: Luu thanh cong
+    S-->>A: Progress moi
+    A-->>F: Cap nhat the tiep theo
+
+    F->>A: POST /api/cards/session
+    A->>D: Luu study_sessions
+    D-->>A: Xac nhan
+    A-->>F: Tong ket phien hoc
 ```
 
----
-
-## 4. Quy trình tạo thẻ bằng AI (AI Generation Flow)
+## 4. Luong tao the va coach
 
 ```mermaid
 flowchart LR
-    PDF[Tài liệu PDF/DOCX] --> Extract[Trích xuất Text]
-    Extract --> Prompt[Kết hợp System Prompt]
-    Prompt --> LLM[AI Model - OpenAI GPT-4o mini]
-    LLM --> JSON[Dữ liệu JSON thô]
-    JSON --> Save[Lưu vào Database]
-    Save --> Ready[Deck sẵn sàng học]
+    Upload[Upload PDF / DOCX / TXT] --> Extract[Extract text]
+    Extract --> Chunk[Chunk tai lieu theo lo]
+    Chunk --> Prompt[Build card prompt]
+    Prompt --> LLM[OpenAI GPT-4o-mini]
+    LLM --> Preview[Preview cards JSON]
+    Preview --> Review[User review / edit]
+    Review --> Save[Save flashcards]
+    Save --> StudyReady[Deck san sang hoc]
+
+    StudyReady --> CoachAsk[User hoi Memio Coach]
+    CoachAsk --> CoachAPI[POST /api/coach/message]
+    CoachAPI --> Internal[Lay deck, card, progress, analytics noi bo]
+    Internal --> CoachLLM[OpenAI Coach prompt]
+    CoachAPI --> WebFallback[DuckDuckGo fallback khi can web/latest]
+    CoachLLM --> CoachReply[Answer + citations + actions]
+    WebFallback --> CoachReply
 ```
