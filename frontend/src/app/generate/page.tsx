@@ -28,7 +28,8 @@ import {
   FileUp,
   BrainCircuit,
   Pencil,
-  Repeat
+  Repeat,
+  ImagePlus,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -549,19 +550,29 @@ export default function GeneratePage() {
           <p className="text-muted-foreground mb-8">
             Thẻ mới đã sẵn sàng để bạn ôn theo nhịp.
           </p>
-          <div className="flex justify-center gap-3">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex justify-center gap-3">
+              <Button
+                variant="primary"
+                onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)}
+                disabled={!selectedDeckId}
+              >
+                <Repeat className="w-4 h-4" aria-hidden /> Học ngay
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => { setStage("setup"); setFiles([]); setCards([]); setMessage(null); }}
+              >
+                Tải tài liệu khác
+              </Button>
+            </div>
             <Button
-              variant="primary"
-              onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)}
+              variant="ghost"
+              onClick={() => selectedDeckId && router.push(`/generate/images?deckId=${selectedDeckId}`)}
               disabled={!selectedDeckId}
+              className="text-muted-foreground"
             >
-              <Repeat className="w-4 h-4" aria-hidden /> Học ngay
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => { setStage("setup"); setFiles([]); setCards([]); setMessage(null); }}
-            >
-              Tải tài liệu khác
+              <ImagePlus className="w-4 h-4" aria-hidden /> Thêm ảnh minh hoạ (DALL-E 3)
             </Button>
           </div>
         </div>

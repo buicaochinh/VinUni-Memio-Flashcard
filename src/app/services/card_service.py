@@ -19,7 +19,10 @@ def bulk_add_flashcards(session: Session, deck_id: int, cards: list[dict]):
             front=card_data["front"],
             back=card_data["back"],
             difficulty=card_data.get("difficulty", "medium"),
-            source_context=card_data.get("source_context")
+            source_context=card_data.get("source_context"),
+            image_type=card_data.get("image_type"),
+            diagram_spec=card_data.get("diagram_spec"),
+            image_url=card_data.get("image_url"),
         )
         session.add(card)
     session.commit()

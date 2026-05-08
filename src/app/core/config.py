@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     AI_LOG_API_KEY: Optional[str] = None
     AI_LOG_DIR: str = ".ai-log"
 
+    # Image generation
+    OPENAI_IMAGE_ENABLED: bool = True   # set False để tắt DALL-E 3, tiết kiệm chi phí
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -66,3 +69,4 @@ NOTION_CLIENT_SECRET = settings.NOTION_CLIENT_SECRET
 NOTION_REDIRECT_URI = settings.NOTION_REDIRECT_URI
 NOTION_FRONTEND_REDIRECT_URL = settings.NOTION_FRONTEND_REDIRECT_URL
 NOTION_API_VERSION = settings.NOTION_API_VERSION
+OPENAI_IMAGE_ENABLED = settings.OPENAI_IMAGE_ENABLED

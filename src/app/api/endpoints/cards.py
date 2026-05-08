@@ -8,13 +8,15 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
-from sqlmodel import Session
+from sqlmodel import Session, select
+from src.app.models.domain import Flashcard
 
 import asyncio
 from src.app.utils.card_pipeline import (
     get_pipeline_config, run_pipeline_filter
 )
 
+from src.app.utils.image_generator import enrich_cards_with_images
 from src.app.db.session import get_session
 from src.app.services import card_service
 from src.app.core.sm2 import get_updated_sm2_values
@@ -71,24 +73,65 @@ LANGUAGE REQUIREMENT - CRITICAL:
 - Do NOT mix languages within a card or between cards
 - Preserve original terminology and proper nouns in their original language
 
+IMAGE CLASSIFICATION — for each card, also set these 2 fields:
+- "image_type": one of "diagram" | "real_image" | null
+  - "diagram": processes, cycles, timelines, comparisons, formulas with visual structure
+  - "real_image": historical figures, landmarks, organisms, artifacts, maps, physical objects
+  - null: pure definitions, abstract concepts, dates, numbers where image adds nothing
+- "image_prompt": required when image_type is not null
+  - diagram: JSON spec as string: {{"type":"cycle|timeline|comparison|blank","nodes":["A","B","C"],"hidden":[1,3],"edges":[["A","B"],["B","C"]]}}
+  - real_image: short English prompt ≤ 20 words for DALL-E 3 (e.g. "Napoleon Bonaparte portrait, French emperor, early 19th century")
+
 RETURN ONLY A JSON ARRAY STARTING WITH [ ON THE FIRST LINE, NO ADDITIONAL TEXT.
-Format: [{{"front": "question", "back": "answer", "difficulty": "medium", "source_context": "short excerpt from original content used to create this card"}}]
+Format: [{{"front": "question", "back": "answer", "difficulty": "medium", "source_context": "excerpt", "image_type": "real_image", "image_prompt": "..."}}]
 
 Content: {context}"""
 )
 
 
-def _parse_llm_json(content: str) -> list[dict]:
-    # Try non-greedy match first to avoid capturing extra text
-    match = re.search(r"\[.*?\]", content, re.DOTALL)
-    if not match:
-        # Fallback: try greedy if non-greedy fails
-        match = re.search(r"\[.*\]", content, re.DOTALL)
+IMAGE_CARD_PROMPT = PromptTemplate.from_template(
+    """You are creating visual flashcards for a "picture-to-word" guessing game.
 
-    if match:
-        raw = match.group(0)
-    else:
-        raw = content.replace("```json", "").replace("```", "").strip()
+From the document below, identify up to {count} concepts that can be VIVIDLY ILLUSTRATED with a single image.
+
+CLASSIFY BROADLY — lean toward assigning an image when in doubt:
+- "real_image": people (historical, scientific, political, cultural, religious), places (cities, buildings, landscapes, battlefields), objects (tools, weapons, vehicles, devices, food, clothing), living things (animals, plants, microbes, organs, cells), artworks, maps, flags, symbols, chemical structures, physical phenomena (lightning, eclipse, erosion)
+- "diagram": any process or system with steps/stages (cycles, workflows, reactions, circuits), timelines, comparisons/contrasts, hierarchies, anatomical cross-sections, flowcharts, cause-effect chains, before/after, distribution maps
+
+SKIP only: pure abstract math formulas with no visual form, or concepts where any image would be misleading.
+
+For each concept create a flashcard:
+- "front": short visual cue question in the document's language ("Đây là ai?", "Đây là gì?", "Quá trình này tên gì?")
+- "back": concise answer (name / term), 1–4 words
+- "difficulty": "easy" | "medium" | "hard"
+- "source_context": one-sentence excerpt from the document
+- "image_type": "real_image" | "diagram"
+- "image_prompt":
+    real_image → English description ≤ 15 words, specific and concrete, no text in image
+    diagram    → JSON string: {{"type":"cycle|timeline|comparison","nodes":["A","B","C"],"edges":[["A","B"]]}}
+
+LANGUAGE: Use the document's language for front / back / source_context.
+QUALITY OVER QUANTITY: generate fewer cards if the document lacks visual concepts.
+
+RETURN ONLY A JSON ARRAY STARTING WITH [
+Format: [{{"front":"...","back":"...","difficulty":"medium","source_context":"...","image_type":"real_image","image_prompt":"..."}}]
+
+Document:
+{context}"""
+)
+
+
+def _parse_llm_json(content: str) -> list[dict]:
+    # Try greedy first: handles nested ] inside diagram JSON specs in string values.
+    # Non-greedy would stop at the first ] found inside a nested value and truncate.
+    for pattern in (r"\[.*\]", r"\[.*?\]"):
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except Exception:
+                continue
+    raw = content.replace("```json", "").replace("```", "").strip()
     try:
         return json.loads(raw)
     except Exception:
@@ -306,6 +349,194 @@ async def generate_cards(
                 raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
             raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
         raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
+
+
+_IMAGE_CLASSIFY_PROMPT = PromptTemplate.from_template(
+    """For each flashcard below, decide if a visual image would genuinely help learning.
+
+Classify as:
+- "real_image": historical figures, landmarks, organisms, physical objects, artifacts, maps
+- "diagram": processes, cycles, timelines, comparisons, formulas with visual structure
+- null: pure definitions, abstract concepts, dates, numbers — skip these
+
+Return ONLY a JSON array. Only include cards where image_type is NOT null.
+Format: [{{"idx": 0, "image_type": "real_image", "image_prompt": "English prompt ≤ 20 words for DALL-E"}}]
+
+Cards:
+{cards_text}"""
+)
+
+
+async def _classify_cards_for_images(cards: list[Flashcard]) -> list[dict]:
+    """LLM phân loại cards nào cần ảnh. Trả về list dict có idx, image_type, image_prompt."""
+    if not cards:
+        return []
+    cards_text = "\n".join(
+        f"{i}. FRONT: {c.front[:120]}" for i, c in enumerate(cards)
+    )
+    llm = get_llm()
+    try:
+        response = await (_IMAGE_CLASSIFY_PROMPT | llm).ainvoke({"cards_text": cards_text})
+        print(f"[IMG_CLASSIFY] raw response: {response.content[:300]}")
+        result = _parse_llm_json(response.content)
+        print(f"[IMG_CLASSIFY] parsed {len(result)} items: {result[:3]}")
+        return result
+    except Exception as e:
+        print(f"[IMG_CLASSIFY] ERROR: {e}")
+        return []
+
+
+@router.post("/{deck_id}/generate_images")
+async def generate_deck_images(deck_id: int, session: Session = Depends(get_session)):
+    all_cards = session.exec(select(Flashcard).where(Flashcard.deck_id == deck_id)).all()
+    unimaged = [c for c in all_cards if not c.image_url]
+    print(f"[GEN_IMAGES] deck={deck_id} total={len(all_cards)} unimaged={len(unimaged)}")
+
+    if not unimaged:
+        return {"generated": 0, "total_candidates": 0, "skipped": "all cards already have images"}
+
+    pre_classified = [c for c in unimaged if c.image_type == "real_image"]
+    unclassified = [c for c in unimaged if c.image_type != "real_image"]
+    print(f"[GEN_IMAGES] pre_classified={len(pre_classified)} unclassified={len(unclassified)}")
+
+    newly_classified: list[dict] = []
+    if unclassified:
+        batches = [unclassified[i:i+40] for i in range(0, len(unclassified), 40)]
+        for batch in batches:
+            results = await _classify_cards_for_images(batch)
+            for r in results:
+                idx = r.get("idx")
+                # LLM đôi khi trả string "0" thay vì int 0
+                try:
+                    idx = int(idx)
+                except (TypeError, ValueError):
+                    continue
+                if idx >= len(batch):
+                    continue
+                card = batch[idx]
+                image_type = r.get("image_type")
+                image_prompt = r.get("image_prompt", "")
+                if image_type in ("real_image", "diagram"):
+                    card.image_type = image_type
+                    if image_type == "diagram":
+                        card.diagram_spec = image_prompt
+                    session.add(card)
+                if image_type == "real_image" and image_prompt:
+                    newly_classified.append({
+                        "image_type": "real_image",
+                        "image_prompt": image_prompt,
+                        "_id": card.id,
+                    })
+        session.commit()
+        print(f"[GEN_IMAGES] newly_classified real_image={len(newly_classified)}")
+
+    dall_e_candidates = [
+        {"image_type": "real_image", "image_prompt": c.front[:80], "_id": c.id}
+        for c in pre_classified
+    ] + newly_classified
+    print(f"[GEN_IMAGES] dall_e_candidates={len(dall_e_candidates)}")
+
+    if not dall_e_candidates:
+        return {"generated": 0, "total_candidates": 0, "classified_by_llm": len(newly_classified)}
+
+    enriched = await enrich_cards_with_images(dall_e_candidates)
+
+    generated = 0
+    for item in enriched:
+        url = item.get("image_url")
+        print(f"[GEN_IMAGES] card _id={item.get('_id')} image_url={url}")
+        if url:
+            card = session.get(Flashcard, item["_id"])
+            if card:
+                card.image_url = url
+                session.add(card)
+                generated += 1
+
+    session.commit()
+    print(f"[GEN_IMAGES] done generated={generated}/{len(dall_e_candidates)}")
+    return {
+        "generated": generated,
+        "total_candidates": len(dall_e_candidates),
+        "classified_by_llm": len(newly_classified),
+    }
+
+
+@router.post("/{deck_id}/generate_image_cards")
+async def generate_image_cards(
+    deck_id: int,
+    files: list[UploadFile] = File(...),
+    count: int = Form(default=15),
+    session: Session = Depends(get_session),
+):
+    print(f"[GEN_IMAGE_CARDS] called deck_id={deck_id} count={count} files={[f.filename for f in files]}")
+    if count < 1:
+        count = 1
+    if count > 20:
+        count = 20
+
+    data_dir = Path(__file__).resolve().parents[4] / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    all_pages = []
+    load_errors = []
+    for file in files:
+        temp_path = data_dir / f"imgcard_{deck_id}_{file.filename}"
+        file_bytes = await file.read()
+        print(f"[GEN_IMAGE_CARDS] file={file.filename} size={len(file_bytes)} bytes")
+        async with aio_open(temp_path, "wb") as out:
+            await out.write(file_bytes)
+        try:
+            pages, _ = await _load_document_context(temp_path)
+            print(f"[GEN_IMAGE_CARDS] loaded {len(pages)} pages from {file.filename}")
+            all_pages.extend(pages)
+        except Exception as load_err:
+            print(f"[GEN_IMAGE_CARDS] load error for {file.filename}: {load_err}")
+            load_errors.append(str(load_err))
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    print(f"[GEN_IMAGE_CARDS] total pages={len(all_pages)} load_errors={load_errors}")
+    if not all_pages:
+        detail = f"Không trích xuất được text từ file. Lỗi: {'; '.join(load_errors)}" if load_errors else "Không trích xuất được text từ file."
+        raise HTTPException(status_code=422, detail=detail)
+
+    # Single LLM call — take up to 8000 chars to keep context rich
+    context = "\n\n".join(p.page_content for p in all_pages)[:8000]
+    print(f"[GEN_IMAGE_CARDS] context len={len(context)} chars, calling LLM...")
+    llm = get_llm()
+    try:
+        response = await (IMAGE_CARD_PROMPT | llm).ainvoke({"context": context, "count": count})
+        raw_cards = _parse_llm_json(response.content)
+        print(f"[GEN_IMAGE_CARDS] LLM returned {len(raw_cards)} raw cards")
+    except Exception as e:
+        print(f"[GEN_IMAGE_CARDS] LLM error: {e}")
+        raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
+
+    # Keep only cards that have a valid image_type
+    visual_cards = [
+        c for c in raw_cards
+        if isinstance(c, dict) and c.get("image_type") in ("real_image", "diagram")
+    ][:count]
+    print(f"[GEN_IMAGE_CARDS] visual_cards={len(visual_cards)} (raw={len(raw_cards)})")
+
+    if not visual_cards:
+        raise HTTPException(status_code=422, detail="LLM không tìm thấy khái niệm nào có thể minh hoạ bằng ảnh trong tài liệu này.")
+
+    # Generate DALL-E images for real_image cards
+    enriched = await enrich_cards_with_images(visual_cards)
+
+    # Save all visual cards (with or without image_url) to deck
+    card_service.bulk_add_flashcards(session, deck_id, enriched)
+
+    real_image_count = sum(1 for c in enriched if c.get("image_type") == "real_image")
+    diagram_count = sum(1 for c in enriched if c.get("image_type") == "diagram")
+
+    return {
+        "saved": len(enriched),
+        "real_image": real_image_count,
+        "diagram": diagram_count,
+    }
 
 
 @router.put("/{card_id}")
