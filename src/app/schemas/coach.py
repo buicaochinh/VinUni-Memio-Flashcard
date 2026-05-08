@@ -60,6 +60,14 @@ class CoachQuizStartResponse(BaseModel):
     questions: List[CoachQuizQuestion]
 
 
+class CoachQuizSummaryRequest(BaseModel):
+    user_id: int
+    summary: str
+    thread_id: Optional[int] = None
+    context_deck_id: Optional[int] = None
+    actions: List[CoachAction] = []
+
+
 class CoachThreadSummary(BaseModel):
     id: int
     title: str
@@ -75,3 +83,8 @@ class CoachStoredMessage(BaseModel):
     citations: List[CoachCitation] = []
     actions: List[CoachAction] = []
     created_at: Any
+
+
+class CoachQuizSummaryResponse(BaseModel):
+    thread_id: int
+    message: CoachStoredMessage
