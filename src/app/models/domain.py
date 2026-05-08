@@ -103,6 +103,9 @@ class Flashcard(SQLModel, table=True):
     difficulty: str = "medium"
     source_context: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utc_now_naive)
+    image_type: Optional[str] = Field(default=None)      # "diagram" | "real_image" | None
+    image_url: Optional[str] = Field(default=None)        # URL ảnh DALL-E 3
+    diagram_spec: Optional[str] = Field(default=None)     # JSON string spec cho SVG renderer
 
     deck: Optional[Deck] = Relationship(back_populates="flashcards")
     progress: List["Progress"] = Relationship(back_populates="flashcard")
