@@ -101,7 +101,16 @@ CLASSIFY BROADLY — lean toward assigning an image when in doubt:
 SKIP only: pure abstract math formulas with no visual form, or concepts where any image would be misleading.
 
 For each concept create a flashcard:
-- "front": short visual cue question in the document's language ("Đây là ai?", "Đây là gì?", "Quá trình này tên gì?")
+- "front": an engaging RIDDLE with 1–2 specific factual clues from the document, ending with a short question.
+  NEVER write just "Đây là ai?" or "Đây là gì?" alone — always embed concrete hints that make it a real guessing challenge.
+  The clues should be interesting and specific but NOT reveal the answer directly.
+  Examples of good fronts (in Vietnamese — adapt language to match document):
+    · "Nhà vật lý người Đức, nổi tiếng với công thức E=mc², từng được trao giải Nobel năm 1921. Đây là ai?"
+    · "Công trình thép cao 330m tại Paris, biểu tượng của nước Pháp, xây năm 1889. Đây là gì?"
+    · "Loài chim đầu trắng, sải cánh 2,4m, biểu tượng quốc gia của Hoa Kỳ. Con gì đây?"
+    · "Quá trình xảy ra trong lục lạp, dùng ánh sáng + CO₂ + H₂O để tạo ra đường và oxy. Gọi là gì?"
+    · "Đế quốc rộng lớn nhất lịch sử, được dựng lên bởi một chiến binh người Mông Cổ thế kỷ 12. Đế quốc gì?"
+  Keep to 2 sentences max. Use the document's language.
 - "back": concise answer (name / term), 1–4 words
 - "difficulty": "easy" | "medium" | "hard"
 - "source_context": one-sentence excerpt from the document
