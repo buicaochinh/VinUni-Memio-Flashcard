@@ -692,6 +692,25 @@ export async function startCoachQuiz(payload: {
   return data.questions as CoachQuizQuestion[];
 }
 
+export async function saveCoachQuizSummary(payload: {
+  user_id: number;
+  summary: string;
+  thread_id?: number | null;
+  context_deck_id?: number | null;
+  actions?: CoachAction[];
+}): Promise<{ thread_id: number; message: CoachMessage }> {
+  const res = await fetch(apiUrl("/api/coach/quiz/summary"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? "SAVE_COACH_QUIZ_SUMMARY_FAILED");
+  }
+  return res.json() as Promise<{ thread_id: number; message: CoachMessage }>;
+}
+
 export async function logStudySession(
   userId: number,
   deckId: number,
