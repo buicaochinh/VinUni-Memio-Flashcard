@@ -802,10 +802,25 @@ export default function StudyPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex-1 min-h-0 flex items-center justify-center">
-                      <div className="max-w-[720px] text-center text-xl md:text-2xl lg:text-[1.85rem] font-bold leading-tight text-foreground">
-                        {card.front}
-                      </div>
+                    <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 overflow-hidden">
+                      {card.image_url ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={card.image_url}
+                            alt={card.front}
+                            className="max-h-48 md:max-h-56 w-auto rounded-2xl object-contain shadow-sm"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                          <div className="text-center text-base md:text-lg lg:text-xl font-bold leading-tight text-foreground">
+                            {card.front}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="max-w-[720px] text-center text-xl md:text-2xl lg:text-[1.85rem] font-bold leading-tight text-foreground">
+                          {card.front}
+                        </div>
+                      )}
                     </div>
                     <div className="pt-5 mt-auto border-t border-border/60 flex items-center justify-center gap-2 text-muted-foreground font-semibold text-xs">
                       Nhấn để lật đáp án
