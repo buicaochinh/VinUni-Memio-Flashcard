@@ -6,6 +6,7 @@ from src.app.api.deps import get_current_user_id
 from src.app.core.time import default_timezone_name, validate_timezone
 from src.app.db.session import get_session
 from src.app.models.domain import UserSettings
+from src.app.services import xp_service
 
 router = APIRouter()
 
@@ -79,3 +80,8 @@ def update_user_timezone(payload: UserTimezoneUpdate, user_id: int = Depends(get
     session.commit()
 
     return {"message": "success", "timezone": timezone_name}
+
+
+@router.get("/me/xp")
+def get_user_xp(user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
+    return xp_service.get_user_xp(session, user_id)
