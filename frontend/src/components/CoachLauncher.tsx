@@ -26,13 +26,13 @@ export default function CoachLauncher({ user }: { user: User }) {
 
     async function hydrateSuggestions() {
       try {
-        const nextDecks = await fetchDecks(user.id);
+        const nextDecks = await fetchDecks();
         if (cancelled) return;
         setDecks(nextDecks);
         const pairs = await Promise.all(
           nextDecks.map(async (deck) => {
             try {
-              const summary = await fetchStudySummary(deck.id, user.id);
+              const summary = await fetchStudySummary(deck.id);
               return [deck.id, summary] as const;
             } catch {
               return [deck.id, null] as const;
