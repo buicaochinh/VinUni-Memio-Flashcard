@@ -125,6 +125,11 @@ def normalize(data: dict, tool: str) -> Optional[dict]:
             "tool_name": data.get("toolName", ""),
             "tool_args": data.get("toolArgs"),
         })
+    elif tool == "antigravity":
+        base.update({
+            "prompt": data.get("prompt", "")[:1000],
+            "response_summary": data.get("response", "")[:500],
+        })
 
     # Skip empty/noise events
     if not base.get("prompt") and event not in ("Stop", "stop", "SessionEnd", "sessionEnd", "AfterModel"):
