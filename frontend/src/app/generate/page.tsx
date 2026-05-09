@@ -93,6 +93,24 @@ export default function GeneratePage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     if (selected.length > 0) setFiles(prev => [...prev, ...selected]);
+    e.target.value = "";
+  };
+
+  const removeFile = (indexToRemove: number) => {
+    setFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const formatFileSize = (size: number) => {
+    if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const fileKind = (file: File) => {
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".pdf")) return "PDF";
+    if (name.endsWith(".docx")) return "DOCX";
+    if (name.endsWith(".txt")) return "TXT";
+    return "FILE";
   };
 
   const handleGenerate = async () => {
@@ -236,16 +254,15 @@ export default function GeneratePage() {
                   </div>
                 </div>
 
-                <div
+                <section
                   className={cn(
-                    "relative border-2 border-dashed rounded-[28px] p-10 flex flex-col items-center justify-center gap-4 transition-all duration-200 cursor-pointer group overflow-hidden",
-                    dragOver ? "border-primary bg-primary/5" : "border-border/80 bg-[hsl(var(--acrylic))] hover:border-primary/40 hover:bg-muted/30",
-                    files.length > 0 ? "border-primary/25 bg-primary/5" : ""
+                    "overflow-hidden rounded-[24px] border border-border/80 bg-background/65 shadow-sm transition-colors",
+                    dragOver ? "border-primary bg-primary/5" : "hover:border-primary/35"
                   )}
-                  onClick={() => fileInputRef.current?.click()}
                   onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleFileDrop}
+                  aria-label="Tải tài liệu"
                 >
                   <input
                     ref={fileInputRef}
@@ -256,37 +273,84 @@ export default function GeneratePage() {
                     className="hidden"
                   />
 
-                  {files.length > 0 ? (
-                    <>
-                      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                        <FileUp className="w-8 h-8" />
-                      </div>
-                      <div className="text-center">
-                        <p className="font-bold text-lg mb-1">Đã tải lên {files.length} file</p>
-                        <div className="max-h-[120px] overflow-y-auto px-4">
-                          {files.map(f => (
-                            <div key={f.name} className="text-[0.82rem] text-muted-foreground truncate max-w-[200px] flex items-center gap-1.5 justify-center">
-                              <FileText className="w-3.5 h-3.5 opacity-60" /> {f.name}
-                            </div>
-                          ))}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "group flex w-full flex-col items-center justify-center gap-4 border-2 border-dashed border-border/80 px-6 py-8 text-center transition-colors",
+                      "hover:border-primary/45 hover:bg-muted/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[hsl(var(--ring))]",
+                      dragOver && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15 transition-transform group-hover:scale-[1.03] motion-reduce:transition-none">
+                      {files.length > 0 ? (
+                        <FileUp className="h-8 w-8" aria-hidden />
+                      ) : (
+                        <Upload className="h-8 w-8" aria-hidden />
+                      )}
+                    </span>
+                    <span className="space-y-1">
+                      <span className="block text-base font-bold tracking-tight text-foreground">
+                        {files.length > 0 ? "Thêm tài liệu khác" : "Kéo thả hoặc chọn tài liệu"}
+                      </span>
+                      <span className="block text-[0.88rem] leading-relaxed text-muted-foreground">
+                        PDF, DOCX, TXT. Có thể tải nhiều file cho cùng một lần sinh thẻ.
+                      </span>
+                    </span>
+                  </button>
+
+                  {files.length > 0 && (
+                    <div className="border-t border-border bg-muted/15 px-4 py-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[0.82rem] font-semibold text-foreground">
+                            {files.length} tài liệu đã chọn
+                          </p>
+                          <p className="text-[0.76rem] text-muted-foreground">
+                            Xóa file không dùng trước khi sinh flashcards.
+                          </p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setFiles([])}
+                          className="rounded-lg px-2.5 py-1.5 text-[0.76rem] font-semibold text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/25 dark:hover:text-rose-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                        >
+                          Xóa tất cả
+                        </button>
                       </div>
-                      <p className="text-[0.82rem] font-semibold text-muted-foreground uppercase tracking-wider mt-2">
-                        Nhấn để thêm file
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-20 h-20 rounded-3xl bg-surface-muted flex items-center justify-center text-subtle group-hover:scale-110 transition-transform">
-                        <Upload className="w-10 h-10" />
+
+                      <div className="max-h-[210px] space-y-2 overflow-y-auto pr-1">
+                        {files.map((f, index) => (
+                          <div
+                            key={`${f.name}-${f.lastModified}-${index}`}
+                            className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5"
+                          >
+                            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                              <FileText className="h-5 w-5" aria-hidden />
+                            </span>
+                            <div className="min-w-0 flex-1 text-left">
+                              <p className="truncate text-[0.88rem] font-semibold text-foreground">
+                                {f.name}
+                              </p>
+                              <p className="mt-0.5 text-[0.75rem] text-muted-foreground">
+                                {fileKind(f)} · {formatFileSize(f.size)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/25 dark:hover:text-rose-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                              aria-label={`Xóa ${f.name}`}
+                              title="Xóa file"
+                            >
+                              <X className="h-4 w-4" aria-hidden />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-center">
-                        <p className="font-bold text-lg mb-1">Kéo thả hoặc nhấn để chọn file</p>
-                        <p className="text-muted-foreground text-[0.88rem]">Hỗ trợ PDF, DOCX, TXT. Dung lượng tối đa 10MB/file.</p>
-                      </div>
-                    </>
+                    </div>
                   )}
-                </div>
+                </section>
 
                 {message && (
                   <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3">
