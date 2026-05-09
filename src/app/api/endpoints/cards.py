@@ -20,6 +20,7 @@ from src.app.utils.card_pipeline import (
 from src.app.utils.image_generator import enrich_cards_with_images
 from src.app.db.session import get_session
 from src.app.services import card_service
+from src.app.services import xp_service
 from src.app.core.sm2 import get_updated_sm2_values
 from src.app.schemas.card import (
     ProgressUpdate, 
@@ -270,7 +271,9 @@ def log_session(payload: StudySessionLog, user_id: int = Depends(get_current_use
     card_service.log_study_session(
         session, user_id, payload.deck_id, payload.cards_reviewed, payload.avg_quality
     )
-    return {"message": "success"}
+    xp_amount = max(1, payload.cards_reviewed) * xp_service.XP_PER_CARD_REVIEWED
+    new_total = xp_service.award_xp(session, user_id, xp_amount)
+    return {"message": "success", "xp_earned": xp_amount, "total_xp": new_total}
 
 
 @router.post("/{deck_id}/preview")
