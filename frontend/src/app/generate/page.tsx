@@ -7,6 +7,7 @@ import {
   bulkCreateCards,
   Deck,
   fetchDecks,
+  generateImageCards,
   useClientReady,
   useStoredUser,
   previewCards,
@@ -30,6 +31,7 @@ import {
   Pencil,
   Repeat,
   ImagePlus,
+  Lock,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -39,18 +41,24 @@ type EditState = {
   difficulty: "easy" | "medium" | "hard";
 };
 
-type Stage = "setup" | "loading" | "preview" | "saved";
+type TextStage = "setup" | "loading" | "preview" | "saved";
+type ImgStage = "setup" | "generating" | "done" | "error";
 
 export default function GeneratePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const user = useStoredUser();
   const clientReady = useClientReady();
+
+  // Shared
   const [decks, setDecks] = useState<Deck[]>([]);
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [stage, setStage] = useState<Stage>("setup");
+  const [mode, setMode] = useState<"text" | "image">("text");
+
+  // Text mode
+  const [textStage, setTextStage] = useState<TextStage>("setup");
   const [cards, setCards] = useState<PreviewCard[]>([]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editState, setEditState] = useState<EditState | null>(null);
@@ -58,14 +66,21 @@ export default function GeneratePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
-  const loadDecks = useCallback(async (userId: number) => {
+  // Image mode
+  const [imgStage, setImgStage] = useState<ImgStage>("setup");
+  const [imgCount, setImgCount] = useState(15);
+  const [imgResult, setImgResult] = useState<{ saved: number; real_image: number; diagram: number } | null>(null);
+  const [imgError, setImgError] = useState<string | null>(null);
+
+  const loadDecks = useCallback(async () => {
     try {
       const d = await fetchDecks();
       setDecks(d);
-      const qId = Number(new URLSearchParams(window.location.search).get("deckId"));
-      setSelectedDeckId(
-        Number.isFinite(qId) && qId > 0 ? qId : (d[0]?.id ?? null)
-      );
+      const params = new URLSearchParams(window.location.search);
+      const qId = Number(params.get("deckId"));
+      const qMode = params.get("mode");
+      setSelectedDeckId(Number.isFinite(qId) && qId > 0 ? qId : (d[0]?.id ?? null));
+      if (qMode === "image") setMode("image");
     } catch {
       setMessage("Không tải được danh sách deck.");
     }
@@ -74,18 +89,38 @@ export default function GeneratePage() {
   useEffect(() => {
     if (!clientReady) return;
     if (!user) { router.replace("/"); return; }
-    const t = setTimeout(() => { void loadDecks(user.id); }, 0);
+    const t = setTimeout(() => { void loadDecks(); }, 0);
     return () => clearTimeout(t);
   }, [clientReady, loadDecks, router, user]);
+
+  const syncUrl = (newMode: "text" | "image", deckId: number | null) => {
+    const params = new URLSearchParams();
+    if (newMode !== "text") params.set("mode", newMode);
+    if (deckId) params.set("deckId", String(deckId));
+    const qs = params.toString();
+    router.replace(`/generate${qs ? `?${qs}` : ""}`);
+  };
+
+  const switchMode = (m: "text" | "image") => {
+    setMode(m);
+    if (m === "text") {
+      setTextStage("setup");
+    } else {
+      setImgStage("setup");
+      setImgResult(null);
+      setImgError(null);
+    }
+    syncUrl(m, selectedDeckId);
+  };
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
     const dropped = Array.from(e.dataTransfer.files).filter(f =>
-       f.type === "application/pdf" ||
-       f.type === "text/plain" ||
-       f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-       f.name.endsWith(".txt") || f.name.endsWith(".docx") || f.name.endsWith(".pdf")
+      f.type === "application/pdf" ||
+      f.type === "text/plain" ||
+      f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      f.name.endsWith(".txt") || f.name.endsWith(".docx") || f.name.endsWith(".pdf")
     );
     if (dropped.length > 0) setFiles(prev => [...prev, ...dropped]);
   };
@@ -117,7 +152,7 @@ export default function GeneratePage() {
     if (!selectedDeckId) { setMessage("Hãy chọn một deck."); return; }
     if (files.length === 0) { setMessage("Hãy chọn ít nhất 1 file hợp lệ (PDF, DOCX, TXT)."); return; }
 
-    setStage("loading");
+    setTextStage("loading");
     setMessage(null);
     setProgress(0);
 
@@ -130,11 +165,11 @@ export default function GeneratePage() {
       const generated = await previewCards(selectedDeckId, files, targetCount);
       setProgress(100);
       setCards(generated);
-      setStage("preview");
+      setTextStage("preview");
     } catch (err) {
       const detail = err instanceof Error ? err.message : "Lỗi không xác định";
       setMessage(`Không sinh được flashcards: ${detail}`);
-      setStage("setup");
+      setTextStage("setup");
     } finally {
       if (ticker) clearInterval(ticker);
     }
@@ -177,10 +212,24 @@ export default function GeneratePage() {
 
     try {
       await bulkCreateCards(selectedDeckId, validCards);
-      setStage("saved");
+      setTextStage("saved");
       setMessage(`Đã lưu ${validCards.length} flashcards vào deck!`);
     } catch {
       setMessage("Lỗi khi lưu thẻ. Hãy thử lại.");
+    }
+  };
+
+  const handleImageGenerate = async () => {
+    if (!selectedDeckId || files.length === 0) return;
+    setImgStage("generating");
+    setImgError(null);
+    try {
+      const r = await generateImageCards(selectedDeckId, files, imgCount);
+      setImgResult(r);
+      setImgStage("done");
+    } catch (err) {
+      setImgError(err instanceof Error ? err.message : "Lỗi không xác định.");
+      setImgStage("error");
     }
   };
 
@@ -192,234 +241,14 @@ export default function GeneratePage() {
     {} as Record<string, number>
   );
 
+  const estimatedCost = (imgCount * 0.04).toFixed(2);
+  const isSetup = (mode === "text" && textStage === "setup") ||
+    (mode === "image" && (imgStage === "setup" || imgStage === "error"));
+
   return (
     <AppShell user={user}>
-      {stage === "setup" && (
-        <div>
-          <div className="mb-8">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
-              <Sparkles className="w-4 h-4 text-primary" /> Tạo Flashcard AI
-            </div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2.5 leading-tight">
-              Tải lên tài liệu,{" "}
-              <span className="text-primary">AI làm phần còn lại</span>
-            </h1>
-            <p className="text-muted-foreground text-base max-w-[64ch] leading-relaxed">
-              Tải tài liệu → AI tạo đến{" "}
-              <strong className="text-foreground">{targetCount}</strong> thẻ → Bạn xem lại và chỉnh sửa → Lưu vào deck.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
-            <section className="p-8 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[32px] shadow-sm">
-              <h3 className="mb-6 font-bold text-xl flex items-center gap-2">
-                <Settings2 className="w-5 h-5 text-muted-foreground" /> Cấu hình
-              </h3>
-
-              <div className="grid gap-6">
-                <div>
-                  <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider mb-2">Chọn deck đích</label>
-                  <Select
-                    value={selectedDeckId ? String(selectedDeckId) : ""}
-                    onValueChange={(v) => setSelectedDeckId(Number(v) || null)}
-                  >
-                    <SelectTrigger className="w-full justify-between">
-                      <SelectValue placeholder={decks.length ? "Chọn deck" : "Chưa có deck"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {decks.map((d) => (
-                        <SelectItem key={d.id} value={String(d.id)}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider">Số flashcards mục tiêu</label>
-                    <span className="text-primary font-bold text-lg tabular-nums">{targetCount}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={10} max={500} step={10}
-                    value={targetCount}
-                    onChange={(e) => setTargetCount(Number(e.target.value))}
-                    className="w-full h-2 bg-surface-muted rounded-full appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="flex justify-between mt-2 text-[0.75rem] font-semibold text-muted-foreground">
-                    <span>10</span>
-                    <span>500</span>
-                  </div>
-                </div>
-
-                <section
-                  className={cn(
-                    "overflow-hidden rounded-[24px] border border-border/80 bg-background/65 shadow-sm transition-colors",
-                    dragOver ? "border-primary bg-primary/5" : "hover:border-primary/35"
-                  )}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)}
-                  onDrop={handleFileDrop}
-                  aria-label="Tải tài liệu"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={cn(
-                      "group flex w-full flex-col items-center justify-center gap-4 border-2 border-dashed border-border/80 px-6 py-8 text-center transition-colors",
-                      "hover:border-primary/45 hover:bg-muted/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[hsl(var(--ring))]",
-                      dragOver && "border-primary bg-primary/5"
-                    )}
-                  >
-                    <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15 transition-transform group-hover:scale-[1.03] motion-reduce:transition-none">
-                      {files.length > 0 ? (
-                        <FileUp className="h-8 w-8" aria-hidden />
-                      ) : (
-                        <Upload className="h-8 w-8" aria-hidden />
-                      )}
-                    </span>
-                    <span className="space-y-1">
-                      <span className="block text-base font-bold tracking-tight text-foreground">
-                        {files.length > 0 ? "Thêm tài liệu khác" : "Kéo thả hoặc chọn tài liệu"}
-                      </span>
-                      <span className="block text-[0.88rem] leading-relaxed text-muted-foreground">
-                        PDF, DOCX, TXT. Có thể tải nhiều file cho cùng một lần sinh thẻ.
-                      </span>
-                    </span>
-                  </button>
-
-                  {files.length > 0 && (
-                    <div className="border-t border-border bg-muted/15 px-4 py-4">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[0.82rem] font-semibold text-foreground">
-                            {files.length} tài liệu đã chọn
-                          </p>
-                          <p className="text-[0.76rem] text-muted-foreground">
-                            Xóa file không dùng trước khi sinh flashcards.
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setFiles([])}
-                          className="rounded-lg px-2.5 py-1.5 text-[0.76rem] font-semibold text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/25 dark:hover:text-rose-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-                        >
-                          Xóa tất cả
-                        </button>
-                      </div>
-
-                      <div className="max-h-[210px] space-y-2 overflow-y-auto pr-1">
-                        {files.map((f, index) => (
-                          <div
-                            key={`${f.name}-${f.lastModified}-${index}`}
-                            className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5"
-                          >
-                            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                              <FileText className="h-5 w-5" aria-hidden />
-                            </span>
-                            <div className="min-w-0 flex-1 text-left">
-                              <p className="truncate text-[0.88rem] font-semibold text-foreground">
-                                {f.name}
-                              </p>
-                              <p className="mt-0.5 text-[0.75rem] text-muted-foreground">
-                                {fileKind(f)} · {formatFileSize(f.size)}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeFile(index)}
-                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/25 dark:hover:text-rose-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-                              aria-label={`Xóa ${f.name}`}
-                              title="Xóa file"
-                            >
-                              <X className="h-4 w-4" aria-hidden />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </section>
-
-                {message && (
-                  <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3">
-                    <X className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0" />
-                    <p className="text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium leading-[1.5]">
-                      {message}
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex gap-4 mt-2">
-                  <Button
-                    variant="primary"
-                    className="w-full"
-                    onClick={handleGenerate}
-                    disabled={files.length === 0 || !selectedDeckId}
-                  >
-                    <Sparkles className="w-5 h-5" aria-hidden /> Sinh {targetCount} flashcards
-                  </Button>
-                </div>
-              </div>
-            </section>
-
-            <aside className="grid gap-6 content-start">
-              <section className="p-6 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-3xl shadow-sm">
-                <h3 className="mb-4 font-bold text-lg">Luồng hoạt động</h3>
-                <div className="grid gap-4">
-                  {[
-                    { n: "1", t: "Chọn deck & upload PDF" },
-                    { n: "2", t: "AI trích xuất & tạo thẻ" },
-                    { n: "3", t: "Xem lại, sửa hoặc xóa thẻ" },
-                    { n: "4", t: "Lưu vào deck → Bắt đầu học" },
-                  ].map((s) => (
-                    <div key={s.n} className="flex gap-3 items-start">
-                      <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-bold text-[0.88rem] bg-primary/10 text-primary">
-                        {s.n}
-                      </div>
-                      <div className="pt-1.5"><strong className="text-sm font-semibold leading-tight block">{s.t}</strong></div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section className="p-6 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-3xl shadow-sm">
-                <h3 className="mb-4 font-bold text-lg">AI tạo gì?</h3>
-                <div className="grid gap-4">
-                  {[
-                    { icon: Sparkles, t: "Câu hỏi từ khái niệm chính", c: "text-amber-500 bg-amber-50 dark:bg-amber-500/10" },
-                    { icon: Check, t: "Câu trả lời chính xác", c: "text-green-600 bg-green-50 dark:bg-green-500/10" },
-                    { icon: BrainCircuit, t: "Phân loại độ khó thông minh", c: "text-rose-500 bg-rose-50 dark:bg-rose-500/10" },
-                  ].map((f) => {
-                    const Icon = f.icon;
-                    return (
-                      <div key={f.t} className="flex gap-3 items-center">
-                        <div className={cn("flex-none w-8 h-8 rounded-lg grid place-items-center", f.c)}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        <p className="text-[0.88rem] font-semibold text-foreground leading-snug m-0">{f.t}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            </aside>
-          </div>
-        </div>
-      )}
-
-      {stage === "loading" && (
+      {/* ── Text mode: loading ── */}
+      {mode === "text" && textStage === "loading" && (
         <div className="min-h-[60vh] flex flex-col items-center justify-center text-center">
           <div className="relative mb-10">
             <div className="w-24 h-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
@@ -431,13 +260,9 @@ export default function GeneratePage() {
           <p className="text-muted-foreground text-lg max-w-[50ch] mb-10 leading-relaxed">
             Đang trích xuất khái niệm và tạo <strong className="text-foreground">{targetCount} flashcards</strong>.<br />Quá trình này có thể mất 30–60 giây.
           </p>
-
           <div className="w-full max-w-[400px]">
             <div className="h-3 w-full bg-surface-muted rounded-full overflow-hidden border border-border shadow-inner">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
+              <div className="h-full bg-primary transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>
             <div className="flex justify-between mt-3 px-1">
               <span className="text-[0.82rem] font-semibold text-muted-foreground uppercase tracking-wider">Đang xử lý</span>
@@ -447,7 +272,8 @@ export default function GeneratePage() {
         </div>
       )}
 
-      {stage === "preview" && (
+      {/* ── Text mode: preview ── */}
+      {mode === "text" && textStage === "preview" && (
         <div className="pb-20">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sticky top-[-32px] md:top-[-40px] z-40 bg-background/80 backdrop-blur-xl py-6 border-b border-border/50">
             <div>
@@ -474,7 +300,7 @@ export default function GeneratePage() {
               <Button variant="secondary" onClick={addCard} className="flex-1 md:flex-none">
                 <Plus className="w-4 h-4" aria-hidden /> Thêm thẻ
               </Button>
-              <Button variant="ghost" onClick={() => setStage("setup")} className="flex-1 md:flex-none">
+              <Button variant="ghost" onClick={() => setTextStage("setup")} className="flex-1 md:flex-none">
                 <RotateCcw className="w-4 h-4" aria-hidden /> Làm lại
               </Button>
               <Button variant="primary" onClick={handleSave} className="flex-[1.5] md:flex-none">
@@ -486,9 +312,7 @@ export default function GeneratePage() {
           {message && (
             <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3 mb-6">
               <X className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0" />
-              <p className="text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium leading-[1.5] m-0">
-                {message}
-              </p>
+              <p className="text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium leading-[1.5] m-0">{message}</p>
             </div>
           )}
 
@@ -543,12 +367,8 @@ export default function GeneratePage() {
                       </div>
                     </div>
                     <div className="flex gap-2 mt-2">
-                      <Button variant="ghost" className="flex-1" onClick={cancelEdit}>
-                        Hủy
-                      </Button>
-                      <Button variant="primary" className="flex-[1.5]" onClick={saveEdit}>
-                        <Check className="w-4 h-4" /> Hoàn tất
-                      </Button>
+                      <Button variant="ghost" className="flex-1" onClick={cancelEdit}>Hủy</Button>
+                      <Button variant="primary" className="flex-[1.5]" onClick={saveEdit}><Check className="w-4 h-4" /> Hoàn tất</Button>
                     </div>
                   </>
                 ) : (
@@ -566,24 +386,10 @@ export default function GeneratePage() {
                       <p className="text-muted-foreground text-[0.88rem] leading-relaxed m-0 line-clamp-4">{card.back}</p>
                     </div>
                     <div className="flex justify-end gap-2.5 pt-4 border-t border-border/50">
-                      <Button
-                        type="button"
-                        variant="danger"
-                        size="sm"
-                        className="h-10 w-10 p-0"
-                        onClick={() => removeCard(idx)}
-                        title="Xóa thẻ"
-                      >
+                      <Button type="button" variant="danger" size="sm" className="h-10 w-10 p-0" onClick={() => removeCard(idx)} title="Xóa thẻ">
                         <Trash2 className="w-4 h-4" />
                       </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="h-10"
-                        onClick={() => startEdit(idx)}
-                        title="Chỉnh sửa"
-                      >
+                      <Button type="button" variant="secondary" size="sm" className="h-10" onClick={() => startEdit(idx)} title="Chỉnh sửa">
                         <Pencil className="w-3.5 h-3.5" /> Sửa
                       </Button>
                     </div>
@@ -605,39 +411,341 @@ export default function GeneratePage() {
         </div>
       )}
 
-      {stage === "saved" && (
+      {/* ── Text mode: saved ── */}
+      {mode === "text" && textStage === "saved" && (
         <div className="mt-10 p-10 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[40px] shadow-sm text-center">
           <div className="w-20 h-20 bg-green-50 dark:bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <Sparkles className="w-10 h-10 text-green-500" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Đã lưu thành công</h2>
-          <p className="text-muted-foreground mb-8">
-            Thẻ mới đã sẵn sàng để bạn ôn theo nhịp.
-          </p>
+          <p className="text-muted-foreground mb-8">Thẻ mới đã sẵn sàng để bạn ôn theo nhịp.</p>
           <div className="flex flex-col items-center gap-4">
             <div className="flex justify-center gap-3">
-              <Button
-                variant="primary"
-                onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)}
-                disabled={!selectedDeckId}
-              >
+              <Button variant="primary" onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)} disabled={!selectedDeckId}>
                 <Repeat className="w-4 h-4" aria-hidden /> Học ngay
               </Button>
-              <Button
-                variant="secondary"
-                onClick={() => { setStage("setup"); setFiles([]); setCards([]); setMessage(null); }}
-              >
+              <Button variant="secondary" onClick={() => { setTextStage("setup"); setFiles([]); setCards([]); setMessage(null); }}>
                 Tải tài liệu khác
               </Button>
             </div>
-            <Button
-              variant="ghost"
-              onClick={() => selectedDeckId && router.push(`/generate/images?deckId=${selectedDeckId}`)}
-              disabled={!selectedDeckId}
-              className="text-muted-foreground"
-            >
+            <Button variant="ghost" onClick={() => switchMode("image")} disabled={!selectedDeckId} className="text-muted-foreground">
               <ImagePlus className="w-4 h-4" aria-hidden /> Thêm ảnh minh hoạ (DALL-E 3)
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Image mode: generating ── */}
+      {mode === "image" && imgStage === "generating" && (
+        <div className="min-h-[40vh] flex flex-col items-center justify-center text-center gap-6">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ImagePlus className="w-9 h-9 text-primary animate-pulse" />
+            </div>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Đang tạo thẻ ảnh…</h2>
+            <p className="text-muted-foreground max-w-[44ch] leading-relaxed">
+              AI đang đọc tài liệu, chọn khái niệm trực quan và gọi DALL-E 3.<br />
+              Quá trình này mất 30–90 giây.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Image mode: done ── */}
+      {mode === "image" && imgStage === "done" && (
+        <div className="p-10 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[40px] shadow-sm text-center">
+          <div className="w-20 h-20 bg-green-50 dark:bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Check className="w-10 h-10 text-green-500" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Hoàn tất!</h2>
+          {imgResult && (
+            <p className="text-muted-foreground mb-2">
+              Đã lưu <strong className="text-foreground">{imgResult.saved} thẻ</strong> vào deck —{" "}
+              <span className="text-primary font-semibold">{imgResult.real_image} ảnh DALL-E</span>
+              {imgResult.diagram > 0 && (
+                <span className="text-amber-600 dark:text-amber-400 font-semibold"> + {imgResult.diagram} sơ đồ</span>
+              )}.
+            </p>
+          )}
+          <p className="text-muted-foreground text-[0.88rem] mb-8">Thẻ đã sẵn sàng để học.</p>
+          <div className="flex justify-center gap-3">
+            <Button variant="primary" onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)} disabled={!selectedDeckId}>
+              <Repeat className="w-4 h-4" /> Học ngay
+            </Button>
+            <Button variant="secondary" onClick={() => { setImgStage("setup"); setFiles([]); setImgResult(null); }}>
+              Tạo thêm
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Setup (both modes) ── */}
+      {isSetup && (
+        <div>
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-3.5">
+              <Sparkles className="w-4 h-4 text-primary" /> Tạo Flashcard AI
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2.5 leading-tight">
+              {mode === "text" ? (
+                <>Tải lên tài liệu,{" "}<span className="text-primary">AI làm phần còn lại</span></>
+              ) : (
+                <>Đuổi Hình Bắt Chữ,{" "}<span className="text-primary">AI tạo ảnh minh hoạ</span></>
+              )}
+            </h1>
+            <p className="text-muted-foreground text-base max-w-[64ch] leading-relaxed">
+              {mode === "text"
+                ? <>Tải tài liệu → AI tạo đến <strong className="text-foreground">{targetCount}</strong> thẻ → Bạn xem lại và chỉnh sửa → Lưu vào deck.</>
+                : "AI đọc tài liệu, tự chọn những khái niệm trực quan nhất, tạo ảnh DALL-E 3 rồi lưu thẻ vào deck."
+              }
+            </p>
+          </div>
+
+          {/* Mode selector */}
+          <div className="inline-flex items-center gap-1 p-1 rounded-2xl bg-[hsl(var(--acrylic))] border border-border/70 mb-6">
+            <button
+              type="button"
+              onClick={() => switchMode("text")}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all",
+                mode === "text" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Sparkles className="w-4 h-4" /> Thẻ văn bản
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("image")}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all",
+                mode === "image" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <ImagePlus className="w-4 h-4" /> Thẻ hình ảnh
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[0.65rem] font-bold uppercase tracking-wider">
+                <Lock className="w-2.5 h-2.5" /> Pro
+              </span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+            <section className="p-8 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[32px] shadow-sm">
+              <h3 className="mb-6 font-bold text-xl flex items-center gap-2">
+                <Settings2 className="w-5 h-5 text-muted-foreground" /> Cấu hình
+              </h3>
+
+              <div className="grid gap-6">
+                <div>
+                  <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider mb-2">Chọn deck đích</label>
+                  <Select
+                    value={selectedDeckId ? String(selectedDeckId) : ""}
+                    onValueChange={(v) => setSelectedDeckId(Number(v) || null)}
+                  >
+                    <SelectTrigger className="w-full justify-between">
+                      <SelectValue placeholder={decks.length ? "Chọn deck" : "Chưa có deck"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {decks.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {mode === "text" ? (
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider">Số flashcards mục tiêu</label>
+                      <span className="text-primary font-bold text-lg tabular-nums">{targetCount}</span>
+                    </div>
+                    <input
+                      type="range" min={10} max={500} step={10}
+                      value={targetCount}
+                      onChange={(e) => setTargetCount(Number(e.target.value))}
+                      className="w-full h-2 bg-surface-muted rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between mt-2 text-[0.75rem] font-semibold text-muted-foreground">
+                      <span>10</span><span>500</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider">Số thẻ tối đa</label>
+                      <span className="text-primary font-bold text-lg tabular-nums">{imgCount}</span>
+                    </div>
+                    <input
+                      type="range" min={5} max={20} step={1}
+                      value={imgCount}
+                      onChange={(e) => setImgCount(Number(e.target.value))}
+                      className="w-full h-2 bg-surface-muted rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between mt-1.5 text-[0.75rem] font-semibold text-muted-foreground">
+                      <span>5</span>
+                      <span className="text-primary">Chi phí ước tính: ~${estimatedCost}</span>
+                      <span>20</span>
+                    </div>
+                  </div>
+                )}
+
+                <section
+                  className={cn(
+                    "overflow-hidden rounded-[24px] border border-border/80 bg-background/65 shadow-sm transition-colors",
+                    dragOver ? "border-primary bg-primary/5" : "hover:border-primary/35"
+                  )}
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleFileDrop}
+                  aria-label="Tải tài liệu"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "group flex w-full flex-col items-center justify-center gap-4 border-2 border-dashed border-border/80 px-6 py-8 text-center transition-colors",
+                      "hover:border-primary/45 hover:bg-muted/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[hsl(var(--ring))]",
+                      dragOver && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <span className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15 transition-transform group-hover:scale-[1.03] motion-reduce:transition-none">
+                      {files.length > 0 ? <FileUp className="h-8 w-8" aria-hidden /> : <Upload className="h-8 w-8" aria-hidden />}
+                    </span>
+                    <span className="space-y-1">
+                      <span className="block text-base font-bold tracking-tight text-foreground">
+                        {files.length > 0 ? "Thêm tài liệu khác" : "Kéo thả hoặc chọn tài liệu"}
+                      </span>
+                      <span className="block text-[0.88rem] leading-relaxed text-muted-foreground">
+                        PDF, DOCX, TXT. Có thể tải nhiều file cho cùng một lần sinh thẻ.
+                      </span>
+                    </span>
+                  </button>
+
+                  {files.length > 0 && (
+                    <div className="border-t border-border bg-muted/15 px-4 py-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[0.82rem] font-semibold text-foreground">{files.length} tài liệu đã chọn</p>
+                          <p className="text-[0.76rem] text-muted-foreground">Xóa file không dùng trước khi sinh flashcards.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFiles([])}
+                          className="rounded-lg px-2.5 py-1.5 text-[0.76rem] font-semibold text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/25 dark:hover:text-rose-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                        >
+                          Xóa tất cả
+                        </button>
+                      </div>
+                      <div className="max-h-[210px] space-y-2 overflow-y-auto pr-1">
+                        {files.map((f, index) => (
+                          <div key={`${f.name}-${f.lastModified}-${index}`} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-3 py-2.5">
+                            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                              <FileText className="h-5 w-5" aria-hidden />
+                            </span>
+                            <div className="min-w-0 flex-1 text-left">
+                              <p className="truncate text-[0.88rem] font-semibold text-foreground">{f.name}</p>
+                              <p className="mt-0.5 text-[0.75rem] text-muted-foreground">{fileKind(f)} · {formatFileSize(f.size)}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/25 dark:hover:text-rose-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                              aria-label={`Xóa ${f.name}`}
+                              title="Xóa file"
+                            >
+                              <X className="h-4 w-4" aria-hidden />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {mode === "text" && message && (
+                  <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3">
+                    <X className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0" />
+                    <p className="text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium leading-[1.5]">{message}</p>
+                  </div>
+                )}
+                {mode === "image" && imgError && (
+                  <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium flex gap-2">
+                    <X className="w-4 h-4 flex-shrink-0 mt-0.5" /> {imgError}
+                  </div>
+                )}
+
+                <div className="flex gap-4 mt-2">
+                  {mode === "text" ? (
+                    <Button variant="primary" className="w-full" onClick={handleGenerate} disabled={files.length === 0 || !selectedDeckId}>
+                      <Sparkles className="w-5 h-5" aria-hidden /> Sinh {targetCount} flashcards
+                    </Button>
+                  ) : (
+                    <Button variant="primary" className="w-full" onClick={handleImageGenerate} disabled={files.length === 0 || !selectedDeckId}>
+                      <Sparkles className="w-4 h-4" /> Tạo tối đa {imgCount} thẻ có ảnh (~${estimatedCost})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <aside className="grid gap-6 content-start">
+              <section className="p-6 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-3xl shadow-sm">
+                <h3 className="mb-4 font-bold text-lg">Luồng hoạt động</h3>
+                <div className="grid gap-4">
+                  {(mode === "text" ? [
+                    { n: "1", t: "Chọn deck & upload PDF" },
+                    { n: "2", t: "AI trích xuất & tạo thẻ" },
+                    { n: "3", t: "Xem lại, sửa hoặc xóa thẻ" },
+                    { n: "4", t: "Lưu vào deck → Bắt đầu học" },
+                  ] : [
+                    { n: "1", t: "Chọn deck & upload tài liệu" },
+                    { n: "2", t: "AI chọn khái niệm trực quan" },
+                    { n: "3", t: "DALL-E 3 tạo ảnh minh hoạ" },
+                    { n: "4", t: "Thẻ ảnh lưu thẳng vào deck" },
+                  ]).map((s) => (
+                    <div key={s.n} className="flex gap-3 items-start">
+                      <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-bold text-[0.88rem] bg-primary/10 text-primary">{s.n}</div>
+                      <div className="pt-1.5"><strong className="text-sm font-semibold leading-tight block">{s.t}</strong></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="p-6 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-3xl shadow-sm">
+                <h3 className="mb-4 font-bold text-lg">AI tạo gì?</h3>
+                <div className="grid gap-4">
+                  {(mode === "text" ? [
+                    { icon: Sparkles, t: "Câu hỏi từ khái niệm chính", c: "text-amber-500 bg-amber-50 dark:bg-amber-500/10" },
+                    { icon: Check, t: "Câu trả lời chính xác", c: "text-green-600 bg-green-50 dark:bg-green-500/10" },
+                    { icon: BrainCircuit, t: "Phân loại độ khó thông minh", c: "text-rose-500 bg-rose-50 dark:bg-rose-500/10" },
+                  ] : [
+                    { icon: ImagePlus, t: "Ảnh DALL-E 3 cho khái niệm", c: "text-blue-500 bg-blue-50 dark:bg-blue-500/10" },
+                    { icon: Check, t: "Chỉ tạo khi ảnh giúp học tốt hơn", c: "text-green-600 bg-green-50 dark:bg-green-500/10" },
+                    { icon: BrainCircuit, t: "Sơ đồ cho khái niệm trừu tượng", c: "text-purple-500 bg-purple-50 dark:bg-purple-500/10" },
+                  ]).map((f) => {
+                    const Icon = f.icon;
+                    return (
+                      <div key={f.t} className="flex gap-3 items-center">
+                        <div className={cn("flex-none w-8 h-8 rounded-lg grid place-items-center", f.c)}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <p className="text-[0.88rem] font-semibold text-foreground leading-snug m-0">{f.t}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            </aside>
           </div>
         </div>
       )}
