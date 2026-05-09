@@ -5,6 +5,7 @@ from langchain_core.prompts import PromptTemplate
 from sqlalchemy.exc import ProgrammingError
 from sqlmodel import Session
 
+from src.app.api.deps import get_current_user_id
 from src.app.api.endpoints.cards import get_llm
 from src.app.db.session import get_session
 from src.app.schemas.game import (
@@ -78,7 +79,7 @@ def _parse_json_object(content: str) -> dict:
 
 
 @router.post("/campaign/{deck_id}/start", response_model=GameStartResponse)
-async def start_campaign(deck_id: int, payload: GameStartRequest, session: Session = Depends(get_session)):
+async def start_campaign(deck_id: int, payload: GameStartRequest, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     cards = game_service.get_campaign_cards(session, deck_id, payload.card_count)
     if len(cards) < 2:
         raise HTTPException(status_code=422, detail="Deck cần ít nhất 2 thẻ để chơi Adventure Campaign.")
@@ -106,7 +107,7 @@ async def start_campaign(deck_id: int, payload: GameStartRequest, session: Sessi
 
     campaign = game_service.normalize_campaign(raw_campaign, cards)
     try:
-        game = game_service.create_game_session(session, payload.user_id, deck_id, campaign)
+        game = game_service.create_game_session(session, user_id, deck_id, campaign)
     except ProgrammingError as exc:
         session.rollback()
         raise HTTPException(
@@ -117,11 +118,11 @@ async def start_campaign(deck_id: int, payload: GameStartRequest, session: Sessi
 
 
 @router.post("/campaign/{session_id}/complete", response_model=GameCompleteResponse)
-def complete_campaign(session_id: int, payload: GameCompleteRequest, session: Session = Depends(get_session)):
+def complete_campaign(session_id: int, payload: GameCompleteRequest, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     game = game_service.complete_game_session(
         session=session,
         session_id=session_id,
-        user_id=payload.user_id,
+        user_id=user_id,
         score=payload.score,
         xp_earned=payload.xp_earned,
         accuracy=payload.accuracy,
@@ -140,5 +141,5 @@ def complete_campaign(session_id: int, payload: GameCompleteRequest, session: Se
 
 
 @router.get("/sessions", response_model=list[GameSessionSummary])
-def list_sessions(user_id: int, limit: int = 10, session: Session = Depends(get_session)):
+def list_sessions(limit: int = 10, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     return game_service.list_game_sessions(session, user_id, limit)
