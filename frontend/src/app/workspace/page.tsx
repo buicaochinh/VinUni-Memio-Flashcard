@@ -18,10 +18,11 @@ import {
   LearningGoal,
   useClientReady,
   upsertLearningGoal,
+  deleteLearningGoal,
   User,
 } from "../../lib/app-client";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Copy, FolderKanban, Link2, Map, Plus, SlidersHorizontal, Sparkles, Target, Trash, X, Lock, Globe2, Repeat, Brain, CalendarDays } from "lucide-react";
+import { Check, Copy, FolderKanban, Link2, Map, Pencil, Plus, SlidersHorizontal, Sparkles, Target, Trash, X, Lock, Globe2, Repeat, Brain, CalendarDays } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -58,6 +59,8 @@ export default function WorkspacePage() {
   const [learningGoals, setLearningGoals] = useState<Record<number, LearningGoal>>({});
   const [goalDrafts, setGoalDrafts] = useState<Record<number, { target_date: string; desired_mastery: number; daily_workload: number }>>({});
   const [savingGoalId, setSavingGoalId] = useState<number | null>(null);
+  const [editingGoalDeckId, setEditingGoalDeckId] = useState<number | null>(null);
+  const [deletingGoalId, setDeletingGoalId] = useState<number | null>(null);
   const [newDeckName, setNewDeckName] = useState("");
   const [newDeckDesc, setNewDeckDesc] = useState("");
   const [creating, setCreating] = useState(false);
@@ -311,12 +314,42 @@ export default function WorkspacePage() {
         daily_workload: draft.daily_workload,
       });
       setLearningGoals((prev) => ({ ...prev, [deckId]: goal }));
+      setEditingGoalDeckId(null);
       setMsg(null);
     } catch {
       setMsg("Không lưu được mục tiêu ôn thi.");
     } finally {
       setSavingGoalId(null);
     }
+  };
+
+  const deleteGoal = async (deckId: number, goalId: number) => {
+    setDeletingGoalId(goalId);
+    try {
+      await deleteLearningGoal(goalId);
+      setLearningGoals((prev) => {
+        const next = { ...prev };
+        delete next[deckId];
+        return next;
+      });
+      setEditingGoalDeckId(null);
+    } catch {
+      setMsg("Không xóa được mục tiêu.");
+    } finally {
+      setDeletingGoalId(null);
+    }
+  };
+
+  const startEditGoal = (deckId: number, goal: LearningGoal) => {
+    setGoalDrafts((prev) => ({
+      ...prev,
+      [deckId]: {
+        target_date: goal.target_date,
+        desired_mastery: goal.desired_mastery,
+        daily_workload: goal.daily_workload,
+      },
+    }));
+    setEditingGoalDeckId(deckId);
   };
 
   if (!user) return null;
@@ -833,7 +866,7 @@ export default function WorkspacePage() {
                           )}
                         </div>
 
-                        {goal ? (
+                        {goal && editingGoalDeckId !== deck.id ? (
                           <div className="space-y-2">
                             <p className="text-[0.84rem] leading-relaxed text-foreground/90">
                               {goal.plan_summary}
@@ -851,6 +884,24 @@ export default function WorkspacePage() {
                                 <p className="text-sm font-bold tabular-nums">{goal.recommended_daily_cards}</p>
                                 <p className="text-[0.68rem] text-muted-foreground">/ngày</p>
                               </div>
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => startEditGoal(deck.id, goal)}
+                                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-background/75 px-3 py-1.5 text-[0.78rem] font-semibold text-muted-foreground transition-colors hover:bg-muted/35 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                              >
+                                <Pencil className="h-3.5 w-3.5" aria-hidden /> Sửa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => deleteGoal(deck.id, goal.id)}
+                                disabled={deletingGoalId === goal.id}
+                                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-950/25 px-3 py-1.5 text-[0.78rem] font-semibold text-rose-700 dark:text-rose-300 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                              >
+                                <Trash className="h-3.5 w-3.5" aria-hidden />
+                                {deletingGoalId === goal.id ? "Đang xóa..." : "Xóa"}
+                              </button>
                             </div>
                           </div>
                         ) : (
@@ -887,14 +938,25 @@ export default function WorkspacePage() {
                                 className="h-9 bg-background/70 text-[0.82rem]"
                               />
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => saveGoal(deck.id)}
-                              disabled={savingGoalId === deck.id}
-                              className="inline-flex w-full items-center justify-center rounded-xl border border-border bg-background/75 px-3 py-2 text-[0.8rem] font-semibold text-foreground transition-colors hover:bg-muted/35 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-                            >
-                              {savingGoalId === deck.id ? "Đang lưu" : "Đặt mục tiêu"}
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => saveGoal(deck.id)}
+                                disabled={savingGoalId === deck.id}
+                                className="inline-flex flex-1 items-center justify-center rounded-xl border border-border bg-background/75 px-3 py-2 text-[0.8rem] font-semibold text-foreground transition-colors hover:bg-muted/35 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                              >
+                                {savingGoalId === deck.id ? "Đang lưu..." : goal ? "Lưu thay đổi" : "Đặt mục tiêu"}
+                              </button>
+                              {goal && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingGoalDeckId(null)}
+                                  className="inline-flex items-center justify-center rounded-xl border border-border bg-background/75 px-3 py-2 text-[0.8rem] font-semibold text-muted-foreground transition-colors hover:bg-muted/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                                >
+                                  Hủy
+                                </button>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
