@@ -30,9 +30,9 @@ function GenerateImagesPageContent() {
   const [result, setResult] = useState<{ generated: number; total_candidates: number } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const loadCards = useCallback(async (did: number, uid: number) => {
+  const loadCards = useCallback(async (did: number) => {
     try {
-      const c = await fetchDeckCards(did, uid);
+      const c = await fetchDeckCards(did);
       setCards(c);
       setStage("idle");
     } catch {
@@ -46,7 +46,7 @@ function GenerateImagesPageContent() {
     if (!user) { router.replace("/"); return; }
     if (!parsedDeckId) { router.replace("/workspace"); return; }
     const timer = window.setTimeout(() => {
-      void loadCards(parsedDeckId, user.id);
+      void loadCards(parsedDeckId);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [clientReady, loadCards, parsedDeckId, router, user]);
