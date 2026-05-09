@@ -60,7 +60,7 @@ export default function GeneratePage() {
 
   const loadDecks = useCallback(async (userId: number) => {
     try {
-      const d = await fetchDecks(userId);
+      const d = await fetchDecks();
       setDecks(d);
       const qId = Number(new URLSearchParams(window.location.search).get("deckId"));
       setSelectedDeckId(
