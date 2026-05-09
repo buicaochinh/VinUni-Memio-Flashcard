@@ -85,12 +85,12 @@ export default function WorkspacePage() {
 
   const hydrate = async (userId: number) => {
     try {
-      const d = await fetchDecks(userId);
+      const d = await fetchDecks();
       setDecks(d);
       const counts = await Promise.all(
         d.map(async (deck) => {
           try {
-            const summary = await fetchStudySummary(deck.id, userId);
+            const summary = await fetchStudySummary(deck.id);
             return [deck.id, summary] as const;
           } catch {
             return [deck.id, null] as const;
@@ -98,12 +98,12 @@ export default function WorkspacePage() {
         })
       );
       setCardCounts(Object.fromEntries(counts));
-      fetchLearningGoals(userId)
+      fetchLearningGoals()
         .then((goals) => {
           setLearningGoals(Object.fromEntries(goals.map((goal) => [goal.deck_id, goal])));
         })
         .catch(() => setLearningGoals({}));
-      fetchCoachLearningIntelligence(userId, 3)
+      fetchCoachLearningIntelligence(3)
         .then(setLearningIntel)
         .catch(() => setLearningIntel(null));
     } catch {
@@ -211,7 +211,7 @@ export default function WorkspacePage() {
     if (!user || !newDeckName.trim()) return;
     setCreating(true);
     try {
-      await createDeck(user.id, newDeckName.trim(), newDeckDesc.trim());
+      await createDeck(newDeckName.trim(), newDeckDesc.trim());
       setNewDeckName(""); setNewDeckDesc(""); setMsg(null);
       await hydrate(user.id);
     } catch {
@@ -305,7 +305,6 @@ export default function WorkspacePage() {
     setSavingGoalId(deckId);
     try {
       const goal = await upsertLearningGoal({
-        user_id: user.id,
         deck_id: deckId,
         target_date: draft.target_date,
         desired_mastery: draft.desired_mastery,
