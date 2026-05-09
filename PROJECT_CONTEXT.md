@@ -12,12 +12,14 @@
 - **Dev (local)**:
   - Backend: `uvicorn src.main:app --reload` → Swagger tại `http://localhost:8000/docs`
   - Frontend: `cd frontend && npm run dev` → `http://localhost:3000`
-- **Auth (trạng thái hiện tại)**:
-  - **Legacy**: user ở `localStorage` (`flashcard_user`), backend nhận `user_id` qua query/body.
-  - **JWT session**: một số route (đặc biệt integrations) dùng Bearer access token + refresh.
+- **Auth (đã migrate sang JWT Bearer — 2026-05-09)**:
+  - Tất cả protected endpoints dùng `Depends(get_current_user_id)` từ `src/app/api/deps.py`.
+  - Frontend dùng `authFetch()` (tự gắn Bearer token, tự refresh on 401).
+  - Public (không cần auth): `GET /decks/shared/{token}`, tất cả `/auth/*`, Telegram webhook.
 - **DB / migrations**:
   - DB: PostgreSQL
   - **Alembic là chuẩn**: `alembic upgrade head` (runtime `create_all()` đã tắt)
+  - Latest migration: `0015_user_xp` (thêm `total_xp` vào `users`)
 - **Deploy (pilot)**:
   - Docker Swarm single-node; deploy qua `scripts/bootstrap.sh` (one-time) + `scripts/redeploy.sh` (hằng ngày)
 - **Docs entrypoints**:
@@ -29,7 +31,7 @@
 - **Templates**: `docs/templates/*` (không nhúng template lặp ở `JOURNAL.md`/`WORKLOG.md`).
 - **Migrations**: thay đổi schema → tạo/áp dụng Alembic; không dựa vào auto-create runtime.
 - **Deploy**: pilot deploy theo Swarm + scripts; cập nhật deploy flow thì cập nhật file này trước.
-- **Auth**: đang ở giai đoạn chuyển tiếp (legacy + JWT). Khi sửa auth/API, cần ghi rõ “đang áp dụng cho route nào”.
+- **Auth**: đã migrate hoàn toàn sang JWT Bearer (2026-05-09). Mọi endpoint mới phải dùng `Depends(get_current_user_id)`, không truyền `user_id` qua query/body.
 
 ## 0.2 Handoff workflow (ít token)
 
@@ -72,9 +74,10 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 ```
 
 - **Monorepo** — backend (`src/`) and frontend (`frontend/`) live in the same repo
-- **Auth today is mixed**:
-  - **Legacy** flows are client-side localStorage based (`flashcard_user`) and pass identity via `user_id` query/body (no auth header).
-  - **JWT session** flows exist for some routes (notably integrations): frontend stores access/refresh tokens and uses Bearer auth.
+- **Auth (fully JWT Bearer as of 2026-05-09)**:
+  - All protected endpoints use `Depends(get_current_user_id)` — identity extracted from Bearer token server-side.
+  - Frontend uses `authFetch()` for all protected calls (auto-attaches Bearer token, auto-refresh on 401).
+  - Tokens stored in `localStorage` key `flashcard_tokens`; user info in `flashcard_user`.
 - **Caddy** serves as reverse proxy in production (auto HTTPS via Let's Encrypt)
 
 ## 3. Tech Stack
@@ -133,7 +136,7 @@ A20-App-001/
 
 | Table | Key Columns | Notes |
 |---|---|---|
-| `users` | `id`, `google_id` (unique), `username` (unique), `password_hash`, `name`, `email`, `photo_url`, `auth_type`, `is_guest` | Supports Google, username/password, and guest auth |
+| `users` | `id`, `google_id` (unique), `username` (unique), `password_hash`, `name`, `email`, `photo_url`, `auth_type`, `is_guest`, `total_xp` (int, default 0) | Supports Google, username/password, and guest auth. `total_xp` accumulates from study sessions and games. |
 | `decks` | `id`, `user_id` (FK→users), `name`, `description`, `is_public` (int 0/1), `share_token` (unique), `created_at` | Multi-tenant: always filter by `user_id` |
 | `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `image_type`, `image_url`, `diagram_spec`, `created_at` | `source_context` stores original text for citations; image fields support Đuổi Hình / DALL-E cards |
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
@@ -144,14 +147,17 @@ A20-App-001/
 | `user_settings` | `id`, `user_id`, `daily_new_limit`, `daily_review_limit`, `timezone` | Per-user study limits and IANA timezone for local-date features |
 | `learning_goals` | `id`, `user_id`, `deck_id`, `goal_type`, `target_date`, `desired_mastery`, `daily_workload`, `status`, `created_at`, `updated_at` | Exam/deadline goals per deck; unique on `(user_id, deck_id)` |
 
-**Schema is managed via Alembic migrations.**
+**Schema is managed via Alembic migrations. Latest: `0015_user_xp`.**
 
 - Legacy auto-create at runtime has been disabled (see `src/app/db/session.py:init_db()`).
-- Apply migrations with `alembic upgrade head`.
+- Apply migrations with `./.venv/bin/alembic upgrade head`.
+- Migration history: 0001 baseline → … → 0014 learning_goals → 0015 user_xp.
 
 ## 6. API Endpoints
 
 Base: `/api` (mounted in `src/main.py`)
+
+> **Auth convention (2026-05-09+):** All protected endpoints use `Depends(get_current_user_id)` — no `user_id` in query params or body. Frontend uses `authFetch()`. Params tables below show the JWT-migrated signatures.
 
 ### Auth (`/api/auth/`)
 | Method | Path | Body | Description |
@@ -165,18 +171,18 @@ Base: `/api` (mounted in `src/main.py`)
 ### Decks (`/api/decks/`)
 | Method | Path | Params/Body | Description |
 |---|---|---|---|
-| GET | `/` | `?user_id=N` | List user's decks |
-| POST | `/` | `{user_id, name, description}` | Create deck |
-| DELETE | `/{deck_id}` | — | Delete deck + its flashcards |
-| POST | `/{deck_id}/share` | — | Enable sharing, returns token |
-| DELETE | `/{deck_id}/share` | — | Disable sharing |
-| GET | `/shared/{token}` | — | Public: get shared deck + cards |
-| GET | `/analytics` | `?user_id=N` | Global analytics |
+| GET | `/` | — | List user's decks (user from JWT) |
+| POST | `/` | `{name, description}` | Create deck |
+| DELETE | `/{deck_id}` | — | Delete deck + its flashcards (ownership checked) |
+| POST | `/{deck_id}/share` | — | Enable sharing, returns token (ownership checked) |
+| DELETE | `/{deck_id}/share` | — | Disable sharing (ownership checked) |
+| GET | `/shared/{token}` | — | **Public** (no auth): get shared deck + cards |
+| GET | `/analytics` | — | Global analytics for current user |
 
 ### Cards (`/api/cards/`)
 | Method | Path | Params/Body | Description |
 |---|---|---|---|
-| GET | `/{deck_id}` | `?user_id=N` | Get cards with progress (LEFT JOIN) |
+| GET | `/{deck_id}` | — | Get cards with progress (LEFT JOIN) |
 | POST | `/{deck_id}/preview` | `files` (multipart), `count` | AI generate → return without saving |
 | POST | `/{deck_id}/generate` | `files` (multipart), `count` | AI generate → save to DB |
 | POST | `/{deck_id}/generate_image_cards` | `files` (multipart), `count` | AI selects visual concepts → DALL-E images/diagram specs → save visual cards |
@@ -184,34 +190,42 @@ Base: `/api` (mounted in `src/main.py`)
 | POST | `/{deck_id}/bulk_create` | `{cards: [...]}` | Save reviewed preview cards |
 | PUT | `/{card_id}` | `{front, back, difficulty}` | Edit a card |
 | DELETE | `/{card_id}` | — | Delete card + progress |
-| POST | `/progress` | `{user_id, card_id, quality, ease_factor, ...}` | Update SM-2 progress |
-| POST | `/session` | `{user_id, deck_id, cards_reviewed, avg_quality}` | Log study session |
+| POST | `/progress` | `{card_id, quality, ease_factor, ...}` | Update SM-2 progress |
+| POST | `/session` | `{deck_id, cards_reviewed, avg_quality}` | Log study session → awards XP, returns `{xp_earned, total_xp}` |
 | POST | `/explain` | `{front, back, message, source_context?, history[]}` | AI explain card with citations |
-| GET | `/{deck_id}/analytics` | `?user_id=N` | Per-deck analytics |
+| GET | `/{deck_id}/analytics` | — | Per-deck analytics |
 
 ### Games (`/api/games/`)
 | Method | Path | Params/Body | Description |
 |---|---|---|---|
-| POST | `/campaign/{deck_id}/start` | `{user_id, card_count}` | AI calls OpenAI once to create an Adventure Campaign from deck cards; saves `game_sessions` row |
-| POST | `/campaign/{session_id}/complete` | `{user_id, score, xp_earned, accuracy, total_questions, correct_answers}` | Mark campaign complete and persist score/XP |
-| GET | `/sessions` | `?user_id=N&limit=10` | List recent game sessions |
+| POST | `/campaign/{deck_id}/start` | `{card_count}` | AI creates Adventure Campaign from deck cards; saves `game_sessions` row |
+| POST | `/campaign/{session_id}/complete` | `{score, xp_earned, accuracy, total_questions, correct_answers}` | Mark campaign complete, persist score/XP, **add xp_earned to user's total_xp** |
+| GET | `/sessions` | `?limit=10` | List recent game sessions for current user |
+
+### Users (`/api/users/`)
+| Method | Path | Params/Body | Description |
+|---|---|---|---|
+| GET | `/me/settings` | — | Get daily limits and timezone |
+| PUT | `/me/settings` | `{daily_new_limit, daily_review_limit, timezone?}` | Update study limits |
+| PATCH | `/me/settings/timezone` | `{timezone}` | Update timezone only |
+| GET | `/me/xp` | — | Get XP and level info: `{total_xp, level, level_name, xp_in_level, xp_to_next, progress_pct, is_max_level}` |
 
 ### Coach (`/api/coach/`)
 | Method | Path | Params/Body | Description |
 |---|---|---|---|
-| GET | `/threads` | `?user_id=N&limit=20` | List Memio Coach threads |
-| GET | `/threads/{thread_id}/messages` | `?user_id=N` | List stored messages for a thread |
-| GET | `/learning-intelligence` | `?user_id=N&limit=4` | Return weak concept clusters computed from flashcards + progress |
-| POST | `/message` | `{user_id, message, thread_id?, context_deck_id?, mode?}` | Send a message to Memio Coach; returns answer, citations, and suggested actions |
-| POST | `/quiz/start` | `{user_id, deck_id?, card_ids?, count}` | Build an inline multiple-choice quiz for Coach chat from weak/due cards or a selected concept cluster |
-| POST | `/quiz/summary` | `{user_id, summary, thread_id?, context_deck_id?, actions[]}` | Persist an inline quiz result summary into a Coach thread |
+| GET | `/threads` | `?limit=20` | List Memio Coach threads |
+| GET | `/threads/{thread_id}/messages` | — | List stored messages for a thread |
+| GET | `/learning-intelligence` | `?limit=4` | Return weak concept clusters computed from flashcards + progress |
+| POST | `/message` | `{message, thread_id?, context_deck_id?, mode?}` | Send a message to Memio Coach; returns answer, citations, and suggested actions |
+| POST | `/quiz/start` | `{deck_id?, card_ids?, count}` | Build an inline multiple-choice quiz for Coach chat |
+| POST | `/quiz/summary` | `{summary, thread_id?, context_deck_id?, actions[]}` | Persist an inline quiz result summary into a Coach thread |
 
 ### Learning Goals (`/api/goals/`)
 | Method | Path | Params/Body | Description |
 |---|---|---|---|
-| GET | `/` | `?user_id=N` | List active exam/deadline goals with workload estimates |
-| POST | `/` | `{user_id, deck_id, target_date, desired_mastery, daily_workload}` | Create/update the exam goal for a deck |
-| DELETE | `/{goal_id}` | `?user_id=N` | Delete a learning goal |
+| GET | `/` | — | List active exam/deadline goals with workload estimates |
+| POST | `/` | `{deck_id, target_date, desired_mastery, daily_workload}` | Create/update the exam goal for a deck |
+| DELETE | `/{goal_id}` | — | Delete a learning goal |
 | GET | `/notification-strategy` | — | Spec-only notification strategy for reminders, quiet hours, and future channels |
 
 ## 7. AI Integration
@@ -241,6 +255,7 @@ Base: `/api` (mounted in `src/main.py`)
   - correct with hint → quality `2`
   - wrong with hint → quality `1`
   - wrong without hint → quality `0`
+- **XP persistence:** when a campaign completes, `xp_earned` is added to `users.total_xp` via `xp_service.award_xp()`. Study sessions also award `cards_reviewed * 2` XP. Level system (10 levels) defined in `src/app/services/xp_service.py`.
 - **MVP scope:** solo Adventure Campaign only; no multiplayer, public leaderboard, or anti-cheat yet.
 
 ## 7.2 Memio Coach
@@ -290,7 +305,7 @@ Base: `/api` (mounted in `src/main.py`)
   - Study cards display a generated image above the question when `image_url` is present.
   - Cards/buttons use `rounded-2xl`, `border border-border`, `bg-surface-raised`.
   - CTA buttons: `bg-primary` + `shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)]`.
-- **Auth flow (client-side):** user stored in `localStorage` key `flashcard_user`. Helpers: `getStoredUser()`, `saveStoredUser()`, `clearStoredUser()` in `app-client.ts`. All private pages check `getStoredUser()` in `useEffect` and redirect to `/` if null. Google JWT decoded client-side (`decodeGoogleJwt`) — no server-side validation.
+- **Auth flow (client-side):** user info stored in `localStorage` key `flashcard_user`; tokens (access + refresh) in `flashcard_tokens`. Helpers: `getStoredUser()`, `saveStoredUser()`, `clearStoredUser()`, `authFetch()` in `app-client.ts`. All private pages check `getStoredUser()` in `useEffect` and redirect to `/` if null. `authFetch()` auto-attaches `Authorization: Bearer {access_token}` and retries with refresh token on 401. Google JWT decoded client-side (`decodeGoogleJwt`) — no server-side validation of Google credential.
 - **Offline support:** `app-client.ts` exposes `cacheCards()`, `getCachedCards()` (24h TTL), `queueProgressUpdate()`, `flushProgressQueue()`, `isOnline()`.
 
 ## 9. Deployment
@@ -327,7 +342,7 @@ Base: `/api` (mounted in `src/main.py`)
 
 ## 10. Known Issues & Gotchas
 
-1. **No auth middleware** — `user_id` is passed as a query param/body field. Anyone can impersonate any user. Known prototype-phase limitation.
+1. ~~**No auth middleware**~~ — **Resolved 2026-05-09.** All endpoints now use `Depends(get_current_user_id)`. Identity is extracted from Bearer token server-side; `user_id` no longer passed via query/body.
 2. **Alembic is required for schema changes** — Runtime `create_all()` is disabled; run `./.venv/bin/alembic upgrade head` after pulling migrations.
 3. **`source_context` column** — Added after initial schema. If production DB was created before, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
 4. **Image flashcard columns** — Added in Alembic `0013_add_image_fields`: `image_type`, `image_url`, `diagram_spec`. Run `alembic upgrade head` before using `/images` or `/generate/images`.
