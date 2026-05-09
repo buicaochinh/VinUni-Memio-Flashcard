@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, CheckCircle2, ExternalLink, Loader2, Send, Sparkles, Trophy } from "lucide-react";
+import { Bot, CheckCircle2, ExternalLink, FileText, Loader2, Send, Sparkles, ThumbsDown, ThumbsUp, Trophy } from "lucide-react";
 import {
   CoachAction,
+  CoachCitation,
   CoachMessage,
   CoachQuizQuestion,
   fetchCoachMessages,
+  logCoachTrustEvent,
   saveCoachQuizSummary,
   sendCoachMessage,
   startCoachQuiz,
@@ -21,7 +23,10 @@ type CoachChatProps = {
   user: User;
   compact?: boolean;
   initialPrompt?: string;
+  initialContextDeckId?: number | null;
   initialQuiz?: boolean;
+  initialQuizDeckId?: number | null;
+  initialQuizCardIds?: number[] | null;
   initialThreadId?: number | null;
   onThreadChange?: (threadId: number) => void;
 };
@@ -145,6 +150,140 @@ function MarkdownMessage({ content, inverted = false }: { content: string; inver
   );
 }
 
+function citationTone(sourceType: string) {
+  if (sourceType === "web") return "border-amber-300/70 bg-amber-50/80 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100";
+  if (sourceType === "source_context") return "border-emerald-300/70 bg-emerald-50/80 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100";
+  return "border-primary/25 bg-primary/5 text-foreground";
+}
+
+function citationLabel(citation: CoachCitation) {
+  if (citation.source_label) return citation.source_label;
+  if (citation.source_type === "web") return "External web";
+  if (citation.source_type === "source_context") return "Source context";
+  return "Internal card";
+}
+
+function CitationList({
+  citations,
+  userId,
+  threadId,
+  messageId,
+}: {
+  citations: CoachCitation[];
+  userId: number;
+  threadId: number | null;
+  messageId?: number;
+}) {
+  return (
+    <div className="mt-3 space-y-2 border-t border-border/70 pt-3">
+      <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+        <FileText className="h-3.5 w-3.5 text-primary" aria-hidden />
+        Nguồn tham chiếu
+      </div>
+      {citations.map((citation) => {
+        const body = (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={cn("rounded-full border px-2 py-0.5 text-[0.68rem] font-semibold", citationTone(citation.source_type))}>
+                {citationLabel(citation)}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-semibold text-foreground">{citation.label}</span>
+              {citation.url && <ExternalLink className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
+            </div>
+            <p className="mt-1.5 line-clamp-3 text-muted-foreground">{citation.text}</p>
+          </>
+        );
+        const logClick = () => {
+          void logCoachTrustEvent({
+            user_id: userId,
+            thread_id: threadId,
+            message_id: messageId,
+            event_type: "citation_click",
+            citation_id: citation.id,
+            source_type: citation.source_type,
+          });
+        };
+
+        if (citation.url) {
+          return (
+            <a
+              key={citation.id}
+              href={citation.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={logClick}
+              className="block rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs transition-colors hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+            >
+              {body}
+            </a>
+          );
+        }
+
+        return (
+          <button
+            key={citation.id}
+            type="button"
+            onClick={logClick}
+            className="block w-full rounded-xl border border-border bg-muted/30 px-3 py-2 text-left text-xs transition-colors hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+          >
+            {body}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnswerFeedback({
+  userId,
+  threadId,
+  message,
+}: {
+  userId: number;
+  threadId: number | null;
+  message: CoachMessage;
+}) {
+  const [selected, setSelected] = useState<"helpful" | "not_helpful" | null>(null);
+  const handleFeedback = (value: "helpful" | "not_helpful") => {
+    setSelected(value);
+    void logCoachTrustEvent({
+      user_id: userId,
+      thread_id: threadId,
+      message_id: message.id,
+      event_type: "answer_feedback",
+      value,
+    });
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span>Câu trả lời này hữu ích không?</span>
+      <button
+        type="button"
+        onClick={() => handleFeedback("helpful")}
+        className={cn(
+          "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]",
+          selected === "helpful" ? "border-[hsl(var(--success))] bg-[hsl(var(--success)/0.10)] text-[hsl(var(--success))]" : "border-border bg-background hover:bg-muted/40"
+        )}
+      >
+        <ThumbsUp className="h-3.5 w-3.5" aria-hidden />
+        Có
+      </button>
+      <button
+        type="button"
+        onClick={() => handleFeedback("not_helpful")}
+        className={cn(
+          "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]",
+          selected === "not_helpful" ? "border-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.10)] text-[hsl(var(--danger))]" : "border-border bg-background hover:bg-muted/40"
+        )}
+      >
+        <ThumbsDown className="h-3.5 w-3.5" aria-hidden />
+        Chưa
+      </button>
+    </div>
+  );
+}
+
 type InlineQuizState = {
   questions: CoachQuizQuestion[];
   index: number;
@@ -231,7 +370,10 @@ export default function CoachChat({
   user,
   compact = false,
   initialPrompt,
+  initialContextDeckId = null,
   initialQuiz = false,
+  initialQuizDeckId = null,
+  initialQuizCardIds = null,
   initialThreadId = null,
   onThreadChange,
 }: CoachChatProps) {
@@ -301,14 +443,14 @@ export default function CoachChat({
     if (!draftReady || !initialPrompt || messages.length > 0) return;
     void handleSend(initialPrompt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftReady, initialPrompt]);
+  }, [draftReady, initialPrompt, initialContextDeckId]);
 
   useEffect(() => {
     if (!draftReady || !initialQuiz || quiz || isStartingQuiz || initialQuizStartedRef.current) return;
     initialQuizStartedRef.current = true;
-    void startInlineQuiz();
+    void startInlineQuiz(initialQuizDeckId, initialQuizCardIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draftReady, initialQuiz, quiz, isStartingQuiz]);
+  }, [draftReady, initialQuiz, quiz, isStartingQuiz, initialQuizDeckId, initialQuizCardIds]);
 
   const handleSend = async (override?: string) => {
     const text = (override ?? input).trim();
@@ -324,6 +466,7 @@ export default function CoachChat({
         user_id: user.id,
         message: text,
         thread_id: threadId,
+        context_deck_id: initialContextDeckId,
       });
       setThreadId(reply.thread_id);
       onThreadChange?.(reply.thread_id);
@@ -343,12 +486,17 @@ export default function CoachChat({
     }
   };
 
-  const startInlineQuiz = async () => {
+  const startInlineQuiz = async (deckId?: number | null, cardIds?: number[] | null) => {
     if (isStartingQuiz) return;
     setIsStartingQuiz(true);
     setError(null);
     try {
-      const questions = await startCoachQuiz({ user_id: user.id, count: 5 });
+      const questions = await startCoachQuiz({
+        user_id: user.id,
+        deck_id: deckId ?? undefined,
+        card_ids: cardIds ?? undefined,
+        count: 5,
+      });
       setQuiz({ questions, index: 0, selected: null, correct: 0, answered: [] });
       setMessages((prev) => [
         ...prev,
@@ -473,20 +621,31 @@ export default function CoachChat({
               >
                 <MarkdownMessage content={message.content} inverted={message.role === "user"} />
                 {message.citations && message.citations.length > 0 && (
-                  <div className="mt-3 space-y-2 border-t border-border/70 pt-3">
-                    {message.citations.map((citation) => (
-                      <div key={citation.id} className="rounded-xl bg-muted/35 px-3 py-2 text-xs text-muted-foreground">
-                        <p className="font-semibold text-foreground">{citation.label}</p>
-                        <p className="mt-1 line-clamp-3">{citation.text}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <CitationList
+                    citations={message.citations}
+                    userId={user.id}
+                    threadId={threadId}
+                    messageId={message.id}
+                  />
+                )}
+                {message.role === "assistant" && (
+                  <AnswerFeedback userId={user.id} threadId={threadId} message={message} />
                 )}
                 {message.actions && message.actions.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {message.actions.map((action, actionIndex) => (
-                      <ActionButton key={`${action.type}-${actionIndex}`} action={action} onQuiz={startInlineQuiz} />
-                    ))}
+                    {message.actions.map((action, actionIndex) => {
+                      const deckId = typeof action.payload?.deck_id === "number" ? action.payload.deck_id : null;
+                      const cardIds = Array.isArray(action.payload?.card_ids)
+                        ? action.payload.card_ids.filter((id): id is number => typeof id === "number")
+                        : null;
+                      return (
+                        <ActionButton
+                          key={`${action.type}-${actionIndex}`}
+                          action={action}
+                          onQuiz={() => startInlineQuiz(deckId, cardIds)}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>
