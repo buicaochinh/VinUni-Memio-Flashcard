@@ -161,7 +161,9 @@ export type CoachCitation = {
   id: string;
   label: string;
   text: string;
-  source_type: "card" | "web" | string;
+  source_type: "card" | "source_context" | "web" | string;
+  source_label?: string | null;
+  priority?: number | null;
   deck_id?: number | null;
   card_id?: number | null;
   url?: string | null;
@@ -212,6 +214,58 @@ export type CoachQuizQuestion = {
   ease_factor?: number | null;
   repetition?: number | null;
   interval?: number | null;
+};
+
+export type CoachWeakConceptCard = {
+  id: number;
+  front: string;
+  deck_id: number;
+  deck_name: string;
+  weakness_score: number;
+  last_quality?: number | null;
+  ease_factor?: number | null;
+};
+
+export type CoachWeakConceptCluster = {
+  id: string;
+  label: string;
+  deck_id: number;
+  deck_name: string;
+  card_ids: number[];
+  card_count: number;
+  mastery_score: number;
+  weakness_score: number;
+  reason: string;
+  sample_cards: CoachWeakConceptCard[];
+};
+
+export type CoachLearningIntelligence = {
+  clusters: CoachWeakConceptCluster[];
+  total_weak_cards: number;
+};
+
+export type LearningGoal = {
+  id: number;
+  user_id: number;
+  deck_id: number;
+  deck_name: string;
+  goal_type: string;
+  target_date: string;
+  desired_mastery: number;
+  daily_workload: number;
+  status: string;
+  days_remaining: number;
+  due_cards: number;
+  new_cards: number;
+  weak_cards: number;
+  total_cards: number;
+  workload_cards: number;
+  recommended_daily_cards: number;
+  readiness_score: number;
+  urgency: "low" | "medium" | "high" | string;
+  plan_summary: string;
+  created_at: string;
+  updated_at: string;
 };
 
 // ─── Config ──────────────────────────────────────────────────────────────────
@@ -710,9 +764,16 @@ export async function sendCoachMessage(payload: {
   return res.json() as Promise<CoachReply>;
 }
 
+export async function fetchCoachLearningIntelligence(userId: number, limit = 4): Promise<CoachLearningIntelligence> {
+  const res = await fetch(apiUrl(`/api/coach/learning-intelligence?user_id=${userId}&limit=${limit}`));
+  if (!res.ok) throw new Error("FETCH_COACH_LEARNING_INTELLIGENCE_FAILED");
+  return res.json() as Promise<CoachLearningIntelligence>;
+}
+
 export async function startCoachQuiz(payload: {
   user_id: number;
   deck_id?: number | null;
+  card_ids?: number[] | null;
   count?: number;
 }): Promise<CoachQuizQuestion[]> {
   const res = await fetch(apiUrl("/api/coach/quiz/start"), {
@@ -745,6 +806,53 @@ export async function saveCoachQuizSummary(payload: {
     throw new Error(body.detail ?? "SAVE_COACH_QUIZ_SUMMARY_FAILED");
   }
   return res.json() as Promise<{ thread_id: number; message: CoachMessage }>;
+}
+
+export async function logCoachTrustEvent(payload: {
+  user_id: number;
+  thread_id?: number | null;
+  message_id?: number | null;
+  event_type: "citation_click" | "answer_feedback";
+  citation_id?: string | null;
+  value?: "helpful" | "not_helpful" | null;
+  source_type?: string | null;
+}) {
+  await fetch(apiUrl("/api/coach/trust-event"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function fetchLearningGoals(userId: number): Promise<LearningGoal[]> {
+  const res = await fetch(apiUrl(`/api/goals/?user_id=${userId}`));
+  if (!res.ok) throw new Error("FETCH_LEARNING_GOALS_FAILED");
+  const data = await res.json();
+  return (data.goals ?? []) as LearningGoal[];
+}
+
+export async function upsertLearningGoal(payload: {
+  user_id: number;
+  deck_id: number;
+  target_date: string;
+  desired_mastery: number;
+  daily_workload: number;
+}): Promise<LearningGoal> {
+  const res = await fetch(apiUrl("/api/goals/"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? "UPSERT_LEARNING_GOAL_FAILED");
+  }
+  return res.json() as Promise<LearningGoal>;
+}
+
+export async function deleteLearningGoal(goalId: number, userId: number) {
+  const res = await fetch(apiUrl(`/api/goals/${goalId}?user_id=${userId}`), { method: "DELETE" });
+  if (!res.ok) throw new Error("DELETE_LEARNING_GOAL_FAILED");
 }
 
 export async function logStudySession(

@@ -6,6 +6,7 @@ from src.app.api.endpoints import ingestion
 from src.app.api.endpoints import notion
 from src.app.api.endpoints import games
 from src.app.api.endpoints import coach
+from src.app.api.endpoints import goals
 
 api_router = APIRouter()
 
@@ -19,3 +20,4 @@ api_router.include_router(ingestion.router, prefix="/ingestion", tags=["Ingestio
 api_router.include_router(notion.router, prefix="/notion", tags=["Notion"])
 api_router.include_router(games.router, prefix="/games", tags=["Games"])
 api_router.include_router(coach.router, prefix="/coach", tags=["Coach"])
+api_router.include_router(goals.router, prefix="/goals", tags=["Learning Goals"])

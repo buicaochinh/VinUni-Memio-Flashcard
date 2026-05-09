@@ -50,9 +50,10 @@ Nếu không dùng hooks, vẫn có thể chống “mất context” bằng wor
 5. View Analytics (streak, heatmap, hardest cards, forgetting rate)
 6. Ask Memio Coach for personalized guidance, explanations, quizzes, citations, and next actions
 7. Play an AI Adventure Campaign from a deck → answer staged quiz challenges, update SM-2, save score/XP
-8. Optionally share decks via public link
+8. Create visual "Đuổi Hình Bắt Chữ" cards from documents or add DALL-E 3 images to existing visual cards
+9. Optionally share decks via public link
 
-**Current product improvement focus (Sprint 1):** Workspace now uses a Daily Mission / best-next-action module instead of a passive summary. It computes the priority deck from due/new cards, shows estimated study time, and routes the primary CTA to create a deck, generate cards, study, or challenge based on the user's state.
+**Current product improvement focus (Sprint 6):** Memio now supports exam goals per deck. Workspace can prioritize deadline-aware study plans, and Memio Coach receives learning goal context so it can answer planning questions such as whether the learner can finish before an exam date.
 
 **Live domain:** `mem.io.vn` (frontend) / `api.mem.io.vn` (backend)
 
@@ -109,12 +110,13 @@ A20-App-001/
 │       ├── models/domain.py          # SQLModel tables (see §5)
 │       ├── schemas/{user,deck,card,game,coach}.py   # Pydantic DTOs
 │       ├── services/                 # Business logic (CRUD + analytics)
-│       └── utils/{security,jwt_auth,card_pipeline}.py
+│       └── utils/{security,jwt_auth,card_pipeline,image_generator}.py
 ├── frontend/                         # FRONTEND (Next.js 16)
 │   └── src/
 │       ├── app/                      # Routes: page.tsx, login, signup,
 │       │                             # workspace, generate, analytics,
-│       │                             # study/[deckId], play/[deckId], coach,
+│       │                             # study/[deckId], play/[deckId], coach, images,
+│       │                             # generate/images,
 │       │                             # deck/[shareToken]
 │       ├── components/{AppShell,ThemeProvider,ThemeToggle}.tsx
 │       └── lib/app-client.ts         # API client + localStorage auth + offline cache
@@ -133,13 +135,14 @@ A20-App-001/
 |---|---|---|
 | `users` | `id`, `google_id` (unique), `username` (unique), `password_hash`, `name`, `email`, `photo_url`, `auth_type`, `is_guest` | Supports Google, username/password, and guest auth |
 | `decks` | `id`, `user_id` (FK→users), `name`, `description`, `is_public` (int 0/1), `share_token` (unique), `created_at` | Multi-tenant: always filter by `user_id` |
-| `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `created_at` | `source_context` stores original text for citations |
+| `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `image_type`, `image_url`, `diagram_spec`, `created_at` | `source_context` stores original text for citations; image fields support Đuổi Hình / DALL-E cards |
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
 | `study_sessions` | `id`, `user_id`, `deck_id`, `session_date`, `cards_reviewed`, `avg_quality` | UniqueConstraint on (user_id, deck_id, session_date) |
 | `game_sessions` | `id`, `user_id`, `deck_id`, `mode`, `status`, `campaign_json`, `score`, `xp_earned`, `accuracy`, `total_questions`, `correct_answers`, `started_at`, `completed_at`, `created_at` | Stores AI Adventure Campaign payloads and final score/XP |
 | `coach_threads` | `id`, `user_id`, `title`, `context_deck_id`, `created_at`, `updated_at` | Memio Coach conversation threads |
 | `coach_messages` | `id`, `thread_id`, `user_id`, `role`, `content`, `citations_json`, `actions_json`, `created_at` | Stored Coach messages, citations, and suggested actions |
 | `user_settings` | `id`, `user_id`, `daily_new_limit`, `daily_review_limit`, `timezone` | Per-user study limits and IANA timezone for local-date features |
+| `learning_goals` | `id`, `user_id`, `deck_id`, `goal_type`, `target_date`, `desired_mastery`, `daily_workload`, `status`, `created_at`, `updated_at` | Exam/deadline goals per deck; unique on `(user_id, deck_id)` |
 
 **Schema is managed via Alembic migrations.**
 
@@ -176,6 +179,8 @@ Base: `/api` (mounted in `src/main.py`)
 | GET | `/{deck_id}` | `?user_id=N` | Get cards with progress (LEFT JOIN) |
 | POST | `/{deck_id}/preview` | `files` (multipart), `count` | AI generate → return without saving |
 | POST | `/{deck_id}/generate` | `files` (multipart), `count` | AI generate → save to DB |
+| POST | `/{deck_id}/generate_image_cards` | `files` (multipart), `count` | AI selects visual concepts → DALL-E images/diagram specs → save visual cards |
+| POST | `/{deck_id}/generate_images` | — | Classify existing cards and generate missing DALL-E images for visual cards |
 | POST | `/{deck_id}/bulk_create` | `{cards: [...]}` | Save reviewed preview cards |
 | PUT | `/{card_id}` | `{front, back, difficulty}` | Edit a card |
 | DELETE | `/{card_id}` | — | Delete card + progress |
@@ -196,9 +201,18 @@ Base: `/api` (mounted in `src/main.py`)
 |---|---|---|---|
 | GET | `/threads` | `?user_id=N&limit=20` | List Memio Coach threads |
 | GET | `/threads/{thread_id}/messages` | `?user_id=N` | List stored messages for a thread |
+| GET | `/learning-intelligence` | `?user_id=N&limit=4` | Return weak concept clusters computed from flashcards + progress |
 | POST | `/message` | `{user_id, message, thread_id?, context_deck_id?, mode?}` | Send a message to Memio Coach; returns answer, citations, and suggested actions |
-| POST | `/quiz/start` | `{user_id, deck_id?, count}` | Build an inline multiple-choice quiz for Coach chat from weak/due cards |
+| POST | `/quiz/start` | `{user_id, deck_id?, card_ids?, count}` | Build an inline multiple-choice quiz for Coach chat from weak/due cards or a selected concept cluster |
 | POST | `/quiz/summary` | `{user_id, summary, thread_id?, context_deck_id?, actions[]}` | Persist an inline quiz result summary into a Coach thread |
+
+### Learning Goals (`/api/goals/`)
+| Method | Path | Params/Body | Description |
+|---|---|---|---|
+| GET | `/` | `?user_id=N` | List active exam/deadline goals with workload estimates |
+| POST | `/` | `{user_id, deck_id, target_date, desired_mastery, daily_workload}` | Create/update the exam goal for a deck |
+| DELETE | `/{goal_id}` | `?user_id=N` | Delete a learning goal |
+| GET | `/notification-strategy` | — | Spec-only notification strategy for reminders, quiet hours, and future channels |
 
 ## 7. AI Integration
 
@@ -206,6 +220,9 @@ Base: `/api` (mounted in `src/main.py`)
 - **Model:** `gpt-4o-mini` in `cards.py:get_llm()`
 - **API key:** `OPENAI_API_KEY` loaded from environment / `.env`
 - **Card generation prompt** (`CARD_PROMPT`): Generates N flashcards as JSON array, auto-detects language, includes `source_context` for citation grounding
+- **Visual card prompt** (`IMAGE_CARD_PROMPT` in `src/app/api/endpoints/cards.py`): Generates "Đuổi Hình Bắt Chữ" cards from documents, classifies each as `real_image` or `diagram`, and creates an `image_prompt`.
+- **Image generation:** `src/app/utils/image_generator.py` calls DALL-E 3 for `real_image` cards, downloads temporary image URLs immediately, and stores permanent files under `frontend/public/generated-images/{uuid}.png`. DB stores the relative URL `/generated-images/{uuid}.png`.
+- **Image feature flag:** `OPENAI_IMAGE_ENABLED` can disable DALL-E generation while still allowing visual card creation/diagram metadata.
 - **Explain prompt** (`EXPLAIN_PROMPT`): Tutor-style explanation with `[1]`, `[2]` citation markers + JSON response with `{answer, citations[{id, text, source}]}`
 - **Chunked generation:** Documents are split into chunks of 4 pages, each generating 8-30 cards
 - **Adventure Campaign prompt** (`CAMPAIGN_PROMPT` in `src/app/api/endpoints/games.py`): Calls OpenAI once at game start, returns a staged multiple-choice campaign with title, premise, final goal, stages, questions, smart distractors, hints, and explanations.
@@ -239,9 +256,25 @@ Base: `/api` (mounted in `src/main.py`)
 - **Context priority:** internal data (decks, flashcards, progress, analytics, weak cards) → `source_context` citations → web search fallback.
 - **Web search:** MVP uses DuckDuckGo Instant Answer API opportunistically when the user asks for web/latest/outside-document help; web citations must not override internal data.
 - **Inline quiz:** `quiz_in_chat` stays inside the Coach panel/page, uses `/api/coach/quiz/start`, renders multiple-choice questions in chat, updates SM-2 via `/api/cards/progress` on each answer, then persists a score/XP/weak-question summary via `/api/coach/quiz/summary`.
+- **Learning Intelligence:** `GET /api/coach/learning-intelligence` computes weak concept clusters from `flashcards + progress` without a new table. It scores cards by low `last_quality`, low `ease_factor`, no/low repetition, and `hard` difficulty, groups them by stable normalized topic tokens, and returns cluster labels, mastery score, sample cards, and card ids.
+- **Workspace weak clusters:** the Daily Mission area shows the top weak concept clusters when available. Users can ask Coach to explain a cluster or start an inline quiz scoped to the cluster's card ids.
+- **Exam goals:** `learning_goals` stores one active exam/deadline goal per deck. Workspace deck cards can create a goal inline in under a minute, the Daily Mission prioritizes urgent goals, and Coach receives goal/workload/readiness context via `build_context`.
+- **Notification strategy:** Sprint 6 defines reminder strategy via `/api/goals/notification-strategy` but does not implement push/email delivery yet. Planned triggers are due cards, streak risk, exam urgency, and Coach recommendations with opt-in and quiet hours.
 - **Citations:** if the model omits `citation_ids`, backend attaches the most relevant internal card citations as fallback.
 - **Action model:** Coach returns suggested actions such as `start_study`, `start_challenge`, `create_cards`, and `quiz_in_chat`. Backend sanitizes all actions against decks owned by the user before returning them. Navigation/challenge actions do not require confirmation; content-changing actions should require confirmation. Prefer `quiz_in_chat` over redirecting when the user is already chatting.
 - **Quick actions:** "Hôm nay học gì?", "Quiz tôi", "Giải thích thẻ khó", "Tạo thử thách".
+
+## 7.3 Image Flashcards / Đuổi Hình Bắt Chữ
+
+- **Product scope:** Pro-style visual flashcards. User uploads PDF/DOCX/TXT, AI chooses concepts that can be vividly illustrated, and saves picture-to-word cards into a selected deck.
+- **Frontend routes:**
+  - `frontend/src/app/images/page.tsx`: upload documents, select deck, choose 5-20 cards, generate visual cards.
+  - `frontend/src/app/generate/images/page.tsx`: add missing DALL-E images to existing cards in a deck.
+  - Study route renders `card.image_url` on the front side when available.
+- **Backend endpoints:** `POST /api/cards/{deck_id}/generate_image_cards` and `POST /api/cards/{deck_id}/generate_images`.
+- **Data model:** `Flashcard.image_type` is `"real_image"` or `"diagram"`; `image_url` stores generated static image paths; `diagram_spec` stores future diagram renderer specs.
+- **Cost behavior:** DALL-E 3 is called only for `real_image` cards and is limited with an async semaphore of 3. UI shows estimated cost at roughly `$0.04` per image.
+- **Docs:** detailed implementation notes live in `docs/image-flashcard-feature.md`.
 
 ## 8. Frontend Design System
 
@@ -253,6 +286,8 @@ Base: `/api` (mounted in `src/main.py`)
   - `ThemeToggle` uses `mounted` state to prevent SSR hydration mismatch.
   - Workspace hero is action-first: the Daily Mission module shows one primary next action, compact supporting stats, and secondary Coach/deck actions.
   - `CoachLauncher` floats above mobile bottom nav (`bottom-24`) and returns to lower-right on desktop (`md:bottom-6`).
+  - AppShell includes an `Đuổi Hình` nav item for the image flashcard flow.
+  - Study cards display a generated image above the question when `image_url` is present.
   - Cards/buttons use `rounded-2xl`, `border border-border`, `bg-surface-raised`.
   - CTA buttons: `bg-primary` + `shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)]`.
 - **Auth flow (client-side):** user stored in `localStorage` key `flashcard_user`. Helpers: `getStoredUser()`, `saveStoredUser()`, `clearStoredUser()` in `app-client.ts`. All private pages check `getStoredUser()` in `useEffect` and redirect to `/` if null. Google JWT decoded client-side (`decodeGoogleJwt`) — no server-side validation.
@@ -283,6 +318,7 @@ Base: `/api` (mounted in `src/main.py`)
 | Env Var | Required | Description |
 |---|---|---|
 | `OPENAI_API_KEY` | Yes | API key for OpenAI card generation, explanations, and Adventure Campaign generation |
+| `OPENAI_IMAGE_ENABLED` | No | Feature flag for DALL-E image generation; set `false` to skip paid image generation |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `NEXT_PUBLIC_API_URL` | Yes (build-time) | Backend URL for frontend fetch calls |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | For Google login | Google OAuth client ID |
@@ -294,15 +330,17 @@ Base: `/api` (mounted in `src/main.py`)
 1. **No auth middleware** — `user_id` is passed as a query param/body field. Anyone can impersonate any user. Known prototype-phase limitation.
 2. **Alembic is required for schema changes** — Runtime `create_all()` is disabled; run `./.venv/bin/alembic upgrade head` after pulling migrations.
 3. **`source_context` column** — Added after initial schema. If production DB was created before, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
-4. **OpenAI generation model** — `cards.py:get_llm()` currently hardcodes `gpt-4o-mini` instead of reading `DEFAULT_MODEL`.
-5. **`@app.on_event("startup")` is deprecated** in newer FastAPI — should eventually migrate to lifespan.
-6. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
-7. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.
-8. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
-9. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
-10. **Memio Coach migration** — Missing `coach_threads`/`coach_messages` means migration `0012_coach_threads` has not been applied; run `./.venv/bin/alembic upgrade head`.
-11. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
-12. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
+4. **Image flashcard columns** — Added in Alembic `0013_add_image_fields`: `image_type`, `image_url`, `diagram_spec`. Run `alembic upgrade head` before using `/images` or `/generate/images`.
+5. **DALL-E image URLs are temporary** — `image_generator.py` downloads them immediately into `frontend/public/generated-images/`; do not store raw temporary OpenAI image URLs as durable card URLs.
+6. **OpenAI generation model** — `cards.py:get_llm()` currently hardcodes `gpt-4o-mini` instead of reading `DEFAULT_MODEL`.
+7. **`@app.on_event("startup")` is deprecated** in newer FastAPI — should eventually migrate to lifespan.
+8. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
+9. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.
+10. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
+11. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
+12. **Memio Coach migration** — Missing `coach_threads`/`coach_messages` means migration `0012_coach_threads` has not been applied; run `./.venv/bin/alembic upgrade head`.
+13. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
+14. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
 
 ## 11. Development Workflow
 

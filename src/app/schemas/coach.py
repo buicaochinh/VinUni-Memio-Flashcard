@@ -7,6 +7,8 @@ class CoachCitation(BaseModel):
     label: str
     text: str
     source_type: str
+    source_label: Optional[str] = None
+    priority: int = 0
     deck_id: Optional[int] = None
     card_id: Optional[int] = None
     url: Optional[str] = None
@@ -38,6 +40,7 @@ class CoachMessageResponse(BaseModel):
 class CoachQuizStartRequest(BaseModel):
     user_id: int
     deck_id: Optional[int] = None
+    card_ids: Optional[List[int]] = None
     count: int = 5
 
 
@@ -58,6 +61,34 @@ class CoachQuizQuestion(BaseModel):
 
 class CoachQuizStartResponse(BaseModel):
     questions: List[CoachQuizQuestion]
+
+
+class CoachWeakConceptCard(BaseModel):
+    id: int
+    front: str
+    deck_id: int
+    deck_name: str
+    weakness_score: int
+    last_quality: Optional[int] = None
+    ease_factor: Optional[float] = None
+
+
+class CoachWeakConceptCluster(BaseModel):
+    id: str
+    label: str
+    deck_id: int
+    deck_name: str
+    card_ids: List[int]
+    card_count: int
+    mastery_score: int
+    weakness_score: int
+    reason: str
+    sample_cards: List[CoachWeakConceptCard]
+
+
+class CoachLearningIntelligenceResponse(BaseModel):
+    clusters: List[CoachWeakConceptCluster]
+    total_weak_cards: int
 
 
 class CoachQuizSummaryRequest(BaseModel):
@@ -88,3 +119,13 @@ class CoachStoredMessage(BaseModel):
 class CoachQuizSummaryResponse(BaseModel):
     thread_id: int
     message: CoachStoredMessage
+
+
+class CoachTrustEventRequest(BaseModel):
+    user_id: int
+    thread_id: Optional[int] = None
+    message_id: Optional[int] = None
+    event_type: str
+    citation_id: Optional[str] = None
+    value: Optional[str] = None
+    source_type: Optional[str] = None

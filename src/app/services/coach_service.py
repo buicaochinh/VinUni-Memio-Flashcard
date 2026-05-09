@@ -2,6 +2,7 @@ import json
 import os
 import random
 import re
+import unicodedata
 from typing import Any
 
 import httpx
@@ -12,6 +13,13 @@ from src.app.core.config import DEFAULT_MODEL, OPENAI_API_KEY
 from src.app.models.domain import CoachMessage, CoachThread, Deck, Flashcard, Progress, StudySession
 from src.app.services.analytics_service import get_analytics
 from src.app.core.time import utc_now_naive
+from src.app.services.goal_service import list_goals
+
+STOPWORDS = {
+    "the", "and", "for", "with", "from", "that", "this", "what", "when", "where", "which", "into",
+    "cua", "cac", "mot", "nhung", "trong", "ngoai", "khong", "duoc", "la", "va", "voi", "cho",
+    "khi", "neu", "hay", "nhu", "den", "tai", "ve", "co", "nao", "gi", "qua", "sau", "truoc",
+}
 
 
 COACH_SYSTEM_PROMPT = """You are Memio Coach, an AI study companion inside Memio.
@@ -19,10 +27,12 @@ Your job is to coordinate the learner's study journey, not just answer questions
 
 Priority order:
 1. Use internal Memio data first: decks, flashcards, progress, weak cards, analytics.
-2. Use source_context citations when available.
+2. Use source_context citations when available, before web context.
 3. Use web context only when internal context is insufficient or the user asks beyond their deck.
+4. If internal context conflicts with web context, trust the internal Memio material and mention that web was treated as secondary.
 
 Be friendly, concise, and actionable. Teach with Socratic questions when useful.
+If exam goals are present, make planning advice deadline-aware and mention realistic daily workload.
 Return ONLY valid JSON with:
 {
   "answer": "markdown answer",
@@ -39,6 +49,7 @@ Allowed action types:
 
 Actions that change stored learning content must require confirmation. Navigation and opening study/challenge do not.
 When the user asks to be quizzed inside chat, prefer quiz_in_chat instead of start_challenge.
+When weak concept clusters are present, use them to explain the underlying concept gap instead of only listing cards.
 Use the user's language. Prefer Vietnamese if the user writes Vietnamese.
 """
 
@@ -129,9 +140,142 @@ def save_message(
     return msg
 
 
+def _normalize_token_text(text: str) -> list[str]:
+    normalized = unicodedata.normalize("NFD", text.lower())
+    stripped = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    tokens = re.findall(r"[a-z0-9]{3,}", stripped)
+    return [token for token in tokens if token not in STOPWORDS]
+
+
+def _compact_text(text: str, max_chars: int = 120) -> str:
+    clean = " ".join((text or "").split())
+    if len(clean) <= max_chars:
+        return clean
+    return clean[:max_chars - 1].rstrip() + "…"
+
+
+def _weakness_score(card: Flashcard, progress: Progress | None) -> int:
+    score = 0
+    if progress:
+        if progress.last_quality in (0, 1):
+            score += 8
+        elif progress.last_quality == 2:
+            score += 4
+        if progress.ease_factor is not None:
+            if progress.ease_factor < 2.0:
+                score += 7
+            elif progress.ease_factor < 2.3:
+                score += 4
+        if progress.repetition == 0:
+            score += 3
+    else:
+        score += 3
+    if card.difficulty == "hard":
+        score += 3
+    elif card.difficulty == "medium":
+        score += 1
+    return score
+
+
+def _cluster_label(cards: list[Flashcard], deck: Deck) -> str:
+    tokens: dict[str, int] = {}
+    for card in cards:
+        for token in _normalize_token_text(f"{card.front} {card.back} {card.source_context or ''}")[:28]:
+            tokens[token] = tokens.get(token, 0) + 1
+    ranked = [token for token, _count in sorted(tokens.items(), key=lambda item: (item[1], len(item[0])), reverse=True)]
+    if ranked:
+        return " ".join(ranked[:2]).title()
+    return deck.name
+
+
+def _concept_key(card: Flashcard, deck: Deck) -> str:
+    tokens = _normalize_token_text(f"{card.front} {card.back} {card.source_context or ''}")
+    if not tokens:
+        return f"deck-{deck.id}"
+    ranked: dict[str, int] = {}
+    for token in tokens[:40]:
+        ranked[token] = ranked.get(token, 0) + 1
+    top = [token for token, _count in sorted(ranked.items(), key=lambda item: (item[1], len(item[0])), reverse=True)[:2]]
+    return f"{deck.id}-{'-'.join(top) if top else 'general'}"
+
+
+def build_learning_intelligence(session: Session, user_id: int, limit: int = 4) -> dict:
+    max_clusters = max(1, min(limit, 8))
+    statement = (
+        select(Flashcard, Deck, Progress)
+        .join(Deck, Flashcard.deck_id == Deck.id)
+        .join(Progress, (Flashcard.id == Progress.card_id) & (Progress.user_id == user_id), isouter=True)
+        .where(Deck.user_id == user_id)
+        .order_by(Flashcard.created_at.desc())
+        .limit(240)
+    )
+    rows = session.exec(statement).all()
+
+    weak_rows: list[tuple[int, Flashcard, Deck, Progress | None]] = []
+    for card, deck, progress in rows:
+        score = _weakness_score(card, progress)
+        if score >= 4:
+            weak_rows.append((score, card, deck, progress))
+
+    weak_rows.sort(key=lambda item: (item[0], int(item[1].id or 0)), reverse=True)
+    grouped: dict[str, list[tuple[int, Flashcard, Deck, Progress | None]]] = {}
+    for item in weak_rows[:80]:
+        _score, card, deck, _progress = item
+        key = _concept_key(card, deck)
+        grouped.setdefault(key, []).append(item)
+
+    clusters: list[dict] = []
+    for key, items in grouped.items():
+        items.sort(key=lambda item: (item[0], int(item[1].id or 0)), reverse=True)
+        cards = [card for _score, card, _deck, _progress in items]
+        deck = items[0][2]
+        total_score = sum(score for score, _card, _deck, _progress in items)
+        max_score = max(1, len(items) * 18)
+        mastery_score = max(0, min(100, 100 - round((total_score / max_score) * 100)))
+        top_item = items[0]
+        reason = "Nhiều câu trả lời gần đây chưa chắc hoặc ease factor thấp."
+        if top_item[3] and top_item[3].last_quality in (0, 1):
+            reason = "Có thẻ vừa trả lời sai hoặc chưa chắc trong cụm này."
+        elif top_item[1].difficulty == "hard":
+            reason = "Cụm này có nhiều thẻ khó, nên ôn theo nhóm để nhớ chắc hơn."
+
+        clusters.append({
+            "id": f"wc-{key}",
+            "label": _cluster_label(cards, deck),
+            "deck_id": deck.id,
+            "deck_name": deck.name,
+            "card_ids": [int(card.id) for card in cards if card.id],
+            "card_count": len(cards),
+            "mastery_score": mastery_score,
+            "weakness_score": total_score,
+            "reason": reason,
+            "sample_cards": [
+                {
+                    "id": int(card.id),
+                    "front": _compact_text(card.front),
+                    "deck_id": deck.id,
+                    "deck_name": deck.name,
+                    "weakness_score": score,
+                    "last_quality": progress.last_quality if progress else None,
+                    "ease_factor": progress.ease_factor if progress else None,
+                }
+                for score, card, deck, progress in items[:3]
+                if card.id
+            ],
+        })
+
+    clusters.sort(key=lambda item: (item["weakness_score"], item["card_count"]), reverse=True)
+    return {
+        "clusters": clusters[:max_clusters],
+        "total_weak_cards": len({int(card.id) for _score, card, _deck, _progress in weak_rows if card.id}),
+    }
+
+
 def build_context(session: Session, user_id: int, message: str, context_deck_id: int | None = None) -> tuple[str, list[dict], int | None]:
     decks = session.exec(select(Deck).where(Deck.user_id == user_id).order_by(Deck.created_at.desc())).all()
     analytics = get_analytics(session, user_id)
+    learning_intelligence = build_learning_intelligence(session, user_id, 4)
+    learning_goals = list_goals(session, user_id)
     weak_ids = {c.get("id") for c in analytics.get("weak_areas", {}).get("weak_cards", []) if c.get("id")}
     query = message.lower()
 
@@ -170,12 +314,15 @@ def build_context(session: Session, user_id: int, message: str, context_deck_id:
     card_lines: list[str] = []
     for idx, (_score, card, deck, progress) in enumerate(top_cards, start=1):
         cid = f"c{idx}"
+        source_type = "source_context" if card.source_context else "card"
         excerpt = (card.source_context or card.back or card.front)[:500]
         citations.append({
             "id": cid,
             "label": f"{deck.name} / Card {card.id}",
             "text": excerpt,
-            "source_type": "card",
+            "source_type": source_type,
+            "source_label": "Source context" if source_type == "source_context" else "Internal card",
+            "priority": 1 if source_type == "source_context" else 2,
             "deck_id": deck.id,
             "card_id": card.id,
         })
@@ -197,6 +344,8 @@ def build_context(session: Session, user_id: int, message: str, context_deck_id:
             "forgetting_rate": analytics.get("forgetting_rate"),
             "total_reviewed": analytics.get("total_reviewed"),
             "weak_decks": analytics.get("weak_areas", {}).get("weak_decks", []),
+            "weak_concept_clusters": learning_intelligence.get("clusters", []),
+            "learning_goals": learning_goals,
         }),
         "DECKS:",
         "\n".join(deck_lines) or "No decks.",
@@ -230,6 +379,8 @@ def web_search(query: str) -> list[dict]:
             "label": data.get("Heading") or "Web result",
             "text": abstract[:700],
             "source_type": "web",
+            "source_label": "External web",
+            "priority": 3,
             "url": data.get("AbstractURL"),
         })
     for topic in data.get("RelatedTopics", [])[:3]:
@@ -239,6 +390,8 @@ def web_search(query: str) -> list[dict]:
                 "label": topic.get("FirstURL") or "Web result",
                 "text": topic["Text"][:500],
                 "source_type": "web",
+                "source_label": "External web",
+                "priority": 3,
                 "url": topic.get("FirstURL"),
             })
     return results[:3]
@@ -330,9 +483,9 @@ def sanitize_actions(actions: Any, valid_deck_ids: set[int], default_deck_id: in
 
 def fallback_citations(answer: str, used_citations: list[dict], available: list[dict]) -> list[dict]:
     if used_citations or not available:
-        return used_citations
+        return sort_citations_by_trust(used_citations)
     answer_lower = answer.lower()
-    internal = [c for c in available if c.get("source_type") == "card"]
+    internal = [c for c in available if c.get("source_type") in ("source_context", "card")]
     scored: list[tuple[int, dict]] = []
     for citation in internal:
         haystack = f"{citation.get('label', '')} {citation.get('text', '')}".lower()
@@ -343,7 +496,34 @@ def fallback_citations(answer: str, used_citations: list[dict], available: list[
         scored.append((score, citation))
     scored.sort(key=lambda item: item[0], reverse=True)
     picked = [citation for score, citation in scored if score > 0][:3]
-    return picked or internal[:2]
+    return sort_citations_by_trust(picked or internal[:2])
+
+
+def sort_citations_by_trust(citations: list[dict]) -> list[dict]:
+    return sorted(citations, key=lambda item: (item.get("priority", 99), item.get("id", "")))
+
+
+def log_trust_event(
+    user_id: int,
+    event_type: str,
+    thread_id: int | None = None,
+    message_id: int | None = None,
+    citation_id: str | None = None,
+    value: str | None = None,
+    source_type: str | None = None,
+) -> None:
+    event = {
+        "event": "coach_trust",
+        "event_type": event_type,
+        "user_id": user_id,
+        "thread_id": thread_id,
+        "message_id": message_id,
+        "citation_id": citation_id,
+        "value": value,
+        "source_type": source_type,
+        "created_at": utc_now_naive().isoformat(),
+    }
+    print(_json_dumps(event))
 
 
 def call_coach_llm(
@@ -399,7 +579,7 @@ def call_coach_llm(
         parsed = {"answer": raw, "citation_ids": [], "actions": []}
 
     used_ids = set(parsed.get("citation_ids") or [])
-    used_citations = [c for c in all_citations if c.get("id") in used_ids]
+    used_citations = sort_citations_by_trust([c for c in all_citations if c.get("id") in used_ids])
     answer = parsed.get("answer") or "Mình chưa tạo được câu trả lời phù hợp."
     used_citations = fallback_citations(answer, used_citations, all_citations)
     actions = sanitize_actions(parsed.get("actions"), valid_deck_ids or set(), default_deck_id)
@@ -417,7 +597,13 @@ def stored_message_to_dict(message: CoachMessage) -> dict:
     }
 
 
-def build_inline_quiz(session: Session, user_id: int, deck_id: int | None = None, count: int = 5) -> list[dict]:
+def build_inline_quiz(
+    session: Session,
+    user_id: int,
+    deck_id: int | None = None,
+    count: int = 5,
+    card_ids: list[int] | None = None,
+) -> list[dict]:
     limit = max(1, min(count, 10))
     statement = (
         select(Flashcard, Deck, Progress)
@@ -429,6 +615,10 @@ def build_inline_quiz(session: Session, user_id: int, deck_id: int | None = None
     )
     if deck_id:
         statement = statement.where(Flashcard.deck_id == deck_id)
+    if card_ids:
+        safe_card_ids = [card_id for card_id in card_ids[:30] if isinstance(card_id, int)]
+        if safe_card_ids:
+            statement = statement.where(Flashcard.id.in_(safe_card_ids))
     rows = session.exec(statement).all()
     if len(rows) < 2:
         return []
@@ -451,22 +641,16 @@ def build_inline_quiz(session: Session, user_id: int, deck_id: int | None = None
 
     ordered = sorted(rows, key=priority, reverse=True)
     selected = ordered[:limit]
-    def compact_choice(text: str, max_chars: int = 120) -> str:
-        clean = " ".join((text or "").split())
-        if len(clean) <= max_chars:
-            return clean
-        return clean[:max_chars - 1].rstrip() + "…"
-
     questions: list[dict] = []
     for idx, (card, deck, progress) in enumerate(selected, start=1):
-        answer = compact_choice(card.back)
+        answer = _compact_text(card.back)
         same_deck_answers = [
-            compact_choice(other.back)
+            _compact_text(other.back)
             for other, other_deck, _other_progress in rows
             if other_deck.id == deck.id and other.id != card.id and other.back
         ]
         fallback_answers = [
-            compact_choice(other.back)
+            _compact_text(other.back)
             for other, _other_deck, _other_progress in rows
             if other.id != card.id and other.back
         ]
