@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
+from src.app.api.deps import get_current_user_id
 from src.app.db.session import get_session
 from src.app.models.domain import Deck
 from src.app.schemas.coach import (
@@ -21,41 +22,41 @@ router = APIRouter()
 
 
 @router.get("/threads", response_model=list[CoachThreadSummary])
-def list_threads(user_id: int, limit: int = 20, session: Session = Depends(get_session)):
+def list_threads(limit: int = 20, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     return coach_service.list_threads(session, user_id, limit)
 
 
 @router.get("/threads/{thread_id}/messages", response_model=list[CoachStoredMessage])
-def list_messages(thread_id: int, user_id: int, session: Session = Depends(get_session)):
+def list_messages(thread_id: int, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     return [coach_service.stored_message_to_dict(m) for m in coach_service.list_messages(session, user_id, thread_id)]
 
 
 @router.get("/learning-intelligence", response_model=CoachLearningIntelligenceResponse)
-def get_learning_intelligence(user_id: int, limit: int = 4, session: Session = Depends(get_session)):
+def get_learning_intelligence(limit: int = 4, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     return coach_service.build_learning_intelligence(session, user_id, limit)
 
 
 @router.post("/message", response_model=CoachMessageResponse)
-def send_message(payload: CoachMessageRequest, session: Session = Depends(get_session)):
+def send_message(payload: CoachMessageRequest, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     text = payload.message.strip()
     if not text:
         raise HTTPException(status_code=422, detail="Tin nhắn không được để trống.")
 
     thread = coach_service.get_or_create_thread(
         session,
-        payload.user_id,
+        user_id,
         payload.thread_id,
         payload.context_deck_id,
     )
-    coach_service.save_message(session, thread, payload.user_id, "user", text)
+    coach_service.save_message(session, thread, user_id, "user", text)
 
     context, available_citations, default_deck_id = coach_service.build_context(
         session,
-        payload.user_id,
+        user_id,
         text,
         payload.context_deck_id or thread.context_deck_id,
     )
-    valid_deck_ids = set(session.exec(select(Deck.id).where(Deck.user_id == payload.user_id)).all())
+    valid_deck_ids = set(session.exec(select(Deck.id).where(Deck.user_id == user_id)).all())
     answer, citations, actions = coach_service.call_coach_llm(
         text,
         context,
@@ -64,7 +65,7 @@ def send_message(payload: CoachMessageRequest, session: Session = Depends(get_se
         payload.mode,
         valid_deck_ids,
     )
-    coach_service.save_message(session, thread, payload.user_id, "assistant", answer, citations, actions)
+    coach_service.save_message(session, thread, user_id, "assistant", answer, citations, actions)
     return {
         "thread_id": thread.id,
         "answer": answer,
@@ -74,10 +75,10 @@ def send_message(payload: CoachMessageRequest, session: Session = Depends(get_se
 
 
 @router.post("/quiz/start", response_model=CoachQuizStartResponse)
-def start_inline_quiz(payload: CoachQuizStartRequest, session: Session = Depends(get_session)):
+def start_inline_quiz(payload: CoachQuizStartRequest, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     questions = coach_service.build_inline_quiz(
         session,
-        payload.user_id,
+        user_id,
         payload.deck_id,
         payload.count,
         payload.card_ids,
@@ -88,21 +89,21 @@ def start_inline_quiz(payload: CoachQuizStartRequest, session: Session = Depends
 
 
 @router.post("/quiz/summary", response_model=CoachQuizSummaryResponse)
-def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, session: Session = Depends(get_session)):
+def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     summary = payload.summary.strip()
     if not summary:
         raise HTTPException(status_code=422, detail="Tóm tắt quiz không được để trống.")
 
     thread = coach_service.get_or_create_thread(
         session,
-        payload.user_id,
+        user_id,
         payload.thread_id,
         payload.context_deck_id,
     )
     message = coach_service.save_message(
         session,
         thread,
-        payload.user_id,
+        user_id,
         "assistant",
         summary,
         citations=[],
@@ -115,14 +116,14 @@ def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, session: Session 
 
 
 @router.post("/trust-event")
-def log_trust_event(payload: CoachTrustEventRequest):
+def log_trust_event(payload: CoachTrustEventRequest, user_id: int = Depends(get_current_user_id)):
     if payload.event_type not in {"citation_click", "answer_feedback"}:
         raise HTTPException(status_code=422, detail="Loại trust event không hợp lệ.")
     if payload.event_type == "answer_feedback" and payload.value not in {"helpful", "not_helpful"}:
         raise HTTPException(status_code=422, detail="Feedback không hợp lệ.")
 
     coach_service.log_trust_event(
-        user_id=payload.user_id,
+        user_id=user_id,
         event_type=payload.event_type,
         thread_id=payload.thread_id,
         message_id=payload.message_id,
