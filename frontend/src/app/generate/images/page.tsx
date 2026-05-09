@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import AppShell from "../../../components/AppShell";
 import {
   fetchDeckCards,
@@ -11,17 +12,19 @@ import {
   Card,
 } from "../../../lib/app-client";
 import { Button } from "../../../components/ui/button";
-import { ArrowLeft, ImagePlus, Image, Shapes, Sparkles, Check } from "lucide-react";
+import { ArrowLeft, ImagePlus, Image as ImageIcon, Shapes, Sparkles, Check } from "lucide-react";
 import { cn } from "../../../lib/utils";
 
 type Stage = "loading" | "idle" | "generating" | "done" | "error";
 
-export default function GenerateImagesPage() {
+function GenerateImagesPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useStoredUser();
   const clientReady = useClientReady();
+  const deckIdParam = searchParams.get("deckId");
+  const parsedDeckId = deckIdParam && /^\d+$/.test(deckIdParam) ? Number(deckIdParam) : null;
 
-  const [deckId, setDeckId] = useState<number | null>(null);
   const [cards, setCards] = useState<Card[]>([]);
   const [stage, setStage] = useState<Stage>("loading");
   const [result, setResult] = useState<{ generated: number; total_candidates: number } | null>(null);
@@ -41,18 +44,19 @@ export default function GenerateImagesPage() {
   useEffect(() => {
     if (!clientReady) return;
     if (!user) { router.replace("/"); return; }
-    const id = Number(new URLSearchParams(window.location.search).get("deckId"));
-    if (!id) { router.replace("/workspace"); return; }
-    setDeckId(id);
-    void loadCards(id, user.id);
-  }, [clientReady, loadCards, router, user]);
+    if (!parsedDeckId) { router.replace("/workspace"); return; }
+    const timer = window.setTimeout(() => {
+      void loadCards(parsedDeckId, user.id);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [clientReady, loadCards, parsedDeckId, router, user]);
 
   const handleGenerate = async () => {
-    if (!deckId) return;
+    if (!parsedDeckId) return;
     setStage("generating");
     setErrorMsg(null);
     try {
-      const r = await generateDeckImages(deckId);
+      const r = await generateDeckImages(parsedDeckId);
       setResult(r);
       setStage("done");
     } catch {
@@ -101,7 +105,7 @@ export default function GenerateImagesPage() {
             <div className="grid grid-cols-3 gap-4">
               <div className="p-4 rounded-2xl bg-background border border-border text-center">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-2">
-                  <Image className="w-5 h-5 text-primary" />
+                  <ImageIcon className="w-5 h-5 text-primary" />
                 </div>
                 <p className="text-2xl font-bold tabular-nums">{pendingCards.length}</p>
                 <p className="text-[0.78rem] text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">
@@ -175,8 +179,8 @@ export default function GenerateImagesPage() {
               <Button
                 variant={stage === "done" ? "primary" : "secondary"}
                 className={cn(stage === "done" && "flex-1")}
-                onClick={() => deckId && router.push(`/study/${deckId}`)}
-                disabled={!deckId}
+                onClick={() => parsedDeckId && router.push(`/study/${parsedDeckId}`)}
+                disabled={!parsedDeckId}
               >
                 {stage === "done" ? (
                   <><Check className="w-4 h-4" /> Học ngay</>
@@ -189,5 +193,13 @@ export default function GenerateImagesPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+export default function GenerateImagesPage() {
+  return (
+    <Suspense fallback={null}>
+      <GenerateImagesPageContent />
+    </Suspense>
   );
 }
