@@ -5,6 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from aiofiles import open as aio_open
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
+from src.app.api.deps import get_current_user_id
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
@@ -235,23 +236,23 @@ async def _generate_cards_chunked(pages: list, target_count: int) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 @router.get("/{deck_id}")
-def get_cards(deck_id: int, user_id: int, session: Session = Depends(get_session)):
+def get_cards(deck_id: int, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     cards = card_service.get_deck_cards(session, deck_id, user_id)
     return {"cards": cards}
 
 @router.get("/{deck_id}/smart-queue")
-def get_smart_queue(deck_id: int, user_id: int, override_limit: bool = False, session: Session = Depends(get_session)):
+def get_smart_queue(deck_id: int, override_limit: bool = False, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     cards = card_service.get_daily_study_queue(session, deck_id, user_id, override_limit)
     return {"cards": cards}
 
 @router.get("/{deck_id}/study-summary")
-def get_study_summary(deck_id: int, user_id: int, session: Session = Depends(get_session)):
+def get_study_summary(deck_id: int, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     summary = card_service.get_study_summary(session, deck_id, user_id)
     return summary
 
 
 @router.post("/progress")
-def update_progress(payload: ProgressUpdate, session: Session = Depends(get_session)):
+def update_progress(payload: ProgressUpdate, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     card_data = {
         "ease_factor": payload.ease_factor,
         "repetition": payload.repetition,
@@ -259,15 +260,15 @@ def update_progress(payload: ProgressUpdate, session: Session = Depends(get_sess
     }
     interval, n, ef = get_updated_sm2_values(card_data, payload.quality)
     card_service.update_card_progress(
-        session, payload.user_id, payload.card_id, interval, n, ef, payload.quality
+        session, user_id, payload.card_id, interval, n, ef, payload.quality
     )
     return {"message": "success", "interval": interval, "ease_factor": ef}
 
 
 @router.post("/session")
-def log_session(payload: StudySessionLog, session: Session = Depends(get_session)):
+def log_session(payload: StudySessionLog, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     card_service.log_study_session(
-        session, payload.user_id, payload.deck_id, payload.cards_reviewed, payload.avg_quality
+        session, user_id, payload.deck_id, payload.cards_reviewed, payload.avg_quality
     )
     return {"message": "success"}
 
@@ -561,7 +562,7 @@ def delete_card(card_id: int, session: Session = Depends(get_session)):
 
 
 @router.get("/{deck_id}/analytics")
-def get_deck_analytics(deck_id: int, user_id: int, session: Session = Depends(get_session)):
+def get_deck_analytics(deck_id: int, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     cards = card_service.get_deck_cards(session, deck_id, user_id)
     reviewed = [c for c in cards if c.get("repetition") and c["repetition"] > 0]
 
