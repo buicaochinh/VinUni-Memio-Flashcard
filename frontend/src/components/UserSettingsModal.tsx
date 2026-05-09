@@ -26,7 +26,7 @@ export default function UserSettingsModal({
   useEffect(() => {
     if (open) {
       setLoading(true);
-      fetchUserSettings(userId)
+      fetchUserSettings()
         .then((s) => {
           setDailyNew(s.daily_new_limit);
           setDailyReview(s.daily_review_limit);
@@ -43,7 +43,7 @@ export default function UserSettingsModal({
     setSaving(true);
     setMsg("");
     try {
-      await updateUserSettings(userId, dailyNew, dailyReview, timezone);
+      await updateUserSettings(dailyNew, dailyReview, timezone);
       onOpenChange(false);
     } catch {
       setMsg("Lỗi khi lưu cài đặt");
