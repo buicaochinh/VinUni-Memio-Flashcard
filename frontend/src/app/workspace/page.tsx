@@ -4,19 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
 import {
+  CoachLearningIntelligence,
   createDeck,
   Deck,
   deleteDeck,
   disableDeckSharing,
   enableDeckSharing,
+  fetchCoachLearningIntelligence,
   fetchStudySummary,
   fetchDecks,
+  fetchLearningGoals,
   getStoredUser,
+  LearningGoal,
   useClientReady,
+  upsertLearningGoal,
   User,
 } from "../../lib/app-client";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Copy, FolderKanban, Link2, Map, Plus, SlidersHorizontal, Sparkles, Target, Trash, X, Lock, Globe2, Repeat } from "lucide-react";
+import { Check, Copy, FolderKanban, Link2, Map, Plus, SlidersHorizontal, Sparkles, Target, Trash, X, Lock, Globe2, Repeat, Brain, CalendarDays } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -49,6 +54,10 @@ export default function WorkspacePage() {
   const [user, setUser] = useState<User | null>(null);
   const [decks, setDecks] = useState<Deck[]>([]);
   const [cardCounts, setCardCounts] = useState<Record<number, StudySummary | null>>({});
+  const [learningIntel, setLearningIntel] = useState<CoachLearningIntelligence | null>(null);
+  const [learningGoals, setLearningGoals] = useState<Record<number, LearningGoal>>({});
+  const [goalDrafts, setGoalDrafts] = useState<Record<number, { target_date: string; desired_mastery: number; daily_workload: number }>>({});
+  const [savingGoalId, setSavingGoalId] = useState<number | null>(null);
   const [newDeckName, setNewDeckName] = useState("");
   const [newDeckDesc, setNewDeckDesc] = useState("");
   const [creating, setCreating] = useState(false);
@@ -89,6 +98,14 @@ export default function WorkspacePage() {
         })
       );
       setCardCounts(Object.fromEntries(counts));
+      fetchLearningGoals(userId)
+        .then((goals) => {
+          setLearningGoals(Object.fromEntries(goals.map((goal) => [goal.deck_id, goal])));
+        })
+        .catch(() => setLearningGoals({}));
+      fetchCoachLearningIntelligence(userId, 3)
+        .then(setLearningIntel)
+        .catch(() => setLearningIntel(null));
     } catch {
       setMsg("Không tải được workspace. Hãy kiểm tra backend.");
     }
@@ -106,12 +123,16 @@ export default function WorkspacePage() {
     return [...decks].sort((a, b) => {
       const suma = cardCounts[a.id];
       const sumb = cardCounts[b.id];
-      const aPriority = (suma?.due_cards ?? 0) * 2 + (suma?.new_cards ?? 0);
-      const bPriority = (sumb?.due_cards ?? 0) * 2 + (sumb?.new_cards ?? 0);
+      const goalA = learningGoals[a.id];
+      const goalB = learningGoals[b.id];
+      const goalBoostA = goalA ? (goalA.urgency === "high" ? 40 : goalA.urgency === "medium" ? 20 : 8) : 0;
+      const goalBoostB = goalB ? (goalB.urgency === "high" ? 40 : goalB.urgency === "medium" ? 20 : 8) : 0;
+      const aPriority = (suma?.due_cards ?? 0) * 2 + (suma?.new_cards ?? 0) + goalBoostA;
+      const bPriority = (sumb?.due_cards ?? 0) * 2 + (sumb?.new_cards ?? 0) + goalBoostB;
       if (bPriority !== aPriority) return bPriority - aPriority;
       return (sumb?.total_cards ?? 0) - (suma?.total_cards ?? 0);
     });
-  }, [decks, cardCounts]);
+  }, [decks, cardCounts, learningGoals]);
   const priorityDeck = useMemo(() => {
     const d = decksByActivity.find((x) => {
       const sum = cardCounts[x.id];
@@ -120,6 +141,15 @@ export default function WorkspacePage() {
     return d ?? decksByActivity.find((x) => (cardCounts[x.id]?.total_cards ?? 0) >= 2) ?? decksByActivity[0] ?? null;
   }, [decksByActivity, cardCounts]);
   const prioritySummary = priorityDeck ? cardCounts[priorityDeck.id] : null;
+  const defaultGoal = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 14);
+    return {
+      target_date: date.toISOString().slice(0, 10),
+      desired_mastery: 85,
+      daily_workload: 20,
+    };
+  }, []);
   const missionState: MissionState = decks.length === 0
     ? "no_deck"
     : totalCards === 0
@@ -128,6 +158,7 @@ export default function WorkspacePage() {
         ? "ready"
         : "complete";
   const estimatedMinutes = Math.max(3, Math.min(25, Math.ceil(Math.max(1, actionableCount(prioritySummary)) * 0.75)));
+  const priorityGoal = priorityDeck ? learningGoals[priorityDeck.id] : null;
   const missionCopy = {
     no_deck: {
       eyebrow: "Bắt đầu",
@@ -145,7 +176,9 @@ export default function WorkspacePage() {
       eyebrow: "Nhiệm vụ hôm nay",
       title: priorityDeck ? `Ôn ${priorityDeck.name}` : "Bắt đầu phiên học hôm nay",
       body: priorityDeck
-        ? `${actionableCount(prioritySummary)} thẻ đang chờ trong deck này. Ưu tiên hoàn thành phiên ngắn trước khi chuyển sang thử thách.`
+        ? priorityGoal
+          ? `Mục tiêu thi còn ${priorityGoal.days_remaining} ngày. Ưu tiên ${priorityGoal.recommended_daily_cards} thẻ/ngày để giữ tiến độ.`
+          : `${actionableCount(prioritySummary)} thẻ đang chờ trong deck này. Ưu tiên hoàn thành phiên ngắn trước khi chuyển sang thử thách.`
         : "Bạn có thẻ cần ôn hôm nay. Hoàn thành một phiên ngắn để giữ nhịp nhớ.",
       cta: "Bắt đầu phiên học hôm nay",
     },
@@ -250,6 +283,43 @@ export default function WorkspacePage() {
     router.push("/coach");
   };
 
+  const explainCluster = (label: string, deckName: string, deckId: number) => {
+    router.push(`/coach?deckId=${deckId}&prompt=${encodeURIComponent(`Hãy giải thích cụm kiến thức yếu "${label}" trong deck "${deckName}" và chỉ cho tôi cách ôn hiệu quả.`)}`);
+  };
+
+  const quizCluster = (deckId: number, cardIds: number[]) => {
+    const ids = cardIds.slice(0, 10).join(",");
+    router.push(`/coach?quiz=1&quizDeckId=${deckId}&cardIds=${ids}`);
+  };
+
+  const updateGoalDraft = (deckId: number, patch: Partial<{ target_date: string; desired_mastery: number; daily_workload: number }>) => {
+    setGoalDrafts((prev) => ({
+      ...prev,
+      [deckId]: { ...(prev[deckId] ?? defaultGoal), ...patch },
+    }));
+  };
+
+  const saveGoal = async (deckId: number) => {
+    if (!user) return;
+    const draft = goalDrafts[deckId] ?? defaultGoal;
+    setSavingGoalId(deckId);
+    try {
+      const goal = await upsertLearningGoal({
+        user_id: user.id,
+        deck_id: deckId,
+        target_date: draft.target_date,
+        desired_mastery: draft.desired_mastery,
+        daily_workload: draft.daily_workload,
+      });
+      setLearningGoals((prev) => ({ ...prev, [deckId]: goal }));
+      setMsg(null);
+    } catch {
+      setMsg("Không lưu được mục tiêu ôn thi.");
+    } finally {
+      setSavingGoalId(null);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -339,6 +409,29 @@ export default function WorkspacePage() {
                 </div>
               )}
 
+              {priorityGoal && (
+                <div className="mt-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="inline-flex items-center gap-2 text-[0.78rem] font-semibold text-primary">
+                        <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                        Mục tiêu thi
+                      </p>
+                      <p className="mt-1 text-[0.9rem] text-foreground">
+                        {priorityGoal.plan_summary}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/coach?deckId=${priorityGoal.deck_id}&prompt=${encodeURIComponent("Tôi có kịp ôn trước ngày thi không? Hãy lập kế hoạch học hôm nay dựa trên mục tiêu hiện tại.")}`)}
+                      className="inline-flex shrink-0 items-center justify-center rounded-xl border border-border bg-background/80 px-3 py-2 text-[0.82rem] font-semibold text-foreground transition-colors hover:bg-muted/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                    >
+                      Hỏi Coach
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
@@ -364,8 +457,76 @@ export default function WorkspacePage() {
                   <FolderKanban className="w-4 h-4 text-primary" aria-hidden />
                   Quiz nhanh với Coach
                 </button>
+            </div>
+          </div>
+
+          {learningIntel && learningIntel.clusters.length > 0 && (
+            <div className="border-t border-border bg-background/45 px-6 py-5 sm:px-7">
+              <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="inline-flex items-center gap-2 text-[0.78rem] font-semibold text-muted-foreground">
+                    <Brain className="h-3.5 w-3.5 text-primary" aria-hidden />
+                    Điểm yếu cần xử lý
+                  </p>
+                  <p className="mt-1 text-[0.86rem] text-muted-foreground">
+                    {learningIntel.total_weak_cards} thẻ đang tạo thành các cụm kiến thức nên ôn theo nhóm.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {learningIntel.clusters.map((cluster) => (
+                  <article
+                    key={cluster.id}
+                    className="flex min-h-[190px] flex-col rounded-xl border border-border/75 bg-background/75 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="truncate text-[0.95rem] font-semibold tracking-tight">
+                          {cluster.label}
+                        </h3>
+                        <p className="mt-1 truncate text-[0.78rem] text-muted-foreground">
+                          {cluster.deck_name} · {cluster.card_count} thẻ
+                        </p>
+                      </div>
+                      <div className="shrink-0 rounded-lg bg-muted/45 px-2.5 py-1 text-right ring-1 ring-border/70">
+                        <p className="text-[0.72rem] text-muted-foreground">mastery</p>
+                        <p className="text-sm font-bold tabular-nums">{cluster.mastery_score}%</p>
+                      </div>
+                    </div>
+
+                    <p className="mt-3 line-clamp-2 text-[0.84rem] leading-relaxed text-muted-foreground">
+                      {cluster.reason}
+                    </p>
+                    <div className="mt-3 space-y-1">
+                      {cluster.sample_cards.slice(0, 2).map((card) => (
+                        <p key={card.id} className="truncate text-[0.78rem] text-foreground/80">
+                          {card.front}
+                        </p>
+                      ))}
+                    </div>
+
+                    <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => explainCluster(cluster.label, cluster.deck_name, cluster.deck_id)}
+                        className="inline-flex items-center justify-center rounded-xl border border-border bg-background/70 px-3 py-2 text-[0.8rem] font-semibold text-muted-foreground transition-colors hover:bg-muted/35 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                      >
+                        Giải thích
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => quizCluster(cluster.deck_id, cluster.card_ids)}
+                        className="inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2 text-[0.8rem] font-semibold text-[hsl(var(--primary-foreground))] transition-opacity hover:opacity-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                      >
+                        Quiz cụm này
+                      </button>
+                    </div>
+                  </article>
+                ))}
               </div>
             </div>
+          )}
 
             <div className="border-t border-border bg-muted/20 px-6 py-4 sm:px-7">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -538,6 +699,12 @@ export default function WorkspacePage() {
                 const recommendedLabel = count === 0 ? "Thêm thẻ" : isReady ? "Ôn ngay" : "Thử thách AI";
                 const recommendedIcon = count === 0 ? Sparkles : isReady ? Repeat : Map;
                 const RecommendedIcon = recommendedIcon;
+                const goal = learningGoals[deck.id];
+                const goalDraft = goalDrafts[deck.id] ?? {
+                  target_date: goal?.target_date ?? defaultGoal.target_date,
+                  desired_mastery: goal?.desired_mastery ?? 85,
+                  daily_workload: goal?.daily_workload ?? 20,
+                };
 
                 return (
                   <article
@@ -643,6 +810,94 @@ export default function WorkspacePage() {
                               ? `${due} thẻ đang đến hạn. Nên ôn trước để giữ nhịp nhớ.`
                               : "Hôm nay đã ổn. Có thể làm Thử thách AI để kiểm tra lại."}
                         </p>
+                      </div>
+
+                      <div className="rounded-xl border border-border/70 bg-background/60 px-3 py-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="inline-flex items-center gap-1.5 text-[0.78rem] font-semibold text-muted-foreground">
+                            <CalendarDays className="h-3.5 w-3.5 text-primary" aria-hidden />
+                            Mục tiêu thi
+                          </p>
+                          {goal && (
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[0.68rem] font-semibold",
+                                goal.urgency === "high"
+                                  ? "bg-rose-50 text-rose-700 dark:bg-rose-950/25 dark:text-rose-200"
+                                  : goal.urgency === "medium"
+                                    ? "bg-amber-50 text-amber-700 dark:bg-amber-950/25 dark:text-amber-200"
+                                    : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/25 dark:text-emerald-200"
+                              )}
+                            >
+                              {goal.days_remaining} ngày
+                            </span>
+                          )}
+                        </div>
+
+                        {goal ? (
+                          <div className="space-y-2">
+                            <p className="text-[0.84rem] leading-relaxed text-foreground/90">
+                              {goal.plan_summary}
+                            </p>
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              <div className="rounded-lg bg-muted/35 px-2 py-1.5">
+                                <p className="text-sm font-bold tabular-nums">{goal.readiness_score}%</p>
+                                <p className="text-[0.68rem] text-muted-foreground">sẵn sàng</p>
+                              </div>
+                              <div className="rounded-lg bg-muted/35 px-2 py-1.5">
+                                <p className="text-sm font-bold tabular-nums">{goal.weak_cards}</p>
+                                <p className="text-[0.68rem] text-muted-foreground">thẻ yếu</p>
+                              </div>
+                              <div className="rounded-lg bg-muted/35 px-2 py-1.5">
+                                <p className="text-sm font-bold tabular-nums">{goal.recommended_daily_cards}</p>
+                                <p className="text-[0.68rem] text-muted-foreground">/ngày</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 gap-2">
+                              <label className="sr-only" htmlFor={`goal-date-${deck.id}`}>Ngày thi</label>
+                              <Input
+                                id={`goal-date-${deck.id}`}
+                                type="date"
+                                value={goalDraft.target_date}
+                                onChange={(e) => updateGoalDraft(deck.id, { target_date: e.target.value })}
+                                className="h-9 bg-background/70 text-[0.82rem]"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <label className="sr-only" htmlFor={`goal-mastery-${deck.id}`}>Mastery mong muốn</label>
+                              <Input
+                                id={`goal-mastery-${deck.id}`}
+                                type="number"
+                                min={50}
+                                max={100}
+                                value={goalDraft.desired_mastery}
+                                onChange={(e) => updateGoalDraft(deck.id, { desired_mastery: Number(e.target.value) })}
+                                className="h-9 bg-background/70 text-[0.82rem]"
+                              />
+                              <label className="sr-only" htmlFor={`goal-workload-${deck.id}`}>Thẻ mỗi ngày</label>
+                              <Input
+                                id={`goal-workload-${deck.id}`}
+                                type="number"
+                                min={5}
+                                max={200}
+                                value={goalDraft.daily_workload}
+                                onChange={(e) => updateGoalDraft(deck.id, { daily_workload: Number(e.target.value) })}
+                                className="h-9 bg-background/70 text-[0.82rem]"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => saveGoal(deck.id)}
+                              disabled={savingGoalId === deck.id}
+                              className="inline-flex w-full items-center justify-center rounded-xl border border-border bg-background/75 px-3 py-2 text-[0.8rem] font-semibold text-foreground transition-colors hover:bg-muted/35 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                            >
+                              {savingGoalId === deck.id ? "Đang lưu" : "Đặt mục tiêu"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
