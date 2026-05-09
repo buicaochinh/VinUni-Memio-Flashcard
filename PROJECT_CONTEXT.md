@@ -33,12 +33,13 @@
 - **Deploy**: pilot deploy theo Swarm + scripts; cập nhật deploy flow thì cập nhật file này trước.
 - **Auth**: đã migrate hoàn toàn sang JWT Bearer (2026-05-09). Mọi endpoint mới phải dùng `Depends(get_current_user_id)`, không truyền `user_id` qua query/body.
 
-## 0.2 Handoff workflow (ít token)
+## 0.2 AI Logging (Mandatory)
+- **Hook mechanism**: Every AI tool (Claude Code, Cursor, Gemini, Antigravity) is configured to call `scripts/log_hook.py`.
+- **Antigravity support**: As Antigravity lacks a programmatic hook system, it is manually triggered at the end of each task using `AI_TOOL_NAME=antigravity`.
+- **Auto-scan**: Use `python3 scripts/log_antigravity.py --auto` to sync any missed sessions.
+- **Log location**: `.ai-log/session.jsonl` (gitignored, submitted via pre-push hook).
 
-Nếu không dùng hooks, vẫn có thể chống “mất context” bằng workflow nhẹ:
 
-- Khi kết thúc một đợt làm việc: yêu cầu agent append mục handoff vào `handoff/SESSION_NOTES.md`.
-- Template + nguyên tắc tối ưu: xem `handoff/HANDOFF_WORKFLOW.md`.
 
 ## 1. Product Overview
 
