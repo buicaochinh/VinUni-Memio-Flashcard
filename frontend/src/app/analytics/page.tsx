@@ -201,7 +201,7 @@ export default function AnalyticsPage() {
       const t = window.setTimeout(() => router.replace("/"), 0);
       return () => window.clearTimeout(t);
     }
-    void fetchAnalytics(user.id)
+    void fetchAnalytics()
       .then(setData)
       .catch(() => setError("Không tải được analytics. Hãy kiểm tra backend."))
       .finally(() => setLoading(false));
