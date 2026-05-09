@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { clearStoredUser, fetchUserXP, syncBrowserTimezone, User, UserXP } from "../lib/app-client";
-import { BarChart3, Bot, ImagePlus, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon } from "lucide-react";
+import { BarChart3, Bot, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
 import { Button } from "./ui/button";
@@ -19,8 +19,7 @@ type AppShellProps = {
 const NAV_ITEMS = [
   { href: "/workspace",    label: "Bộ thẻ",    icon: LibraryBig },
   { href: "/generate",     label: "Tạo thẻ",   icon: Sparkles },
-  { href: "/images",       label: "Đuổi Hình",  icon: ImagePlus },
-  { href: "/coach",        label: "Coach",     icon: Bot },
+{ href: "/coach",        label: "Coach",     icon: Bot },
   { href: "/analytics",    label: "Thống kê",  icon: BarChart3 },
   { href: "/integrations", label: "Liên kết",  icon: Plug },
 ];
