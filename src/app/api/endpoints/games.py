@@ -16,6 +16,7 @@ from src.app.schemas.game import (
     GameStartResponse,
 )
 from src.app.services import game_service
+from src.app.services import xp_service
 
 router = APIRouter()
 
@@ -131,6 +132,7 @@ def complete_campaign(session_id: int, payload: GameCompleteRequest, user_id: in
     )
     if not game:
         raise HTTPException(status_code=404, detail="Không tìm thấy game session.")
+    xp_service.award_xp(session, user_id, game.xp_earned)
     return {
         "session_id": game.id,
         "status": game.status,
