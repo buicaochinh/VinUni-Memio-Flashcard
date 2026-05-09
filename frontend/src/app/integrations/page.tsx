@@ -117,7 +117,7 @@ export default function IntegrationsPage() {
   const loadIngestion = useCallback(async () => {
     const [sourceRows, deckRows] = await Promise.all([
       fetchIngestionSources(),
-      user ? fetchDecks(user.id) : Promise.resolve([] as Deck[]),
+      fetchDecks(),
     ]);
 
     setSources(sourceRows);
