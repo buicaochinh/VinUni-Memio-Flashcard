@@ -6,8 +6,10 @@ import AppShell from "../../components/AppShell";
 import {
   AnalyticsData,
   fetchAnalytics,
+  fetchUserXP,
   useClientReady,
   useStoredUser,
+  UserXP,
 } from "../../lib/app-client";
 import {
   BarChart3,
@@ -23,6 +25,7 @@ import {
   Users,
   ChevronRight,
   ArrowRight,
+  Zap,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
@@ -192,6 +195,7 @@ export default function AnalyticsPage() {
   const user = useStoredUser();
   const clientReady = useClientReady();
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [userXp, setUserXp] = useState<UserXP | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,6 +209,7 @@ export default function AnalyticsPage() {
       .then(setData)
       .catch(() => setError("Không tải được analytics. Hãy kiểm tra backend."))
       .finally(() => setLoading(false));
+    void fetchUserXP().then(setUserXp).catch(() => { /* non-critical */ });
   }, [clientReady, router, user]);
 
   if (!clientReady) return null;
@@ -259,7 +264,7 @@ export default function AnalyticsPage() {
               aria-label="Tóm tắt chỉ số"
               className="rounded-2xl ring-1 ring-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md overflow-hidden shadow-sm"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border">
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-border">
                 {[
                   {
                     label: "Chuỗi học",
@@ -286,6 +291,13 @@ export default function AnalyticsPage() {
                         : data.forgetting_rate > 20
                           ? "text-amber-600 dark:text-amber-400"
                           : "text-[hsl(var(--success))]",
+                  },
+                  {
+                    label: userXp ? `Lv.${userXp.level} ${userXp.level_name}` : "Cấp độ",
+                    value: userXp ? String(userXp.total_xp) : "—",
+                    unit: userXp?.is_max_level ? "tối đa" : userXp ? `còn ${userXp.xp_to_next} XP lên cấp` : "tổng XP",
+                    icon: Zap,
+                    accent: "text-amber-500 dark:text-amber-400",
                   },
                 ].map((m) => {
                   const Icon = m.icon;
