@@ -51,6 +51,16 @@ export type PreviewCard = {
   diagram_spec?: string | null;
 };
 
+export type UserXP = {
+  total_xp: number;
+  level: number;
+  level_name: string;
+  xp_in_level: number;
+  xp_to_next: number;
+  progress_pct: number;
+  is_max_level: boolean;
+};
+
 export type AnalyticsData = {
   streak: number;
   heatmap: Record<string, number>;
@@ -850,18 +860,28 @@ export async function logStudySession(
   deckId: number,
   cardsReviewed: number,
   avgQuality: number
-) {
-  await authFetch("/api/cards/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      deck_id: deckId,
-      cards_reviewed: cardsReviewed,
-      avg_quality: avgQuality,
-    }),
-  }).catch(() => {
-    /* non-critical, ignore errors */
-  });
+): Promise<{ xp_earned: number; total_xp: number } | null> {
+  try {
+    const res = await authFetch("/api/cards/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        deck_id: deckId,
+        cards_reviewed: cardsReviewed,
+        avg_quality: avgQuality,
+      }),
+    });
+    if (!res.ok) return null;
+    return res.json() as Promise<{ xp_earned: number; total_xp: number }>;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchUserXP(): Promise<UserXP> {
+  const res = await authFetch("/api/users/me/xp");
+  if (!res.ok) throw new Error("FETCH_USER_XP_FAILED");
+  return res.json() as Promise<UserXP>;
 }
 
 export async function explainCard(

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { clearStoredUser, syncBrowserTimezone, User } from "../lib/app-client";
+import { clearStoredUser, fetchUserXP, syncBrowserTimezone, User, UserXP } from "../lib/app-client";
 import { BarChart3, Bot, ImagePlus, LibraryBig, LogOut, Plug, Sparkles, User as UserIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import ThemeToggle from "./ThemeToggle";
@@ -29,12 +29,12 @@ export default function AppShell({ children, user }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
+  const [xp, setXp] = useState<UserXP | null>(null);
 
   useEffect(() => {
-    syncBrowserTimezone().catch(() => {
-      /* non-critical */
-    });
-  }, [user.id]);
+    syncBrowserTimezone().catch(() => { /* non-critical */ });
+    fetchUserXP().then(setXp).catch(() => { /* non-critical */ });
+  }, [user.id, pathname]);
 
   const handleLogout = () => {
     clearStoredUser();
@@ -86,25 +86,43 @@ export default function AppShell({ children, user }: AppShellProps) {
         </nav>
 
         <div className="pt-5 border-t border-border flex flex-col gap-4">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-2xl bg-[hsl(var(--acrylic))] border border-border/60 truncate">
-            {user.photo_url && !imgError ? (
-              <Image
-                src={user.photo_url}
-                alt={user.name}
-                width={32}
-                height={32}
-                className="rounded-full flex-shrink-0 w-8 h-8 object-cover"
-                referrerPolicy="no-referrer"
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-full bg-muted ring-1 ring-border/70 flex items-center justify-center flex-shrink-0">
-                <UserIcon className="w-4 h-4 text-muted-foreground" />
+          <div className="flex flex-col gap-2 px-3 py-2 rounded-2xl bg-[hsl(var(--acrylic))] border border-border/60">
+            <div className="flex items-center gap-3 min-w-0">
+              {user.photo_url && !imgError ? (
+                <Image
+                  src={user.photo_url}
+                  alt={user.name}
+                  width={32}
+                  height={32}
+                  className="rounded-full flex-shrink-0 w-8 h-8 object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-muted ring-1 ring-border/70 flex items-center justify-center flex-shrink-0">
+                  <UserIcon className="w-4 h-4 text-muted-foreground" />
+                </div>
+              )}
+              <span className="text-[14px] font-semibold text-foreground truncate">
+                {user.name}
+              </span>
+            </div>
+            {xp && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-[0.72rem]">
+                  <span className="font-semibold text-primary">Lv.{xp.level} {xp.level_name}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {xp.is_max_level ? `${xp.total_xp} XP` : `${xp.xp_to_next} XP còn`}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-700"
+                    style={{ width: `${xp.progress_pct}%` }}
+                  />
+                </div>
               </div>
             )}
-            <span className="text-[14px] font-semibold text-foreground truncate">
-              {user.name}
-            </span>
           </div>
           <Button
             variant="ghost"

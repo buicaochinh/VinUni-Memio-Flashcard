@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import confetti from "canvas-confetti";
-import { CheckCircle2, RotateCcw, Home, Repeat, Trophy } from "lucide-react";
+import { CheckCircle2, RotateCcw, Home, Repeat, Trophy, Zap } from "lucide-react";
 import { cn } from "../lib/utils";
 
 type SummaryType = {
@@ -16,11 +16,12 @@ type SummaryType = {
 type Props = {
   sessionRatings: number[];
   summary: SummaryType;
+  xpEarned?: number;
   onHome: () => void;
   onContinue: (overrideLimit: boolean) => void;
 };
 
-export default function SessionCompleteBoard({ sessionRatings, summary, onHome, onContinue }: Props) {
+export default function SessionCompleteBoard({ sessionRatings, summary, xpEarned, onHome, onContinue }: Props) {
   useEffect(() => {
     if (sessionRatings.length === 0) return;
     const end = Date.now() + 1.5 * 1000;
@@ -90,6 +91,13 @@ export default function SessionCompleteBoard({ sessionRatings, summary, onHome, 
           <span className="text-xs font-semibold uppercase tracking-wider text-rose-600/70 dark:text-rose-500/70 mt-1">Cần ôn lại (Khó/Lại)</span>
         </div>
       </div>
+
+      {xpEarned != null && xpEarned > 0 && (
+        <div className="flex items-center justify-center gap-2 mb-4 px-4 py-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
+          <Zap className="w-4 h-4 text-amber-500 fill-amber-400" aria-hidden />
+          <span className="text-sm font-bold text-amber-700 dark:text-amber-400">+{xpEarned} XP vừa kiếm được!</span>
+        </div>
+      )}
 
       <div className="p-6 rounded-3xl bg-surface-muted border border-border mb-8 space-y-6">
         <p className="text-[0.7rem] font-bold text-muted-foreground uppercase tracking-[0.1em] mb-2">Tiến độ mục tiêu ngày</p>

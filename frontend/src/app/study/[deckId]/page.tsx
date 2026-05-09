@@ -174,6 +174,7 @@ export default function StudyPage() {
   const [isSessionComplete, setIsSessionComplete] = useState(false);
   const [isDailyLimitReached, setIsDailyLimitReached] = useState(false);
   const [studySummary, setStudySummary] = useState<StudySummary | null>(null);
+  const [sessionXpEarned, setSessionXpEarned] = useState(0);
 
   // Explain mode states
   const [isExplainMode, setIsExplainMode] = useState(false);
@@ -267,7 +268,8 @@ export default function StudyPage() {
     } else {
       const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
       if (isOnline()) {
-        await logStudySession(deckId, newRatings.length, avg);
+        const xpResult = await logStudySession(deckId, newRatings.length, avg);
+        if (xpResult?.xp_earned) setSessionXpEarned(xpResult.xp_earned);
       }
       try {
         const summary = await fetchStudySummary(deckId);
@@ -487,6 +489,7 @@ export default function StudyPage() {
         <SessionCompleteBoard
           sessionRatings={sessionRatings}
           summary={studySummary}
+          xpEarned={sessionXpEarned}
           onHome={() => router.push("/workspace")}
           onContinue={async (overrideLimit: boolean) => {
             setIsSessionComplete(false);
