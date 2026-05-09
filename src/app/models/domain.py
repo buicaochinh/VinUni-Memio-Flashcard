@@ -303,6 +303,25 @@ class UserSettings(SQLModel, table=True):
     timezone: str = Field(default_factory=default_timezone_name)
 
 
+class LearningGoal(SQLModel, table=True):
+    __tablename__ = "learning_goals"
+    __table_args__ = (
+        UniqueConstraint("user_id", "deck_id", name="uq_learning_goals_user_deck"),
+        Index("ix_learning_goals_user_target", "user_id", "target_date"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    deck_id: int = Field(foreign_key="decks.id", index=True)
+    goal_type: str = "exam"
+    target_date: str
+    desired_mastery: int = 85
+    daily_workload: int = 20
+    status: str = "active"
+    created_at: datetime = Field(default_factory=utc_now_naive)
+    updated_at: datetime = Field(default_factory=utc_now_naive)
+
+
 class OAuthConnection(SQLModel, table=True):
     __tablename__ = "oauth_connections"
     __table_args__ = (
