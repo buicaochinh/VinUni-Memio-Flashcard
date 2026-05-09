@@ -549,18 +549,18 @@ export function decodeGoogleJwt(credential: string): {
 
 // ─── Decks ────────────────────────────────────────────────────────────────────
 
-export async function fetchDecks(userId: number): Promise<Deck[]> {
-  const res = await fetch(apiUrl(`/api/decks/?user_id=${userId}`));
+export async function fetchDecks(): Promise<Deck[]> {
+  const res = await authFetch("/api/decks/");
   if (!res.ok) throw new Error("FETCH_DECKS_FAILED");
   const data = await res.json();
   return (data.decks ?? []) as Deck[];
 }
 
-export async function createDeck(userId: number, name: string, description = ""): Promise<number> {
-  const res = await fetch(apiUrl("/api/decks/"), {
+export async function createDeck(name: string, description = ""): Promise<number> {
+  const res = await authFetch("/api/decks/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: userId, name, description }),
+    body: JSON.stringify({ name, description }),
   });
   if (!res.ok) throw new Error("CREATE_DECK_FAILED");
   const data = await res.json();
@@ -568,19 +568,19 @@ export async function createDeck(userId: number, name: string, description = "")
 }
 
 export async function deleteDeck(deckId: number) {
-  const res = await fetch(apiUrl(`/api/decks/${deckId}`), { method: "DELETE" });
+  const res = await authFetch(`/api/decks/${deckId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("DELETE_DECK_FAILED");
 }
 
 export async function enableDeckSharing(deckId: number): Promise<string> {
-  const res = await fetch(apiUrl(`/api/decks/${deckId}/share`), { method: "POST" });
+  const res = await authFetch(`/api/decks/${deckId}/share`, { method: "POST" });
   if (!res.ok) throw new Error("SHARE_FAILED");
   const data = await res.json();
   return data.share_token as string;
 }
 
 export async function disableDeckSharing(deckId: number) {
-  await fetch(apiUrl(`/api/decks/${deckId}/share`), { method: "DELETE" });
+  await authFetch(`/api/decks/${deckId}/share`, { method: "DELETE" });
 }
 
 export async function fetchSharedDeck(token: string) {
@@ -591,8 +591,8 @@ export async function fetchSharedDeck(token: string) {
 
 // ─── Cards ────────────────────────────────────────────────────────────────────
 
-export async function fetchDeckCards(deckId: number, userId: number): Promise<Card[]> {
-  const res = await fetch(apiUrl(`/api/cards/${deckId}?user_id=${userId}`));
+export async function fetchDeckCards(deckId: number): Promise<Card[]> {
+  const res = await authFetch(`/api/cards/${deckId}`);
   if (!res.ok) throw new Error("FETCH_CARDS_FAILED");
   const data = await res.json();
   return (data.cards ?? []) as Card[];
@@ -603,7 +603,7 @@ export async function previewCards(deckId: number, files: File[], count = 100): 
   const form = new FormData();
   files.forEach(f => form.append("files", f));
   form.append("count", String(count));
-  const res = await fetch(apiUrl(`/api/cards/${deckId}/preview`), {
+  const res = await authFetch(`/api/cards/${deckId}/preview`, {
     method: "POST",
     body: form,
   });
@@ -618,7 +618,7 @@ export async function previewCards(deckId: number, files: File[], count = 100): 
 
 /** Trigger DALL-E 3 image generation for saved cards in a deck that have image_type="real_image" */
 export async function generateDeckImages(deckId: number): Promise<{ generated: number; total_candidates: number }> {
-  const res = await fetch(apiUrl(`/api/cards/${deckId}/generate_images`), { method: "POST" });
+  const res = await authFetch(`/api/cards/${deckId}/generate_images`, { method: "POST" });
   if (!res.ok) throw new Error("GENERATE_IMAGES_FAILED");
   return res.json();
 }
@@ -632,7 +632,7 @@ export async function generateImageCards(
   const form = new FormData();
   files.forEach((f) => form.append("files", f));
   form.append("count", String(count));
-  const res = await fetch(apiUrl(`/api/cards/${deckId}/generate_image_cards`), {
+  const res = await authFetch(`/api/cards/${deckId}/generate_image_cards`, {
     method: "POST",
     body: form,
   });
@@ -648,7 +648,7 @@ export async function generateImageCards(
 
 /** Save the reviewed/edited cards from preview to the deck */
 export async function bulkCreateCards(deckId: number, cards: PreviewCard[]) {
-  const res = await fetch(apiUrl(`/api/cards/${deckId}/bulk_create`), {
+  const res = await authFetch(`/api/cards/${deckId}/bulk_create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ cards }),
@@ -658,7 +658,7 @@ export async function bulkCreateCards(deckId: number, cards: PreviewCard[]) {
 }
 
 export async function updateCard(cardId: number, front: string, back: string, difficulty: string) {
-  const res = await fetch(apiUrl(`/api/cards/${cardId}`), {
+  const res = await authFetch(`/api/cards/${cardId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ front, back, difficulty }),
@@ -667,20 +667,18 @@ export async function updateCard(cardId: number, front: string, back: string, di
 }
 
 export async function deleteCard(cardId: number) {
-  const res = await fetch(apiUrl(`/api/cards/${cardId}`), { method: "DELETE" });
+  const res = await authFetch(`/api/cards/${cardId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("DELETE_CARD_FAILED");
 }
 
 export async function updateCardProgress(
-  userId: number,
   card: Card,
   quality: 0 | 1 | 2 | 3
 ) {
-  const res = await fetch(apiUrl("/api/cards/progress"), {
+  const res = await authFetch("/api/cards/progress", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      user_id: userId,
       card_id: card.id,
       quality,
       ease_factor: card.ease_factor ?? 2.5,
@@ -696,13 +694,12 @@ export async function updateCardProgress(
 
 export async function startAdventureCampaign(
   deckId: number,
-  userId: number,
   cardCount = 12
 ): Promise<GameStartResponse> {
-  const res = await fetch(apiUrl(`/api/games/campaign/${deckId}/start`), {
+  const res = await authFetch(`/api/games/campaign/${deckId}/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: userId, card_count: cardCount }),
+    body: JSON.stringify({ card_count: cardCount }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -714,7 +711,6 @@ export async function startAdventureCampaign(
 export async function completeAdventureCampaign(
   sessionId: number,
   payload: {
-    user_id: number;
     score: number;
     xp_earned: number;
     accuracy: number;
@@ -722,7 +718,7 @@ export async function completeAdventureCampaign(
     correct_answers: number;
   }
 ): Promise<GameCompleteResponse> {
-  const res = await fetch(apiUrl(`/api/games/campaign/${sessionId}/complete`), {
+  const res = await authFetch(`/api/games/campaign/${sessionId}/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -733,26 +729,25 @@ export async function completeAdventureCampaign(
 
 // ─── Memio Coach ─────────────────────────────────────────────────────────────
 
-export async function fetchCoachThreads(userId: number): Promise<CoachThread[]> {
-  const res = await fetch(apiUrl(`/api/coach/threads?user_id=${userId}`));
+export async function fetchCoachThreads(): Promise<CoachThread[]> {
+  const res = await authFetch("/api/coach/threads");
   if (!res.ok) throw new Error("FETCH_COACH_THREADS_FAILED");
   return res.json() as Promise<CoachThread[]>;
 }
 
-export async function fetchCoachMessages(threadId: number, userId: number): Promise<CoachMessage[]> {
-  const res = await fetch(apiUrl(`/api/coach/threads/${threadId}/messages?user_id=${userId}`));
+export async function fetchCoachMessages(threadId: number): Promise<CoachMessage[]> {
+  const res = await authFetch(`/api/coach/threads/${threadId}/messages`);
   if (!res.ok) throw new Error("FETCH_COACH_MESSAGES_FAILED");
   return res.json() as Promise<CoachMessage[]>;
 }
 
 export async function sendCoachMessage(payload: {
-  user_id: number;
   message: string;
   thread_id?: number | null;
   context_deck_id?: number | null;
   mode?: string | null;
 }): Promise<CoachReply> {
-  const res = await fetch(apiUrl("/api/coach/message"), {
+  const res = await authFetch("/api/coach/message", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -764,19 +759,18 @@ export async function sendCoachMessage(payload: {
   return res.json() as Promise<CoachReply>;
 }
 
-export async function fetchCoachLearningIntelligence(userId: number, limit = 4): Promise<CoachLearningIntelligence> {
-  const res = await fetch(apiUrl(`/api/coach/learning-intelligence?user_id=${userId}&limit=${limit}`));
+export async function fetchCoachLearningIntelligence(limit = 4): Promise<CoachLearningIntelligence> {
+  const res = await authFetch(`/api/coach/learning-intelligence?limit=${limit}`);
   if (!res.ok) throw new Error("FETCH_COACH_LEARNING_INTELLIGENCE_FAILED");
   return res.json() as Promise<CoachLearningIntelligence>;
 }
 
 export async function startCoachQuiz(payload: {
-  user_id: number;
   deck_id?: number | null;
   card_ids?: number[] | null;
   count?: number;
 }): Promise<CoachQuizQuestion[]> {
-  const res = await fetch(apiUrl("/api/coach/quiz/start"), {
+  const res = await authFetch("/api/coach/quiz/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -790,13 +784,12 @@ export async function startCoachQuiz(payload: {
 }
 
 export async function saveCoachQuizSummary(payload: {
-  user_id: number;
   summary: string;
   thread_id?: number | null;
   context_deck_id?: number | null;
   actions?: CoachAction[];
 }): Promise<{ thread_id: number; message: CoachMessage }> {
-  const res = await fetch(apiUrl("/api/coach/quiz/summary"), {
+  const res = await authFetch("/api/coach/quiz/summary", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -809,7 +802,6 @@ export async function saveCoachQuizSummary(payload: {
 }
 
 export async function logCoachTrustEvent(payload: {
-  user_id: number;
   thread_id?: number | null;
   message_id?: number | null;
   event_type: "citation_click" | "answer_feedback";
@@ -817,28 +809,27 @@ export async function logCoachTrustEvent(payload: {
   value?: "helpful" | "not_helpful" | null;
   source_type?: string | null;
 }) {
-  await fetch(apiUrl("/api/coach/trust-event"), {
+  await authFetch("/api/coach/trust-event", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
 }
 
-export async function fetchLearningGoals(userId: number): Promise<LearningGoal[]> {
-  const res = await fetch(apiUrl(`/api/goals/?user_id=${userId}`));
+export async function fetchLearningGoals(): Promise<LearningGoal[]> {
+  const res = await authFetch("/api/goals/");
   if (!res.ok) throw new Error("FETCH_LEARNING_GOALS_FAILED");
   const data = await res.json();
   return (data.goals ?? []) as LearningGoal[];
 }
 
 export async function upsertLearningGoal(payload: {
-  user_id: number;
   deck_id: number;
   target_date: string;
   desired_mastery: number;
   daily_workload: number;
 }): Promise<LearningGoal> {
-  const res = await fetch(apiUrl("/api/goals/"), {
+  const res = await authFetch("/api/goals/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -850,22 +841,20 @@ export async function upsertLearningGoal(payload: {
   return res.json() as Promise<LearningGoal>;
 }
 
-export async function deleteLearningGoal(goalId: number, userId: number) {
-  const res = await fetch(apiUrl(`/api/goals/${goalId}?user_id=${userId}`), { method: "DELETE" });
+export async function deleteLearningGoal(goalId: number) {
+  const res = await authFetch(`/api/goals/${goalId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("DELETE_LEARNING_GOAL_FAILED");
 }
 
 export async function logStudySession(
-  userId: number,
   deckId: number,
   cardsReviewed: number,
   avgQuality: number
 ) {
-  await fetch(apiUrl("/api/cards/session"), {
+  await authFetch("/api/cards/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      user_id: userId,
       deck_id: deckId,
       cards_reviewed: cardsReviewed,
       avg_quality: avgQuality,
@@ -1234,8 +1223,8 @@ export async function fetchIngestionRuns(sourceId: number): Promise<IngestionRun
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
-export async function fetchAnalytics(userId: number): Promise<AnalyticsData> {
-  const res = await fetch(apiUrl(`/api/decks/analytics?user_id=${userId}`));
+export async function fetchAnalytics(): Promise<AnalyticsData> {
+  const res = await authFetch("/api/decks/analytics");
   if (!res.ok) throw new Error("ANALYTICS_FAILED");
   return res.json() as Promise<AnalyticsData>;
 }
@@ -1247,7 +1236,6 @@ const PROGRESS_QUEUE_KEY = "fc_progress_queue";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 h
 
 type ProgressQueueItem = {
-  userId: number;
   card: Card;
   quality: 0 | 1 | 2 | 3;
   deckId: number;
@@ -1294,7 +1282,7 @@ export async function flushProgressQueue() {
     );
     if (queue.length === 0) return;
     const results = await Promise.allSettled(
-      queue.map((item) => updateCardProgress(item.userId, item.card, item.quality))
+      queue.map((item) => updateCardProgress(item.card, item.quality))
     );
     const failed = queue.filter((_, i) => results[i].status === "rejected");
     localStorage.setItem(PROGRESS_QUEUE_KEY, JSON.stringify(failed));
@@ -1307,14 +1295,14 @@ export function isOnline(): boolean {
   return typeof navigator !== "undefined" ? navigator.onLine : true;
 }
 
-export async function fetchSmartQueue(deckId: number, userId: number, overrideLimit: boolean = false): Promise<Card[]> {
-  const r = await fetch(apiUrl(`/api/cards/${deckId}/smart-queue?user_id=${userId}&override_limit=${overrideLimit}`));
+export async function fetchSmartQueue(deckId: number, overrideLimit: boolean = false): Promise<Card[]> {
+  const r = await authFetch(`/api/cards/${deckId}/smart-queue?override_limit=${overrideLimit}`);
   if (!r.ok) throw new Error("Failed to fetch smart queue");
   const data = await r.json();
   return data.cards;
 }
 
-export async function fetchStudySummary(deckId: number, userId: number): Promise<{
+export async function fetchStudySummary(deckId: number): Promise<{
   due_cards: number;
   new_cards: number;
   completed_new: number;
@@ -1323,7 +1311,7 @@ export async function fetchStudySummary(deckId: number, userId: number): Promise
   daily_review_limit: number;
   total_cards: number;
 }> {
-  const r = await fetch(apiUrl(`/api/cards/${deckId}/study-summary?user_id=${userId}`));
+  const r = await authFetch(`/api/cards/${deckId}/study-summary`);
   if (!r.ok) throw new Error("Failed to fetch study summary");
   return await r.json();
 }
@@ -1336,14 +1324,14 @@ export function getBrowserTimezone(): string {
   }
 }
 
-export async function fetchUserSettings(userId: number): Promise<UserSettings> {
-  const r = await fetch(apiUrl(`/api/users/${userId}/settings`));
+export async function fetchUserSettings(): Promise<UserSettings> {
+  const r = await authFetch("/api/users/me/settings");
   if (!r.ok) throw new Error("Failed to fetch user settings");
   return await r.json();
 }
 
-export async function updateUserSettings(userId: number, dailyNew: number, dailyReview: number, timezone?: string) {
-  const r = await fetch(apiUrl(`/api/users/${userId}/settings`), {
+export async function updateUserSettings(dailyNew: number, dailyReview: number, timezone?: string) {
+  const r = await authFetch("/api/users/me/settings", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ daily_new_limit: dailyNew, daily_review_limit: dailyReview, timezone })
@@ -1352,8 +1340,8 @@ export async function updateUserSettings(userId: number, dailyNew: number, daily
   return await r.json();
 }
 
-export async function updateUserTimezone(userId: number, timezone: string) {
-  const r = await fetch(apiUrl(`/api/users/${userId}/settings/timezone`), {
+export async function updateUserTimezone(timezone: string) {
+  const r = await authFetch("/api/users/me/settings/timezone", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ timezone }),
@@ -1362,13 +1350,14 @@ export async function updateUserTimezone(userId: number, timezone: string) {
   return await r.json();
 }
 
-export async function syncBrowserTimezone(userId: number) {
+export async function syncBrowserTimezone() {
   if (typeof window === "undefined") return;
   const timezone = getBrowserTimezone();
-  const key = `fc_timezone_sync:${userId}`;
+  const user = getStoredUser();
+  const key = `fc_timezone_sync:${user?.id ?? "anon"}`;
   const today = new Date();
   const syncKey = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}:${timezone}`;
   if (localStorage.getItem(key) === syncKey) return;
-  await updateUserTimezone(userId, timezone);
+  await updateUserTimezone(timezone);
   localStorage.setItem(key, syncKey);
 }

@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 
 class GameStartRequest(BaseModel):
-    user_id: int
     card_count: int = 12
 
 
@@ -39,7 +38,6 @@ class GameStartResponse(BaseModel):
 
 
 class GameCompleteRequest(BaseModel):
-    user_id: int
     score: int
     xp_earned: int
     accuracy: float

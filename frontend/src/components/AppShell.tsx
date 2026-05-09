@@ -31,7 +31,7 @@ export default function AppShell({ children, user }: AppShellProps) {
   const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
-    syncBrowserTimezone(user.id).catch(() => {
+    syncBrowserTimezone().catch(() => {
       /* non-critical */
     });
   }, [user.id]);

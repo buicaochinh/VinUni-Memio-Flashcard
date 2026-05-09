@@ -38,27 +38,36 @@ def get_deck_by_share_token(session: Session, token: str):
     return deck.model_dump() if deck else None
 
 
-def enable_deck_sharing(session: Session, deck_id: int):
+def enable_deck_sharing(session: Session, deck_id: int, user_id: int | None = None):
     token = secrets.token_urlsafe(8)
     deck = session.get(Deck, deck_id)
-    if deck:
-        deck.is_public = 1
-        deck.share_token = token
-        session.add(deck)
-        session.commit()
-        return token
-    return None
+    if not deck:
+        return None
+    if user_id is not None and deck.user_id != user_id:
+        return None
+    deck.is_public = 1
+    deck.share_token = token
+    session.add(deck)
+    session.commit()
+    return token
 
 
-def disable_deck_sharing(session: Session, deck_id: int):
+def disable_deck_sharing(session: Session, deck_id: int, user_id: int | None = None):
     deck = session.get(Deck, deck_id)
-    if deck:
-        deck.is_public = 0
-        session.add(deck)
-        session.commit()
+    if not deck:
+        return
+    if user_id is not None and deck.user_id != user_id:
+        return
+    deck.is_public = 0
+    session.add(deck)
+    session.commit()
 
 
-def delete_deck(session: Session, deck_id: int):
+def delete_deck(session: Session, deck_id: int, user_id: int | None = None):
+    if user_id is not None:
+        deck_check = session.get(Deck, deck_id)
+        if not deck_check or deck_check.user_id != user_id:
+            return
     source_rows = session.exec(select(IngestionSource).where(IngestionSource.target_deck_id == deck_id)).all()
     source_ids = [row.id for row in source_rows if row.id is not None]
 

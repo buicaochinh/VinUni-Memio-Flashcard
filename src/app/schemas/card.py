@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from typing import List, Dict, Optional
 
 class ProgressUpdate(BaseModel):
-    user_id: int
     card_id: int
     quality: int
     ease_factor: float
@@ -20,7 +19,6 @@ class BulkCreatePayload(BaseModel):
     cards: List[Dict]
 
 class StudySessionLog(BaseModel):
-    user_id: int
     deck_id: int
     cards_reviewed: int
     avg_quality: float

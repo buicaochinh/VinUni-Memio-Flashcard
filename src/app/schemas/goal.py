@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 
 
 class LearningGoalUpsert(BaseModel):
-    user_id: int
     deck_id: int
     target_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     desired_mastery: int = Field(default=85, ge=50, le=100)

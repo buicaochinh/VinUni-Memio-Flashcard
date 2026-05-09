@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
+from src.app.api.deps import get_current_user_id
 from src.app.db.session import get_session
 from src.app.schemas.goal import (
     LearningGoalDeleteResponse,
@@ -15,16 +16,16 @@ router = APIRouter()
 
 
 @router.get("/", response_model=LearningGoalsListResponse)
-def list_learning_goals(user_id: int, session: Session = Depends(get_session)):
+def list_learning_goals(user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     return {"goals": goal_service.list_goals(session, user_id)}
 
 
 @router.post("/", response_model=LearningGoalResponse)
-def upsert_learning_goal(payload: LearningGoalUpsert, session: Session = Depends(get_session)):
+def upsert_learning_goal(payload: LearningGoalUpsert, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     try:
         return goal_service.upsert_goal(
             session,
-            payload.user_id,
+            user_id,
             payload.deck_id,
             payload.target_date,
             payload.desired_mastery,
@@ -37,7 +38,7 @@ def upsert_learning_goal(payload: LearningGoalUpsert, session: Session = Depends
 
 
 @router.delete("/{goal_id}", response_model=LearningGoalDeleteResponse)
-def delete_learning_goal(goal_id: int, user_id: int, session: Session = Depends(get_session)):
+def delete_learning_goal(goal_id: int, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     deleted_id = goal_service.delete_goal(session, user_id, goal_id)
     if deleted_id is None:
         raise HTTPException(status_code=404, detail="Không tìm thấy mục tiêu học.")

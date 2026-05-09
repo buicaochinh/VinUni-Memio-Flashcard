@@ -23,7 +23,6 @@ class CoachAction(BaseModel):
 
 
 class CoachMessageRequest(BaseModel):
-    user_id: int
     message: str
     thread_id: Optional[int] = None
     context_deck_id: Optional[int] = None
@@ -38,7 +37,6 @@ class CoachMessageResponse(BaseModel):
 
 
 class CoachQuizStartRequest(BaseModel):
-    user_id: int
     deck_id: Optional[int] = None
     card_ids: Optional[List[int]] = None
     count: int = 5
@@ -92,7 +90,6 @@ class CoachLearningIntelligenceResponse(BaseModel):
 
 
 class CoachQuizSummaryRequest(BaseModel):
-    user_id: int
     summary: str
     thread_id: Optional[int] = None
     context_deck_id: Optional[int] = None
@@ -122,7 +119,6 @@ class CoachQuizSummaryResponse(BaseModel):
 
 
 class CoachTrustEventRequest(BaseModel):
-    user_id: int
     thread_id: Optional[int] = None
     message_id: Optional[int] = None
     event_type: str

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from pydantic import BaseModel
 
+from src.app.api.deps import get_current_user_id
 from src.app.core.time import default_timezone_name, validate_timezone
 from src.app.db.session import get_session
 from src.app.models.domain import UserSettings
@@ -17,8 +18,8 @@ class UserSettingsUpdate(BaseModel):
 class UserTimezoneUpdate(BaseModel):
     timezone: str
 
-@router.get("/{user_id}/settings")
-def get_user_settings(user_id: int, session: Session = Depends(get_session)):
+@router.get("/me/settings")
+def get_user_settings(user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     settings = session.exec(select(UserSettings).where(UserSettings.user_id == user_id)).first()
     if not settings:
         return {
@@ -32,8 +33,8 @@ def get_user_settings(user_id: int, session: Session = Depends(get_session)):
         "timezone": settings.timezone or default_timezone_name(),
     }
 
-@router.put("/{user_id}/settings")
-def update_user_settings(user_id: int, payload: UserSettingsUpdate, session: Session = Depends(get_session)):
+@router.put("/me/settings")
+def update_user_settings(payload: UserSettingsUpdate, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     timezone_name = None
     if payload.timezone is not None:
         try:
@@ -54,15 +55,15 @@ def update_user_settings(user_id: int, payload: UserSettingsUpdate, session: Ses
         settings.daily_review_limit = payload.daily_review_limit
         if timezone_name is not None:
             settings.timezone = timezone_name
-        
+
     session.add(settings)
     session.commit()
-    
+
     return {"message": "success"}
 
 
-@router.patch("/{user_id}/settings/timezone")
-def update_user_timezone(user_id: int, payload: UserTimezoneUpdate, session: Session = Depends(get_session)):
+@router.patch("/me/settings/timezone")
+def update_user_timezone(payload: UserTimezoneUpdate, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     try:
         timezone_name = validate_timezone(payload.timezone)
     except ValueError as exc:

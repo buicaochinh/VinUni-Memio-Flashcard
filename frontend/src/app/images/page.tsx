@@ -50,7 +50,7 @@ export default function ImagesPage() {
   useEffect(() => {
     if (!clientReady) return;
     if (!user) { router.replace("/"); return; }
-    fetchDecks(user.id).then((d) => {
+    fetchDecks().then((d) => {
       setDecks(d);
       if (d[0]?.id) setSelectedDeckId(d[0].id);
     }).catch(() => {});

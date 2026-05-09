@@ -195,7 +195,6 @@ function CitationList({
         );
         const logClick = () => {
           void logCoachTrustEvent({
-            user_id: userId,
             thread_id: threadId,
             message_id: messageId,
             event_type: "citation_click",
@@ -247,7 +246,6 @@ function AnswerFeedback({
   const handleFeedback = (value: "helpful" | "not_helpful") => {
     setSelected(value);
     void logCoachTrustEvent({
-      user_id: userId,
       thread_id: threadId,
       message_id: message.id,
       event_type: "answer_feedback",
@@ -424,7 +422,7 @@ export default function CoachChat({
     async function hydrateThread() {
       setError(null);
       try {
-        const storedMessages = await fetchCoachMessages(threadToLoad, user.id);
+        const storedMessages = await fetchCoachMessages(threadToLoad);
         if (!cancelled) setMessages(storedMessages);
       } catch (err) {
         if (!cancelled) {
@@ -463,7 +461,6 @@ export default function CoachChat({
 
     try {
       const reply = await sendCoachMessage({
-        user_id: user.id,
         message: text,
         thread_id: threadId,
         context_deck_id: initialContextDeckId,
@@ -492,7 +489,6 @@ export default function CoachChat({
     setError(null);
     try {
       const questions = await startCoachQuiz({
-        user_id: user.id,
         deck_id: deckId ?? undefined,
         card_ids: cardIds ?? undefined,
         count: 5,
@@ -523,7 +519,7 @@ export default function CoachChat({
       correct: quiz.correct + (isCorrect ? 1 : 0),
       answered: [...quiz.answered, { question, selected: choiceIndex, correct: isCorrect }],
     });
-    await updateCardProgress(user.id, {
+    await updateCardProgress({
       id: question.card_id,
       front: question.prompt,
       back: question.explanation,
@@ -553,7 +549,6 @@ export default function CoachChat({
       };
       setMessages((prev) => [...prev, localMessage]);
       saveCoachQuizSummary({
-        user_id: user.id,
         summary: summary.text,
         thread_id: threadId,
         context_deck_id: primaryDeckId,
