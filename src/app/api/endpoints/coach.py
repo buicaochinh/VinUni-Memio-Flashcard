@@ -6,12 +6,14 @@ from src.app.models.domain import Deck
 from src.app.schemas.coach import (
     CoachMessageRequest,
     CoachMessageResponse,
+    CoachLearningIntelligenceResponse,
     CoachQuizStartRequest,
     CoachQuizStartResponse,
     CoachQuizSummaryRequest,
     CoachQuizSummaryResponse,
     CoachStoredMessage,
     CoachThreadSummary,
+    CoachTrustEventRequest,
 )
 from src.app.services import coach_service
 
@@ -26,6 +28,11 @@ def list_threads(user_id: int, limit: int = 20, session: Session = Depends(get_s
 @router.get("/threads/{thread_id}/messages", response_model=list[CoachStoredMessage])
 def list_messages(thread_id: int, user_id: int, session: Session = Depends(get_session)):
     return [coach_service.stored_message_to_dict(m) for m in coach_service.list_messages(session, user_id, thread_id)]
+
+
+@router.get("/learning-intelligence", response_model=CoachLearningIntelligenceResponse)
+def get_learning_intelligence(user_id: int, limit: int = 4, session: Session = Depends(get_session)):
+    return coach_service.build_learning_intelligence(session, user_id, limit)
 
 
 @router.post("/message", response_model=CoachMessageResponse)
@@ -68,7 +75,13 @@ def send_message(payload: CoachMessageRequest, session: Session = Depends(get_se
 
 @router.post("/quiz/start", response_model=CoachQuizStartResponse)
 def start_inline_quiz(payload: CoachQuizStartRequest, session: Session = Depends(get_session)):
-    questions = coach_service.build_inline_quiz(session, payload.user_id, payload.deck_id, payload.count)
+    questions = coach_service.build_inline_quiz(
+        session,
+        payload.user_id,
+        payload.deck_id,
+        payload.count,
+        payload.card_ids,
+    )
     if not questions:
         raise HTTPException(status_code=422, detail="Cần ít nhất 2 flashcards để quiz trong chat.")
     return {"questions": questions}
@@ -99,3 +112,22 @@ def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, session: Session 
         "thread_id": thread.id,
         "message": coach_service.stored_message_to_dict(message),
     }
+
+
+@router.post("/trust-event")
+def log_trust_event(payload: CoachTrustEventRequest):
+    if payload.event_type not in {"citation_click", "answer_feedback"}:
+        raise HTTPException(status_code=422, detail="Loại trust event không hợp lệ.")
+    if payload.event_type == "answer_feedback" and payload.value not in {"helpful", "not_helpful"}:
+        raise HTTPException(status_code=422, detail="Feedback không hợp lệ.")
+
+    coach_service.log_trust_event(
+        user_id=payload.user_id,
+        event_type=payload.event_type,
+        thread_id=payload.thread_id,
+        message_id=payload.message_id,
+        citation_id=payload.citation_id,
+        value=payload.value,
+        source_type=payload.source_type,
+    )
+    return {"message": "success"}
