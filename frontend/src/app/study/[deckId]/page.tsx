@@ -190,11 +190,11 @@ export default function StudyPage() {
     try {
       let loaded: Card[];
       if (isOnline()) {
-        loaded = await fetchSmartQueue(deckId, userId, overrideLimit);
+        loaded = await fetchSmartQueue(deckId, overrideLimit);
         cacheCards(deckId, loaded);
-        
+
         if (loaded.length === 0) {
-          const summary = await fetchStudySummary(deckId, userId);
+          const summary = await fetchStudySummary(deckId);
           if (summary.total_cards > 0) {
             setStudySummary(summary);
             if (overrideLimit) {
@@ -247,11 +247,11 @@ export default function StudyPage() {
     setSessionRatings(newRatings);
 
     if (isOnline()) {
-      await updateCardProgress(user.id, card, quality).catch(() => {
-        queueProgressUpdate({ userId: user.id, card, quality, deckId });
+      await updateCardProgress(card, quality).catch(() => {
+        queueProgressUpdate({ card, quality, deckId });
       });
     } else {
-      queueProgressUpdate({ userId: user.id, card, quality, deckId });
+      queueProgressUpdate({ card, quality, deckId });
     }
 
     if (idx < cards.length - 1) {
@@ -261,16 +261,16 @@ export default function StudyPage() {
       // Persist lightweight session stats periodically so weekly report has data
       if (isOnline() && newRatings.length % 5 === 0) {
         const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
-        void logStudySession(user.id, deckId, newRatings.length, avg);
+        void logStudySession(deckId, newRatings.length, avg);
       }
       setTimeout(() => setIdx((i) => i + 1), 220);
     } else {
       const avg = newRatings.reduce((a, b) => a + b, 0) / newRatings.length;
       if (isOnline()) {
-        await logStudySession(user.id, deckId, newRatings.length, avg);
+        await logStudySession(deckId, newRatings.length, avg);
       }
       try {
-        const summary = await fetchStudySummary(deckId, user.id);
+        const summary = await fetchStudySummary(deckId);
         setStudySummary(summary);
       } catch {
         // ignore
