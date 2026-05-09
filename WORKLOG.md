@@ -78,7 +78,7 @@ Ghi lai cac quyet dinh ky thuat, rui ro, va cac moc phat trien quan trong cua du
   - `PROJECT_CONTEXT.md`, `docs/INDEX.md`, handoff workflow, docs folder duoc chuan hoa.
   - Ingestion/integrations tro thanh mot nhanh chuc nang ro rieng.
 
-### Sprint 6 - 05/05 -> 08/05/2026
+### Sprint 6 - 05/05 -> 09/05/2026
 
 - Muc tieu: bo sung learning loop, Notion flow, timezone, coach, game, va docs product improvement.
 - Moc git:
@@ -90,9 +90,16 @@ Ghi lai cac quyet dinh ky thuat, rui ro, va cac moc phat trien quan trong cua du
   - `07/05` - merge PR #74; Memio Coach end-to-end.
   - `08/05` - merge PR #75; docs sprint plan/execution/PRD cho product improvement.
   - `08/05` - `3dbb160` update diagrams.
+  - `09/05` - merge PR #82; he thong XP (`0015_user_xp`), service, va UI users (`d63214b`).
+  - `09/05` - merge PR #83; cap nhat UI Image Flashcard (`19ad85f`).
+  - `09/05` - fix `scripts/log_hook.py` ho tro `antigravity` tool (`de79015`).
 - Ket qua:
   - He thong da co them 3 tru cot moi: daily limits/settings, game loop, coach loop.
+  - He thong XP da san sang: thuong XP cho study session va game.
+  - Hook logging da on dinh cho moi tool AI (Claude, Cursor, Gemini, Antigravity).
   - Docs san pham va docs ky thuat da bieu dien dung hon trang thai hien tai.
+
+
 
 ---
 
