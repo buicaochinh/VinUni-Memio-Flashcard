@@ -95,8 +95,8 @@ export default function PlayCampaignPage() {
     setMsg(null);
     try {
       const [game, deckCards] = await Promise.all([
-        startAdventureCampaign(deckId, currentUser.id, 12),
-        fetchDeckCards(deckId, currentUser.id),
+        startAdventureCampaign(deckId, 12),
+        fetchDeckCards(deckId),
       ]);
       setSessionId(game.session_id);
       setCampaign(game.campaign);
@@ -138,7 +138,6 @@ export default function PlayCampaignPage() {
 
     try {
       await completeAdventureCampaign(sessionId, {
-        user_id: user.id,
         score: nextScore,
         xp_earned: nextXp,
         accuracy: nextAccuracy,
@@ -180,7 +179,7 @@ export default function PlayCampaignPage() {
 
     const card = cardsById[question.card_id];
     if (card) {
-      await updateCardProgress(user.id, card, quality).catch(() => {
+      await updateCardProgress(card, quality).catch(() => {
         setMsg("Một câu trả lời chưa cập nhật được lịch ôn. Kết quả game vẫn được giữ.");
       });
     }
