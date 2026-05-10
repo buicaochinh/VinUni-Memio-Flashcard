@@ -5,6 +5,8 @@ import re
 import unicodedata
 from typing import Any
 
+import numpy as np
+
 import httpx
 from openai import OpenAI
 from sqlmodel import Session, select
@@ -199,6 +201,75 @@ def _concept_key(card: Flashcard, deck: Deck) -> str:
     return f"{deck.id}-{'-'.join(top) if top else 'general'}"
 
 
+def _embed_texts(texts: list[str], client: OpenAI) -> list[list[float]]:
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=[t[:500] for t in texts],
+    )
+    return [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
+
+
+def _greedy_cluster_ids(embeddings: list[list[float]], threshold: float = 0.70) -> list[int]:
+    """Greedy centroid-based clustering. Returns a cluster id per embedding."""
+    centroids: list[tuple[np.ndarray, int]] = []
+    cluster_ids: list[int] = []
+    for emb in embeddings:
+        arr = np.array(emb, dtype=np.float32)
+        best_cid, best_sim = -1, threshold
+        for cid, (csum, cnt) in enumerate(centroids):
+            c = csum / cnt
+            denom = float(np.linalg.norm(arr) * np.linalg.norm(c))
+            sim = float(np.dot(arr, c) / denom) if denom > 0 else 0.0
+            if sim > best_sim:
+                best_sim, best_cid = sim, cid
+        if best_cid == -1:
+            centroids.append((arr.copy(), 1))
+            cluster_ids.append(len(centroids) - 1)
+        else:
+            csum, cnt = centroids[best_cid]
+            centroids[best_cid] = (csum + arr, cnt + 1)
+            cluster_ids.append(best_cid)
+    return cluster_ids
+
+
+def _centroid_label(cards: list[Flashcard], embeddings: list[list[float]]) -> str:
+    """Pick the card front nearest to the cluster centroid as the label."""
+    if not cards:
+        return "Chủ đề chung"
+    front = cards[0].front.strip()
+    if len(cards) == 1:
+        return (front[:37] + "…") if len(front) > 40 else front
+    arrs = np.array(embeddings, dtype=np.float32)
+    centroid = arrs.mean(axis=0)
+    norm_c = float(np.linalg.norm(centroid))
+    norms = np.linalg.norm(arrs, axis=1).astype(float)
+    sims = (arrs @ centroid) / (norms * norm_c + 1e-9)
+    best_idx = int(np.argmax(sims))
+    front = cards[best_idx].front.strip()
+    return (front[:37] + "…") if len(front) > 40 else front
+
+
+_Item = tuple[int, Flashcard, Deck, "Progress | None"]
+
+
+def _token_group(
+    candidates: list[_Item],
+    out: dict[str, tuple[str, list[_Item]]],
+) -> None:
+    """Populate `out` using token-frequency cluster keys (fallback when no API key)."""
+    for item in candidates:
+        _, card, deck, _ = item
+        key = _concept_key(card, deck)
+        if key not in out:
+            out[key] = ("", [])
+        out[key][1].append(item)
+    # Compute labels after all cards are grouped
+    for key, (_, items) in out.items():
+        cards = [c for _, c, _, _ in items]
+        deck = items[0][2]
+        out[key] = (_cluster_label(cards, deck), items)
+
+
 def build_learning_intelligence(session: Session, user_id: int, limit: int = 4) -> dict:
     max_clusters = max(1, min(limit, 8))
     statement = (
@@ -211,25 +282,48 @@ def build_learning_intelligence(session: Session, user_id: int, limit: int = 4) 
     )
     rows = session.exec(statement).all()
 
-    weak_rows: list[tuple[int, Flashcard, Deck, Progress | None]] = []
+    weak_rows: list[_Item] = []
     for card, deck, progress in rows:
         score = _weakness_score(card, progress)
         if score >= 4:
             weak_rows.append((score, card, deck, progress))
 
     weak_rows.sort(key=lambda item: (item[0], int(item[1].id or 0)), reverse=True)
-    grouped: dict[str, list[tuple[int, Flashcard, Deck, Progress | None]]] = {}
-    for item in weak_rows[:80]:
-        _score, card, deck, _progress = item
-        key = _concept_key(card, deck)
-        grouped.setdefault(key, []).append(item)
+    candidates = weak_rows[:80]
+
+    # clustered maps key → (label, items)
+    clustered: dict[str, tuple[str, list[_Item]]] = {}
+
+    api_key = OPENAI_API_KEY.strip()
+    if api_key and candidates:
+        try:
+            client = OpenAI(api_key=api_key)
+            texts = [f"{c.front} {c.back}"[:500] for _, c, _, _ in candidates]
+            embeddings = _embed_texts(texts, client)
+            cids = _greedy_cluster_ids(embeddings)
+
+            sem: dict[int, list[tuple[_Item, list[float]]]] = {}
+            for cid, item, emb in zip(cids, candidates, embeddings):
+                sem.setdefault(cid, []).append((item, emb))
+
+            for cid, group in sem.items():
+                items = [g[0] for g in group]
+                embs = [g[1] for g in group]
+                label = _centroid_label([i[1] for i in items], embs)
+                clustered[f"sem-{cid}"] = (label, items)
+        except Exception:
+            _token_group(candidates, clustered)
+    else:
+        _token_group(candidates, clustered)
 
     clusters: list[dict] = []
-    for key, items in grouped.items():
+    for key, (label, items) in clustered.items():
         items.sort(key=lambda item: (item[0], int(item[1].id or 0)), reverse=True)
-        cards = [card for _score, card, _deck, _progress in items]
+        if not items:
+            continue
+        cards = [card for _, card, _, _ in items]
         deck = items[0][2]
-        total_score = sum(score for score, _card, _deck, _progress in items)
+        total_score = sum(score for score, _, _, _ in items)
         max_score = max(1, len(items) * 18)
         mastery_score = max(0, min(100, 100 - round((total_score / max_score) * 100)))
         top_item = items[0]
@@ -241,7 +335,7 @@ def build_learning_intelligence(session: Session, user_id: int, limit: int = 4) 
 
         clusters.append({
             "id": f"wc-{key}",
-            "label": _cluster_label(cards, deck),
+            "label": label,
             "deck_id": deck.id,
             "deck_name": deck.name,
             "card_ids": [int(card.id) for card in cards if card.id],
@@ -267,7 +361,7 @@ def build_learning_intelligence(session: Session, user_id: int, limit: int = 4) 
     clusters.sort(key=lambda item: (item["weakness_score"], item["card_count"]), reverse=True)
     return {
         "clusters": clusters[:max_clusters],
-        "total_weak_cards": len({int(card.id) for _score, card, _deck, _progress in weak_rows if card.id}),
+        "total_weak_cards": len({int(card.id) for _, card, _, _ in weak_rows if card.id}),
     }
 
 

@@ -884,6 +884,18 @@ export async function fetchUserXP(): Promise<UserXP> {
   return res.json() as Promise<UserXP>;
 }
 
+export type NotificationAlert = {
+  type: "due_cards" | "streak_risk" | "exam_urgency";
+  title: string;
+  body: string;
+};
+
+export async function fetchNotifications(): Promise<NotificationAlert[]> {
+  const res = await authFetch("/api/notifications/me/notifications");
+  if (!res.ok) return [];
+  return res.json() as Promise<NotificationAlert[]>;
+}
+
 export async function explainCard(
   front: string, 
   back: string, 
