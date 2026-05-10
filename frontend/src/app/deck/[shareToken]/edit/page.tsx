@@ -19,6 +19,7 @@ import {
 import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
+import { Skeleton } from "../../../../components/ui/skeleton";
 import {
   ArrowLeft,
   Check,
@@ -157,7 +158,26 @@ export default function DeckEditPage() {
     }
   };
 
-  if (!clientReady || loading) return null;
+  if (!clientReady || loading) return (
+    <AppShell user={null}>
+      <div className="pb-20 space-y-8">
+        <Skeleton className="h-4 w-24 rounded-full" />
+        <div className="p-6 border border-border rounded-2xl space-y-4">
+          <Skeleton className="h-4 w-28 rounded-full" />
+          <Skeleton className="h-10 rounded-xl" />
+          <Skeleton className="h-10 rounded-xl" />
+          <Skeleton className="h-10 w-36 rounded-xl" />
+        </div>
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-6 w-40 rounded-full" />
+          <Skeleton className="h-9 w-24 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-52" />)}
+        </div>
+      </div>
+    </AppShell>
+  );
   if (error) return (
     <AppShell user={user!}>
       <div className="p-8 text-rose-600">{error}</div>
