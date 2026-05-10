@@ -84,7 +84,7 @@ services:
     image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
     env_file:
       - .env
-    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "worker", "-l", "INFO", "--concurrency", "1"]
+    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "worker", "-l", "INFO", "--pool", "solo"]
     deploy:
       replicas: 1
       restart_policy:
@@ -92,14 +92,12 @@ services:
         delay: 5s
       resources:
         limits:
-          memory: 384M
+          memory: 512M
           cpus: "0.75"
       update_config:
         parallelism: 1
         delay: 10s
         order: stop-first
-        failure_action: rollback
-        monitor: 30s
 
   beat:
     image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
@@ -119,8 +117,6 @@ services:
         parallelism: 1
         delay: 5s
         order: stop-first
-        failure_action: rollback
-        monitor: 30s
 
   frontend:
     image: ${FRONTEND_IMAGE:-a20-app-001-frontend:pilot}
