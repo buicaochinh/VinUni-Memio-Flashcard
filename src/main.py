@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # Load .env before any module that reads env vars
@@ -10,7 +11,14 @@ from src.app.db.session import init_db
 from src.app.api.api import api_router
 from src.app.worker.celery_app import celery_app  # noqa: F401
 
-app = FastAPI(title="AI Flashcard API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="AI Flashcard API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,11 +34,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def startup():
-    init_db()
 
 
 @app.get("/")
