@@ -578,6 +578,15 @@ export async function createDeck(name: string, description = ""): Promise<number
   return data.deck_id as number;
 }
 
+export async function updateDeck(deckId: number, name: string, description = "") {
+  const res = await authFetch(`/api/decks/${deckId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, description }),
+  });
+  if (!res.ok) throw new Error("UPDATE_DECK_FAILED");
+}
+
 export async function deleteDeck(deckId: number) {
   const res = await authFetch(`/api/decks/${deckId}`, { method: "DELETE" });
   if (!res.ok) throw new Error("DELETE_DECK_FAILED");
