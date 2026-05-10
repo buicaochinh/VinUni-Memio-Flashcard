@@ -113,7 +113,7 @@ services:
         delay: 5s
       resources:
         limits:
-          memory: 128M
+          memory: 256M
           cpus: "0.25"
       update_config:
         parallelism: 1
