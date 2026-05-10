@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from aiofiles import open as aio_open
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, Depends
 from src.app.api.deps import get_current_user_id
+from src.app.core.config import DEFAULT_MODEL
 from langchain_community.document_loaders import PyPDFLoader, TextLoader, Docx2txtLoader
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
@@ -42,7 +43,7 @@ def get_llm():
         raise HTTPException(status_code=503, detail="OPENAI_API_KEY chưa được cấu hình trong .env")
 
     return ChatOpenAI(
-        model="gpt-4o-mini",
+        model=DEFAULT_MODEL,
         temperature=0.7,
         openai_api_key=api_key,
     )
@@ -274,6 +275,46 @@ def log_session(payload: StudySessionLog, user_id: int = Depends(get_current_use
     xp_amount = max(1, payload.cards_reviewed) * xp_service.XP_PER_CARD_REVIEWED
     new_total = xp_service.award_xp(session, user_id, xp_amount)
     return {"message": "success", "xp_earned": xp_amount, "total_xp": new_total}
+
+
+@router.post("/preview")
+async def preview_cards_no_deck(
+    files: list[UploadFile] = File(...),
+    count: int = Form(default=100),
+    user_id: int = Depends(get_current_user_id),
+):
+    data_dir = Path(__file__).resolve().parents[4] / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    all_pages = []
+
+    for file in files:
+        temp_path = data_dir / f"preview_{user_id}_{file.filename}"
+        async with aio_open(temp_path, "wb") as out:
+            await out.write(await file.read())
+
+        try:
+            pages, _ = await _load_document_context(temp_path)
+            all_pages.extend(pages)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    if not all_pages:
+        raise HTTPException(status_code=422, detail="Không trích xuất được text.")
+
+    try:
+        cards = await _generate_cards_chunked(all_pages, count)
+        return {"cards": cards, "total": len(cards)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        err = str(e).lower()
+        if "429" in str(e):
+            if "invalid" in err or "new_api_error" in err:
+                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
+            raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
 
 
 @router.post("/{deck_id}/preview")
