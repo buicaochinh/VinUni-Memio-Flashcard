@@ -356,20 +356,20 @@ Base: `/api` (mounted in `src/main.py`)
 ## 10. Known Issues & Gotchas
 
 1. ~~**No auth middleware**~~ — **Resolved 2026-05-09.** All endpoints now use `Depends(get_current_user_id)`.
-2. **Semantic clustering cold-start cost** — `build_learning_intelligence` calls `text-embedding-3-small` on up to 80 cards per request. Cost is negligible (~$0.001) but adds ~500ms latency. If OPENAI_API_KEY is absent the function silently falls back to token-based clustering.
-3. **Alembic is required for schema changes** — Runtime `create_all()` is disabled; run `./.venv/bin/alembic upgrade head` after pulling migrations.
-4. **`source_context` column** — Added after initial schema. If production DB was created before, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
-5. **Image flashcard columns** — Added in Alembic `0013_add_image_fields`: `image_type`, `image_url`, `diagram_spec`. Run `alembic upgrade head` before using `/images` or `/generate/images`.
-6. **DALL-E image URLs are temporary** — `image_generator.py` downloads them immediately into `frontend/public/generated-images/`; do not store raw temporary OpenAI image URLs as durable card URLs.
-7. **OpenAI generation model** — `cards.py:get_llm()` currently hardcodes `gpt-4o-mini` instead of reading `DEFAULT_MODEL`.
-8. **`@app.on_event("startup")` is deprecated** in newer FastAPI — should eventually migrate to lifespan.
-9. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
-10. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.
-11. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
-12. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
-13. **Memio Coach migration** — Missing `coach_threads`/`coach_messages` means migration `0012_coach_threads` has not been applied; run `./.venv/bin/alembic upgrade head`.
-14. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
-15. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
+2. ~~**OpenAI generation model hardcoded**~~ — **Resolved 2026-05-10.** `cards.py:get_llm()` now reads `DEFAULT_MODEL` from `src/app/core/config.py`.
+3. ~~**`@app.on_event("startup")` deprecated**~~ — **Resolved 2026-05-10.** `main.py` now uses FastAPI `lifespan` context manager.
+4. ~~**Google avatar `<img>` fallback**~~ — **Resolved.** `next.config.ts` has `remotePatterns` for `*.googleusercontent.com`; AppShell uses `next/Image` with `onError` fallback.
+5. ~~**`database.py` at root**~~ — **Resolved.** File no longer exists; real DB logic is in `src/app/db/session.py`.
+6. **Semantic clustering cold-start cost** — `build_learning_intelligence` calls `text-embedding-3-small` on up to 80 cards per request (~$0.001, ~500ms). Silently falls back to token-based clustering when `OPENAI_API_KEY` is absent.
+7. **Alembic is required for schema changes** — Runtime `create_all()` is disabled; run `./.venv/bin/alembic upgrade head` after pulling migrations.
+8. **`source_context` column** — Added after initial schema. If production DB was created before migration `0007`, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
+9. **Image flashcard columns** — Added in Alembic `0013_add_image_fields`: `image_type`, `image_url`, `diagram_spec`. Run `alembic upgrade head` before using `/images` or `/generate/images`.
+10. **DALL-E image URLs are temporary** — `image_generator.py` downloads them immediately into `frontend/public/generated-images/`; do not store raw temporary OpenAI image URLs as durable card URLs.
+11. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
+12. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
+13. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
+14. **Memio Coach migration** — Missing `coach_threads`/`coach_messages` means migration `0012_coach_threads` has not been applied; run `./.venv/bin/alembic upgrade head`.
+15. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
 
 ## 11. Development Workflow
 
