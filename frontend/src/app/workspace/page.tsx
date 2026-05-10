@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "../../components/AppShell";
+import { Skeleton } from "../../components/ui/skeleton";
 import {
   CoachLearningIntelligence,
   createDeck,
@@ -357,7 +358,22 @@ export default function WorkspacePage() {
     setEditingGoalDeckId(deckId);
   };
 
-  if (!user) return null;
+  if (!user) return (
+    <AppShell user={null}>
+      <div className="space-y-6">
+        <Skeleton className="h-[340px] rounded-2xl" />
+        <div className="rounded-2xl border border-border overflow-hidden">
+          <div className="px-6 py-5 border-b border-border flex justify-between items-center">
+            <Skeleton className="h-5 w-28 rounded-full" />
+            <Skeleton className="h-9 w-20 rounded-xl" />
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[390px]" />)}
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
 
   return (
     <AppShell user={user}>
