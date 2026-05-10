@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "../../components/AppShell";
 import CoachChat from "../../components/CoachChat";
 import { useClientReady, useStoredUser } from "../../lib/app-client";
+import { Skeleton } from "../../components/ui/skeleton";
 
 function CoachPageContent() {
   const router = useRouter();
@@ -31,7 +32,11 @@ function CoachPageContent() {
     }
   }, [clientReady, router, user]);
 
-  if (!user) return null;
+  if (!user) return (
+    <AppShell user={null}>
+      <Skeleton className="h-[calc(100vh-7rem)] rounded-2xl" />
+    </AppShell>
+  );
 
   return (
     <AppShell user={user}>
