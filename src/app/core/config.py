@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # Image generation
     OPENAI_IMAGE_ENABLED: bool = True   # set False để tắt DALL-E 3, tiết kiệm chi phí
 
+    # Notifications
+    CRON_SECRET: str = ""
+    APP_URL: str = "https://mem.io.vn"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
