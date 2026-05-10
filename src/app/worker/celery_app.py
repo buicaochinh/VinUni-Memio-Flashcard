@@ -18,7 +18,7 @@ celery_app.conf.update(
     result_serializer="json",
     imports=("src.app.worker.tasks", "src.app.worker.tasks_ingestion"),
     broker_connection_retry_on_startup=True,
-    broker_connection_max_retries=10,
+    broker_connection_max_retries=None,
     broker_connection_retry=True,
 )
 
