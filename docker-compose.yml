@@ -49,10 +49,12 @@ services:
     depends_on:
       - redis
       - backend
+    volumes:
+      - ./data:/app/data
     restart: always
     mem_limit: 384m
     cpus: 0.75
-    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "worker", "-l", "INFO"]
+    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "worker", "-l", "INFO", "--pool", "solo"]
 
   beat:
     image: a20-app-001-backend:pilot
@@ -61,10 +63,12 @@ services:
     depends_on:
       - redis
       - backend
+    volumes:
+      - ./data:/app/data
     restart: always
     mem_limit: 128m
     cpus: 0.25
-    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "beat", "-l", "INFO"]
+    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "beat", "-l", "INFO", "--schedule", "/tmp/celerybeat-schedule"]
 
   frontend:
     image: a20-app-001-frontend:pilot

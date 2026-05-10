@@ -72,6 +72,7 @@ export default function WorkspacePage() {
   const [deleteConfirmDeck, setDeleteConfirmDeck] = useState<Deck | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
+
   const [streak, setStreak] = useState(0);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
