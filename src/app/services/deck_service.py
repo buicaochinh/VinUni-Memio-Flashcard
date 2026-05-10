@@ -63,6 +63,17 @@ def disable_deck_sharing(session: Session, deck_id: int, user_id: int | None = N
     session.commit()
 
 
+def update_deck(session: Session, deck_id: int, user_id: int, name: str, description: str = ""):
+    deck = session.get(Deck, deck_id)
+    if not deck or deck.user_id != user_id:
+        return False
+    deck.name = name
+    deck.description = description
+    session.add(deck)
+    session.commit()
+    return True
+
+
 def delete_deck(session: Session, deck_id: int, user_id: int | None = None):
     if user_id is not None:
         deck_check = session.get(Deck, deck_id)
