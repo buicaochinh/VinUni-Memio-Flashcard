@@ -18,6 +18,13 @@ def create_deck(payload: DeckCreate, user_id: int = Depends(get_current_user_id)
     deck_id = deck_service.create_deck(session, user_id, payload.name, payload.description)
     return {"message": "success", "deck_id": deck_id}
 
+@router.put("/{deck_id}")
+def update_deck(deck_id: int, payload: DeckCreate, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
+    ok = deck_service.update_deck(session, deck_id, user_id, payload.name, payload.description or "")
+    if not ok:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    return {"message": "success"}
+
 @router.delete("/{deck_id}")
 def remove_deck(deck_id: int, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     deck_service.delete_deck(session, deck_id, user_id)
