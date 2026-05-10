@@ -114,7 +114,11 @@ services:
       - .env
     volumes:
       - ./data:/app/data
-    command: ["celery", "-A", "src.app.worker.celery_app:celery_app", "beat", "-l", "DEBUG", "--schedule", "/tmp/celerybeat-schedule"]
+    command: >
+      sh -c "celery -A src.app.worker.celery_app:celery_app beat 
+      -l DEBUG 
+      --schedule /tmp/celerybeat-schedule 
+      --pidfile /tmp/celerybeat.pid"
     environment:
       - PYTHONPATH=.
     deploy:
