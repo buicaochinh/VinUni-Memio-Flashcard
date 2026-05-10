@@ -20,21 +20,18 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
     broker_connection_max_retries=None,
     broker_connection_retry=True,
+    beat_schedule={
+        "send_due_cards_every_5m": {
+            "task": "src.app.worker.tasks.send_due_cards",
+            "schedule": 300.0,
+        },
+        "sync_ingestion_every_10m": {
+            "task": "src.app.worker.tasks_ingestion.sync_ingestion_sources",
+            "schedule": 600.0,
+        },
+        "weekly_report_monday": {
+            "task": "src.app.worker.tasks.send_weekly_report",
+            "schedule": crontab(minute=0, hour=8, day_of_week=1),
+        },
+    },
 )
-
-
-@celery_app.on_after_configure.connect
-def setup_periodic_tasks(sender, **kwargs):
-    # Run every 5 minutes (starter).
-    sender.add_periodic_task(300.0, "src.app.worker.tasks.send_due_cards", name="send_due_cards")
-    sender.add_periodic_task(
-        600.0,
-        "src.app.worker.tasks_ingestion.sync_ingestion_sources",
-        name="sync_ingestion_sources",
-    )
-    # Weekly report: Monday 08:00 (worker timezone)
-    sender.add_periodic_task(
-        crontab(minute=0, hour=8, day_of_week=1),
-        "src.app.worker.tasks.send_weekly_report",
-        name="send_weekly_report",
-    )
