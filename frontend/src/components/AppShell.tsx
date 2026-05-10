@@ -102,9 +102,11 @@ export default function AppShell({ children, user }: AppShellProps) {
           collapsed ? "w-[72px]" : "w-[280px]"
         )}
       >
+        {/* Sticky inner: aside + toggle button stick together on scroll */}
+        <div className="sticky top-0 h-screen">
         <aside
           className={cn(
-            "flex flex-col w-full h-screen sticky top-0 border-r border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md shadow-[6px_0_32px_rgba(0,0,0,0.05)] dark:shadow-[6px_0_32px_rgba(0,0,0,0.30)] overflow-hidden",
+            "flex flex-col w-full h-full border-r border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md shadow-[6px_0_32px_rgba(0,0,0,0.05)] dark:shadow-[6px_0_32px_rgba(0,0,0,0.30)] overflow-hidden",
             transitionReady && "transition-[padding,gap] duration-300 ease-in-out",
             collapsed ? "p-3 gap-5 items-center" : "p-6 gap-8"
           )}
@@ -259,6 +261,7 @@ export default function AppShell({ children, user }: AppShellProps) {
             : <ChevronLeft className="w-3 h-3" />
           }
         </button>
+        </div>
       </div>
 
       {/* ── Right column: header + content ── */}

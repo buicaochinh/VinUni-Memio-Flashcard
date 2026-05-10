@@ -38,5 +38,10 @@ def read_root():
     return {"message": "Memio Backend is running!"}
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 # All API routes prefixed with /api
 app.include_router(api_router, prefix="/api")

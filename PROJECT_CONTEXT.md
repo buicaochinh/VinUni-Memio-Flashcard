@@ -20,6 +20,7 @@
   - DB: PostgreSQL
   - **Alembic là chuẩn**: `alembic upgrade head` (runtime `create_all()` đã tắt)
   - Latest migration: `0015_user_xp` (thêm `total_xp` vào `users`)
+- **Health check**: `GET /health` → `{"status": "ok"}` (used by Docker HEALTHCHECK)
 - **Deploy (pilot)**:
   - Docker Swarm single-node; deploy qua `scripts/bootstrap.sh` (one-time) + `scripts/redeploy.sh` (hằng ngày)
 - **Docs entrypoints**:
@@ -229,6 +230,12 @@ Base: `/api` (mounted in `src/main.py`)
 | DELETE | `/{goal_id}` | — | Delete a learning goal |
 | GET | `/notification-strategy` | — | Spec-only notification strategy for reminders, quiet hours, and future channels |
 
+### Notifications (`/api/notifications/`)
+| Method | Path | Params/Body | Description |
+|---|---|---|---|
+| GET | `/me/notifications` | — | Return due-card / streak-risk / exam-urgency alerts for current user |
+| POST | `/trigger` | header `x-cron-secret` | Send Telegram notifications to all linked users (cron endpoint); guarded by `CRON_SECRET` env var |
+
 ## 7. AI Integration
 
 - **Provider:** OpenAI via `langchain_openai.ChatOpenAI`
@@ -272,12 +279,13 @@ Base: `/api` (mounted in `src/main.py`)
 - **Context priority:** internal data (decks, flashcards, progress, analytics, weak cards) → `source_context` citations → web search fallback.
 - **Web search:** MVP uses DuckDuckGo Instant Answer API opportunistically when the user asks for web/latest/outside-document help; web citations must not override internal data.
 - **Inline quiz:** `quiz_in_chat` stays inside the Coach panel/page, uses `/api/coach/quiz/start`, renders multiple-choice questions in chat, updates SM-2 via `/api/cards/progress` on each answer, then persists a score/XP/weak-question summary via `/api/coach/quiz/summary`.
-- **Learning Intelligence:** `GET /api/coach/learning-intelligence` computes weak concept clusters from `flashcards + progress` without a new table. It scores cards by low `last_quality`, low `ease_factor`, no/low repetition, and `hard` difficulty, groups them by stable normalized topic tokens, and returns cluster labels, mastery score, sample cards, and card ids.
-- **Workspace weak clusters:** the Daily Mission area shows the top weak concept clusters when available. Users can ask Coach to explain a cluster or start an inline quiz scoped to the cluster's card ids.
-- **Exam goals:** `learning_goals` stores one active exam/deadline goal per deck. Workspace deck cards can create a goal inline in under a minute, the Daily Mission prioritizes urgent goals, and Coach receives goal/workload/readiness context via `build_context`.
-- **Notification strategy:** Sprint 6 defines reminder strategy via `/api/goals/notification-strategy` but does not implement push/email delivery yet. Planned triggers are due cards, streak risk, exam urgency, and Coach recommendations with opt-in and quiet hours.
+- **Learning Intelligence (Semantic Clustering):** `GET /api/coach/learning-intelligence` computes weak concept clusters. Cards are scored by `last_quality`, `ease_factor`, repetition, and difficulty. Grouping uses **OpenAI `text-embedding-3-small` embeddings + greedy cosine similarity clustering** (threshold 0.70) — cards with semantic similarity > threshold join the same cluster. Cluster label = front of the card nearest to centroid (no extra LLM call). Falls back to token-frequency grouping when `OPENAI_API_KEY` is absent or embedding call fails. `numpy>=1.26` required.
+- **Workspace weak clusters:** the Daily Mission area shows the top weak concept clusters. Users can ask Coach to explain a cluster or start an inline quiz scoped to cluster card ids.
+- **Quiz citations:** `build_inline_quiz` returns `source_context` per question. CoachChat renders a "Nguồn tham chiếu" block (emerald styling) below the explanation after the user answers.
+- **Exam goals:** `learning_goals` stores one active exam/deadline goal per deck. Workspace deck cards can create a goal inline, the Daily Mission prioritizes urgent goals, and Coach receives goal/workload/readiness context via `build_context`.
+- **Notifications:** `notification_service.py` computes due-card / streak-risk / exam-urgency alerts and delivers via Telegram (`ChatIntegration` model, dedup via `sent_today_date`). In-app bell icon in header shows alerts; clicking dismisses client-side. Cron endpoint `POST /api/notifications/trigger` (guarded by `CRON_SECRET`) triggers bulk delivery.
 - **Citations:** if the model omits `citation_ids`, backend attaches the most relevant internal card citations as fallback.
-- **Action model:** Coach returns suggested actions such as `start_study`, `start_challenge`, `create_cards`, and `quiz_in_chat`. Backend sanitizes all actions against decks owned by the user before returning them. Navigation/challenge actions do not require confirmation; content-changing actions should require confirmation. Prefer `quiz_in_chat` over redirecting when the user is already chatting.
+- **Action model:** Coach returns suggested actions such as `start_study`, `start_challenge`, `create_cards`, and `quiz_in_chat`. Backend sanitizes all actions against decks owned by the user before returning them.
 - **Quick actions:** "Hôm nay học gì?", "Quiz tôi", "Giải thích thẻ khó", "Tạo thử thách".
 
 ## 7.3 Image Flashcards / Đuổi Hình Bắt Chữ
@@ -298,11 +306,13 @@ Base: `/api` (mounted in `src/main.py`)
 - **Tailwind tokens** (in `tailwind.config.js`): `surface`, `surface-muted`, `surface-raised`, `border-strong`, `success/danger/warning/info/subtle`, `primary-glow`.
 - **Color visibility rule (CRITICAL):** `secondary` maps to a very light gray (`#f5f5f5`). **Do NOT use `text-secondary` or `bg-secondary` for text or small icons** — invisible in light mode. Use `primary`, `blue`, `green`, `amber` for high-contrast text/icons.
 - **Component patterns:**
-  - `AppShell` wraps authenticated pages (sidebar 260px desktop + mobile bottom nav).
+  - `AppShell` wraps authenticated pages. Desktop: collapsible sidebar (280px expanded / 72px icon-only collapsed), toggled via a button on the right border; state persisted in `localStorage("sidebar_collapsed")`; uses lazy `useState` initializer + `transitionReady` flag to prevent animation flash on navigation. Mobile: bottom nav bar. Top sticky header (h-14) contains: left = page title (desktop) / logo (mobile); right = notification bell, settings icon, ThemeToggle.
+  - Notification bell in header fetches `GET /api/notifications/me/notifications`; shows badge count; dropdown dismisses individual alerts client-side.
+  - `/settings` page (replaces removed `UserSettingsModal`) — daily new/review limit sliders, timezone dropdown, Telegram notification info.
+  - Daily Mission card shows streak badge 🔥 (from `fetchAnalytics()`) alongside the eyebrow label when streak > 0.
   - `ThemeToggle` uses `mounted` state to prevent SSR hydration mismatch.
   - Workspace hero is action-first: the Daily Mission module shows one primary next action, compact supporting stats, and secondary Coach/deck actions.
   - `CoachLauncher` floats above mobile bottom nav (`bottom-24`) and returns to lower-right on desktop (`md:bottom-6`).
-  - AppShell includes an `Đuổi Hình` nav item for the image flashcard flow.
   - Study cards display a generated image above the question when `image_url` is present.
   - Cards/buttons use `rounded-2xl`, `border border-border`, `bg-surface-raised`.
   - CTA buttons: `bg-primary` + `shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)]`.
@@ -328,35 +338,38 @@ Base: `/api` (mounted in `src/main.py`)
 | Service | Image | Port |
 |---|---|---|
 | `caddy` | caddy:2-alpine | 80, 443 |
-| `backend` | Dockerfile.backend (Python 3.11 Alpine) | 8000 |
+| `backend` | Dockerfile.backend (Python 3.11 Alpine, multi-stage, non-root user, HEALTHCHECK) | 8000 |
 | `frontend` | Dockerfile.frontend (Node 20 Alpine, multi-stage) | 3000 |
 
 | Env Var | Required | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | Yes | API key for OpenAI card generation, explanations, and Adventure Campaign generation |
+| `OPENAI_API_KEY` | Yes | API key for OpenAI card generation, explanations, Adventure Campaign, and semantic clustering embeddings |
 | `OPENAI_IMAGE_ENABLED` | No | Feature flag for DALL-E image generation; set `false` to skip paid image generation |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `NEXT_PUBLIC_API_URL` | Yes (build-time) | Backend URL for frontend fetch calls |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | For Google login | Google OAuth client ID |
 | `DEFAULT_MODEL` | No | LLM model name (default: gpt-4o-mini) |
 | `APP_TIMEZONE` | No | Default IANA timezone for local-date features such as study day, due cards, analytics, and Celery schedules (default: `Asia/Ho_Chi_Minh`) |
+| `CRON_SECRET` | No | Secret header value for `POST /api/notifications/trigger`; if empty, endpoint is open |
+| `APP_URL` | No | Base URL of the deployed app (default: `https://mem.io.vn`); used in Telegram notification links |
 
 ## 10. Known Issues & Gotchas
 
-1. ~~**No auth middleware**~~ — **Resolved 2026-05-09.** All endpoints now use `Depends(get_current_user_id)`. Identity is extracted from Bearer token server-side; `user_id` no longer passed via query/body.
-2. **Alembic is required for schema changes** — Runtime `create_all()` is disabled; run `./.venv/bin/alembic upgrade head` after pulling migrations.
-3. **`source_context` column** — Added after initial schema. If production DB was created before, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
-4. **Image flashcard columns** — Added in Alembic `0013_add_image_fields`: `image_type`, `image_url`, `diagram_spec`. Run `alembic upgrade head` before using `/images` or `/generate/images`.
-5. **DALL-E image URLs are temporary** — `image_generator.py` downloads them immediately into `frontend/public/generated-images/`; do not store raw temporary OpenAI image URLs as durable card URLs.
-6. **OpenAI generation model** — `cards.py:get_llm()` currently hardcodes `gpt-4o-mini` instead of reading `DEFAULT_MODEL`.
-7. **`@app.on_event("startup")` is deprecated** in newer FastAPI — should eventually migrate to lifespan.
-8. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
-9. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.
-10. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
-11. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
-12. **Memio Coach migration** — Missing `coach_threads`/`coach_messages` means migration `0012_coach_threads` has not been applied; run `./.venv/bin/alembic upgrade head`.
-13. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
-14. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
+1. ~~**No auth middleware**~~ — **Resolved 2026-05-09.** All endpoints now use `Depends(get_current_user_id)`.
+2. **Semantic clustering cold-start cost** — `build_learning_intelligence` calls `text-embedding-3-small` on up to 80 cards per request. Cost is negligible (~$0.001) but adds ~500ms latency. If OPENAI_API_KEY is absent the function silently falls back to token-based clustering.
+3. **Alembic is required for schema changes** — Runtime `create_all()` is disabled; run `./.venv/bin/alembic upgrade head` after pulling migrations.
+4. **`source_context` column** — Added after initial schema. If production DB was created before, run `ALTER TABLE flashcards ADD COLUMN source_context TEXT;` manually.
+5. **Image flashcard columns** — Added in Alembic `0013_add_image_fields`: `image_type`, `image_url`, `diagram_spec`. Run `alembic upgrade head` before using `/images` or `/generate/images`.
+6. **DALL-E image URLs are temporary** — `image_generator.py` downloads them immediately into `frontend/public/generated-images/`; do not store raw temporary OpenAI image URLs as durable card URLs.
+7. **OpenAI generation model** — `cards.py:get_llm()` currently hardcodes `gpt-4o-mini` instead of reading `DEFAULT_MODEL`.
+8. **`@app.on_event("startup")` is deprecated** in newer FastAPI — should eventually migrate to lifespan.
+9. **ThemeToggle hydration** — Must use `mounted` state check to avoid React hydration mismatch (SSR renders without `dark` class).
+10. **Google avatar images** — `next/Image` requires `remotePatterns` in `next.config.ts` for `*.googleusercontent.com`. AppShell uses native `<img>` with `onError` fallback instead.
+11. **Multi-tenancy** — All deck/card queries MUST filter by `user_id`. WORKLOG documents a past leak where this was missing.
+12. **Adventure Campaign migration** — Missing `game_sessions` causes `psycopg2.errors.UndefinedTable`; fix by running `./.venv/bin/alembic upgrade head` to apply `0011_game_sessions`.
+13. **Memio Coach migration** — Missing `coach_threads`/`coach_messages` means migration `0012_coach_threads` has not been applied; run `./.venv/bin/alembic upgrade head`.
+14. **CORS origins** — Hardcoded in `main.py`: production domains plus local dev origins (`localhost`/`127.0.0.1` on 3000/3001). Add new domains there.
+15. **`database.py` at root** — Legacy file, mostly unused. Real DB logic is in `src/app/db/session.py`.
 
 ## 11. Development Workflow
 

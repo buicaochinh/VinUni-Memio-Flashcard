@@ -688,7 +688,7 @@ export default function CoachChat({
                         })}
                       </div>
                       {answered && (
-                        <div className="rounded-xl bg-muted/30 px-3 py-3">
+                        <div className="rounded-xl bg-muted/30 px-3 py-3 space-y-2">
                           <p className="flex items-center gap-2 font-semibold">
                             {isCorrect ? (
                               <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" aria-hidden />
@@ -697,8 +697,14 @@ export default function CoachChat({
                             )}
                             {isCorrect ? "Đúng rồi" : "Chưa đúng"}
                           </p>
-                          <p className="mt-1 text-muted-foreground">{question.explanation}</p>
-                          <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                          <p className="text-muted-foreground">{question.explanation}</p>
+                          {question.source_context && (
+                            <div className="rounded-lg border border-emerald-300/60 bg-emerald-50/70 px-2.5 py-2 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                              <p className="mb-1 text-[0.7rem] font-semibold text-emerald-700 dark:text-emerald-300">Nguồn tham chiếu</p>
+                              <p className="line-clamp-3 text-[0.78rem] text-muted-foreground">{question.source_context}</p>
+                            </div>
+                          )}
+                          <p className="text-xs font-semibold text-muted-foreground">
                             Tạm tính: {projectedAccuracy}% · {quizXp(projectedCorrect, quiz.questions.length)} XP
                           </p>
                         </div>
