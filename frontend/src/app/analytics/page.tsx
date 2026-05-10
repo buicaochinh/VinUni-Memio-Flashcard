@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
+import { Skeleton } from "../../components/ui/skeleton";
 
 function ForgetBar({ rate }: { rate: number }) {
   return (
@@ -212,8 +213,23 @@ export default function AnalyticsPage() {
     void fetchUserXP().then(setUserXp).catch(() => { /* non-critical */ });
   }, [clientReady, router, user]);
 
-  if (!clientReady) return null;
-  if (!user) return null;
+  if (!clientReady || !user) return (
+    <AppShell user={null}>
+      <div className="mb-12 space-y-3">
+        <Skeleton className="h-4 w-36 rounded-full" />
+        <Skeleton className="h-10 w-56 rounded-xl" />
+        <Skeleton className="h-4 w-80 rounded-full" />
+      </div>
+      <div className="space-y-5">
+        <Skeleton className="h-28 rounded-2xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Skeleton className="h-56 rounded-2xl" />
+          <Skeleton className="h-56 rounded-2xl" />
+        </div>
+        <Skeleton className="h-72 rounded-2xl" />
+      </div>
+    </AppShell>
+  );
 
   return (
     <AppShell user={user}>
