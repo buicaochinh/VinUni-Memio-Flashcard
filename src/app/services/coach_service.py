@@ -765,6 +765,7 @@ def build_inline_quiz(
             "choices": choices,
             "answer_index": choices.index(answer),
             "explanation": card.back,
+            "source_context": card.source_context or None,
             "difficulty": card.difficulty,
             "ease_factor": progress.ease_factor if progress else None,
             "repetition": progress.repetition if progress else None,

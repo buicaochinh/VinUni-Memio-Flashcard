@@ -220,6 +220,7 @@ export type CoachQuizQuestion = {
   choices: string[];
   answer_index: number;
   explanation: string;
+  source_context?: string | null;
   difficulty: "easy" | "medium" | "hard" | string;
   ease_factor?: number | null;
   repetition?: number | null;

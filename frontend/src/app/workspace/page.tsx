@@ -10,6 +10,7 @@ import {
   deleteDeck,
   disableDeckSharing,
   enableDeckSharing,
+  fetchAnalytics,
   fetchCoachLearningIntelligence,
   fetchStudySummary,
   fetchDecks,
@@ -67,6 +68,7 @@ export default function WorkspacePage() {
   const [showReadyOnly, setShowReadyOnly] = useState(false);
   const [sort, setSort] = useState<"activity" | "name">("activity");
   const [shareModal, setShareModal] = useState<Deck | null>(null);
+  const [streak, setStreak] = useState(0);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const setRevealVars = (e: React.PointerEvent<HTMLElement>) => {
@@ -107,6 +109,9 @@ export default function WorkspacePage() {
       fetchCoachLearningIntelligence(3)
         .then(setLearningIntel)
         .catch(() => setLearningIntel(null));
+      fetchAnalytics()
+        .then((data) => setStreak(data.streak ?? 0))
+        .catch(() => {});
     } catch {
       setMsg("Không tải được workspace. Hãy kiểm tra backend.");
     }
@@ -389,9 +394,16 @@ export default function WorkspacePage() {
         >
           <div>
             <div className="px-6 py-6 sm:px-7 sm:py-7">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-border bg-muted/35 px-3 py-1.5 text-[0.78rem] font-semibold text-muted-foreground">
-                <Target className="h-3.5 w-3.5 text-primary" aria-hidden />
-                {missionCopy.eyebrow}
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/35 px-3 py-1.5 text-[0.78rem] font-semibold text-muted-foreground">
+                  <Target className="h-3.5 w-3.5 text-primary" aria-hidden />
+                  {missionCopy.eyebrow}
+                </div>
+                {streak > 0 && (
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-orange-300/60 bg-orange-50/80 px-3 py-1.5 text-[0.78rem] font-semibold text-orange-700 dark:border-orange-500/40 dark:bg-orange-500/10 dark:text-orange-300">
+                    🔥 {streak} ngày liên tiếp
+                  </div>
+                )}
               </div>
 
               <h2 className="text-2xl font-bold tracking-tight text-balance">
