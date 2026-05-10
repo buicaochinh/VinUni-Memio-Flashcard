@@ -609,6 +609,23 @@ export async function fetchDeckCards(deckId: number): Promise<Card[]> {
   return (data.cards ?? []) as Card[];
 }
 
+/** Preview generation without a deck: returns cards WITHOUT saving to DB */
+export async function previewCardsNoDeck(files: File[], count = 100): Promise<PreviewCard[]> {
+  const form = new FormData();
+  files.forEach(f => form.append("files", f));
+  form.append("count", String(count));
+  const res = await authFetch("/api/cards/preview", {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return (data.cards ?? []) as PreviewCard[];
+}
+
 /** Preview generation: returns cards WITHOUT saving to DB */
 export async function previewCards(deckId: number, files: File[], count = 100): Promise<PreviewCard[]> {
   const form = new FormData();
