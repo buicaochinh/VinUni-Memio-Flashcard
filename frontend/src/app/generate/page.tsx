@@ -12,7 +12,9 @@ import {
   useClientReady,
   useStoredUser,
   previewCardsNoDeck,
+  previewVocabCards,
   PreviewCard,
+  VocabCard,
 } from "../../lib/app-client";
 import { Button } from "../../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
@@ -33,6 +35,7 @@ import {
   Repeat,
   ImagePlus,
   Lock,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Skeleton } from "../../components/ui/skeleton";
@@ -45,6 +48,7 @@ type EditState = {
 
 type TextStage = "setup" | "loading" | "preview" | "saved";
 type ImgStage = "setup" | "generating" | "preview" | "done" | "error";
+type VocabStage = "setup" | "generating" | "preview" | "done" | "error";
 
 export default function GeneratePage() {
   const router = useRouter();
@@ -57,7 +61,7 @@ export default function GeneratePage() {
   const [selectedDeckId, setSelectedDeckId] = useState<number | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [mode, setMode] = useState<"text" | "image">("text");
+  const [mode, setMode] = useState<"text" | "image" | "vocab">("text");
 
   // Shared: save destination (used in both modes' setup)
   const [saveTarget, setSaveTarget] = useState<"new" | "existing">("new");
@@ -80,6 +84,15 @@ export default function GeneratePage() {
   const [imgResult, setImgResult] = useState<{ saved: number; real_image: number; diagram: number } | null>(null);
   const [imgError, setImgError] = useState<string | null>(null);
 
+  // Vocab mode
+  const [vocabInputType, setVocabInputType] = useState<"topic" | "word_list" | "text">("topic");
+  const [vocabContent, setVocabContent] = useState("");
+  const [vocabCount, setVocabCount] = useState(20);
+  const [vocabStage, setVocabStage] = useState<VocabStage>("setup");
+  const [vocabCards, setVocabCards] = useState<VocabCard[]>([]);
+  const [vocabSaving, setVocabSaving] = useState(false);
+  const [vocabError, setVocabError] = useState<string | null>(null);
+
   const loadDecks = useCallback(async () => {
     try {
       const d = await fetchDecks();
@@ -89,6 +102,7 @@ export default function GeneratePage() {
       const qMode = params.get("mode");
       setSelectedDeckId(Number.isFinite(qId) && qId > 0 ? qId : (d[0]?.id ?? null));
       if (qMode === "image") setMode("image");
+      else if (qMode === "vocab") setMode("vocab");
     } catch {
       setMessage("Không tải được danh sách deck.");
     }
@@ -101,7 +115,7 @@ export default function GeneratePage() {
     return () => clearTimeout(t);
   }, [clientReady, loadDecks, router, user]);
 
-  const syncUrl = (newMode: "text" | "image", deckId: number | null) => {
+  const syncUrl = (newMode: "text" | "image" | "vocab", deckId: number | null) => {
     const params = new URLSearchParams();
     if (newMode !== "text") params.set("mode", newMode);
     if (deckId) params.set("deckId", String(deckId));
@@ -109,17 +123,22 @@ export default function GeneratePage() {
     router.replace(`/generate${qs ? `?${qs}` : ""}`);
   };
 
-  const switchMode = (m: "text" | "image") => {
+  const switchMode = (m: "text" | "image" | "vocab") => {
     setMode(m);
     setSaveTarget("new");
     setNewDeckName("");
     if (m === "text") {
       setTextStage("setup");
-    } else {
+    } else if (m === "image") {
       setImgStage("setup");
       setImgCards([]);
       setImgResult(null);
       setImgError(null);
+    } else {
+      setVocabStage("setup");
+      setVocabCards([]);
+      setVocabError(null);
+      setVocabContent("");
     }
     syncUrl(m, selectedDeckId);
   };
@@ -291,6 +310,56 @@ export default function GeneratePage() {
     setImgCards(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const handleVocabGenerate = async () => {
+    if (vocabInputType === "text" && files.length === 0) {
+      setVocabError("Hãy chọn ít nhất 1 file hợp lệ.");
+      return;
+    }
+    if (vocabInputType !== "text" && !vocabContent.trim()) {
+      setVocabError(vocabInputType === "topic" ? "Hãy nhập chủ đề." : "Hãy nhập danh sách từ.");
+      return;
+    }
+    if (!isDestinationValid) {
+      setVocabError("Hãy chọn hoặc tạo deck để lưu.");
+      return;
+    }
+    setVocabStage("generating");
+    setVocabError(null);
+    try {
+      const generated = await previewVocabCards(vocabInputType, vocabContent, files, vocabCount);
+      setVocabCards(generated);
+      setVocabStage("preview");
+    } catch (err) {
+      setVocabError(err instanceof Error ? err.message : "Lỗi không xác định.");
+      setVocabStage("error");
+    }
+  };
+
+  const handleVocabSave = async () => {
+    if (vocabCards.length === 0) return;
+    setVocabSaving(true);
+    try {
+      let deckId: number;
+      if (saveTarget === "new") {
+        deckId = await createDeck(newDeckName.trim());
+        setSelectedDeckId(deckId);
+        setDecks(prev => [...prev, { id: deckId, name: newDeckName.trim() }]);
+      } else {
+        deckId = selectedDeckId!;
+      }
+      await bulkCreateCards(deckId, vocabCards);
+      setVocabStage("done");
+    } catch {
+      setVocabError("Lỗi khi lưu thẻ. Hãy thử lại.");
+    } finally {
+      setVocabSaving(false);
+    }
+  };
+
+  const removeVocabCard = (idx: number) => {
+    setVocabCards(prev => prev.filter((_, i) => i !== idx));
+  };
+
   if (!clientReady || !user) return (
     <AppShell user={null}>
       <div className="space-y-4">
@@ -315,8 +384,10 @@ export default function GeneratePage() {
 
   const estimatedCost = (imgCount * 0.04).toFixed(2);
   const isSetup = (mode === "text" && textStage === "setup") ||
-    (mode === "image" && (imgStage === "setup" || imgStage === "error"));
+    (mode === "image" && (imgStage === "setup" || imgStage === "error")) ||
+    (mode === "vocab" && (vocabStage === "setup" || vocabStage === "error"));
   const isImgPreview = mode === "image" && imgStage === "preview";
+  const isVocabPreview = mode === "vocab" && vocabStage === "preview";
 
   // Shared "Lưu vào đâu?" panel — rendered in both modes' setup
   const SaveDestinationPanel = (
@@ -692,7 +763,173 @@ export default function GeneratePage() {
         </div>
       )}
 
-      {/* ── Setup (both modes) ── */}
+      {/* ── Vocab mode: generating ── */}
+      {mode === "vocab" && vocabStage === "generating" && (
+        <div className="min-h-[40vh] flex flex-col items-center justify-center text-center gap-6">
+          <div className="relative">
+            <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <BookOpen className="w-9 h-9 text-primary animate-pulse" />
+            </div>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Đang tạo thẻ từ vựng…</h2>
+            <p className="text-muted-foreground max-w-[44ch] leading-relaxed">
+              AI đang tạo <strong className="text-foreground">{vocabCount} từ vựng</strong> với phiên âm, định nghĩa và ví dụ.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Vocab mode: preview ── */}
+      {isVocabPreview && (
+        <div className="pb-20">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sticky top-[-32px] md:top-[-40px] z-40 bg-background/80 backdrop-blur-xl py-6 border-b border-border/50">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-2">
+                <BookOpen className="w-3.5 h-3.5" /> Xem lại thẻ từ vựng
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight mb-2">
+                {vocabCards.length} từ vựng được tạo
+              </h2>
+              <span className="text-[0.78rem] text-muted-foreground">
+                → <span className="font-semibold text-foreground">{resolvedDeckLabel}</span>
+              </span>
+            </div>
+            <div className="flex gap-3 w-full md:w-auto">
+              <Button variant="ghost" onClick={() => { setVocabStage("setup"); setVocabCards([]); }} className="flex-1 md:flex-none">
+                <RotateCcw className="w-4 h-4" aria-hidden /> Làm lại
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleVocabSave}
+                disabled={vocabCards.length === 0 || vocabSaving}
+                className="flex-[1.5] md:flex-none"
+              >
+                <Save className="w-4 h-4" aria-hidden /> {vocabSaving ? "Đang lưu…" : "Lưu tất cả"}
+              </Button>
+            </div>
+          </div>
+
+          {vocabError && (
+            <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3 mb-6">
+              <X className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0" />
+              <p className="text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium">{vocabError}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {vocabCards.map((card, idx) => (
+              <div
+                key={idx}
+                className="group relative flex flex-col bg-background border border-border rounded-[18px] overflow-hidden hover:border-primary/40 hover:shadow-sm transition-all duration-200"
+              >
+                {/* Word + IPA header */}
+                <div className="px-5 pt-5 pb-4 border-b border-border/50">
+                  <p className="text-[1.3rem] font-bold leading-tight tracking-tight text-foreground">
+                    {card.word || card.front}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {card.pos && (
+                      <span className="text-[0.72rem] font-semibold text-muted-foreground italic">
+                        {card.pos}
+                      </span>
+                    )}
+                    {card.ipa && (
+                      <span className="text-[0.88rem] font-mono text-primary/70 dark:text-primary/80">
+                        {card.ipa}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fields */}
+                <div className="px-5 py-4 flex flex-col gap-4">
+                  {card.definition && (
+                    <div>
+                      <p className="text-[0.65rem] font-bold text-muted-foreground uppercase tracking-[0.08em] mb-1">
+                        Định nghĩa
+                      </p>
+                      <p className="text-[0.88rem] text-foreground leading-relaxed">
+                        {card.definition}
+                      </p>
+                    </div>
+                  )}
+
+                  {card.translation && (
+                    <div>
+                      <p className="text-[0.65rem] font-bold text-muted-foreground uppercase tracking-[0.08em] mb-1">
+                        Dịch nghĩa
+                      </p>
+                      <p className="text-[1rem] font-semibold text-primary leading-tight">
+                        {card.translation}
+                      </p>
+                    </div>
+                  )}
+
+                  {card.example && (
+                    <div>
+                      <p className="text-[0.65rem] font-bold text-muted-foreground uppercase tracking-[0.08em] mb-1">
+                        Ví dụ
+                      </p>
+                      <p className="text-[0.84rem] text-muted-foreground italic leading-relaxed">
+                        &ldquo;{card.example}&rdquo;
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer: difficulty + delete */}
+                <div className="mt-auto px-4 py-2.5 border-t border-border/50 flex items-center justify-between">
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[0.7rem] font-bold tracking-tight",
+                    card.difficulty === "easy"
+                      ? "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400"
+                      : card.difficulty === "medium"
+                      ? "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400"
+                      : "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400"
+                  )}>
+                    {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                    onClick={() => removeVocabCard(idx)}
+                    title="Xóa thẻ"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Vocab mode: done ── */}
+      {mode === "vocab" && vocabStage === "done" && (
+        <div className="p-10 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[40px] shadow-sm text-center">
+          <div className="w-20 h-20 bg-green-50 dark:bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Check className="w-10 h-10 text-green-500" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Hoàn tất!</h2>
+          <p className="text-muted-foreground mb-8">
+            Đã lưu <strong className="text-foreground">{vocabCards.length} thẻ từ vựng</strong> vào deck.
+          </p>
+          <div className="flex justify-center gap-3">
+            <Button variant="primary" onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)} disabled={!selectedDeckId}>
+              <Repeat className="w-4 h-4" /> Học ngay
+            </Button>
+            <Button variant="secondary" onClick={() => { setVocabStage("setup"); setVocabCards([]); setVocabContent(""); }}>
+              Tạo thêm
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Setup (all modes) ── */}
       {isSetup && (
         <div>
           <div className="mb-8">
@@ -702,14 +939,18 @@ export default function GeneratePage() {
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2.5 leading-tight">
               {mode === "text" ? (
                 <>Tải lên tài liệu,{" "}<span className="text-primary">AI làm phần còn lại</span></>
-              ) : (
+              ) : mode === "image" ? (
                 <>Đuổi Hình Bắt Chữ,{" "}<span className="text-primary">AI tạo ảnh minh hoạ</span></>
+              ) : (
+                <>Học từ vựng,{" "}<span className="text-primary">AI tạo thẻ thông minh</span></>
               )}
             </h1>
             <p className="text-muted-foreground text-base max-w-[64ch] leading-relaxed">
               {mode === "text"
                 ? <>Chọn deck → Tải tài liệu → AI tạo đến <strong className="text-foreground">{targetCount}</strong> thẻ → Xem lại & lưu.</>
-                : <>Chọn deck → Tải tài liệu → AI chọn khái niệm → DALL-E 3 tạo ảnh → Lưu vào deck.</>
+                : mode === "image"
+                ? <>Chọn deck → Tải tài liệu → AI chọn khái niệm → DALL-E 3 tạo ảnh → Lưu vào deck.</>
+                : <>Nhập chủ đề, danh sách từ, hoặc tải tài liệu → AI tạo thẻ kèm phiên âm, định nghĩa & dịch nghĩa.</>
               }
             </p>
           </div>
@@ -738,6 +979,16 @@ export default function GeneratePage() {
               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[0.65rem] font-bold uppercase tracking-wider">
                 <Lock className="w-2.5 h-2.5" /> Pro
               </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("vocab")}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all",
+                mode === "vocab" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BookOpen className="w-4 h-4" /> Từ vựng
             </button>
           </div>
 
@@ -768,7 +1019,7 @@ export default function GeneratePage() {
                       <span>10</span><span>500</span>
                     </div>
                   </div>
-                ) : (
+                ) : mode === "image" ? (
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider">Số thẻ tối đa</label>
@@ -786,10 +1037,74 @@ export default function GeneratePage() {
                       <span>20</span>
                     </div>
                   </div>
+                ) : (
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider">Số từ vựng mục tiêu</label>
+                      <span className="text-primary font-bold text-lg tabular-nums">{vocabCount}</span>
+                    </div>
+                    <input
+                      type="range" min={5} max={100} step={5}
+                      value={vocabCount}
+                      onChange={(e) => setVocabCount(Number(e.target.value))}
+                      className="w-full h-2 bg-surface-muted rounded-full appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between mt-2 text-[0.75rem] font-semibold text-muted-foreground">
+                      <span>5</span><span>100</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Vocab input source selector */}
+                {mode === "vocab" && (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[0.82rem] font-bold text-muted-foreground uppercase tracking-wider mb-2">Nguồn từ vựng</p>
+                      <div className="flex gap-2">
+                        {([
+                          { key: "topic" as const, label: "Chủ đề" },
+                          { key: "word_list" as const, label: "Danh sách từ" },
+                          { key: "text" as const, label: "Tài liệu" },
+                        ]).map(({ key, label }) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setVocabInputType(key)}
+                            className={cn(
+                              "flex-1 py-2 px-3 rounded-xl font-semibold text-sm transition-all border",
+                              vocabInputType === key
+                                ? "bg-primary text-white border-primary"
+                                : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            )}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {vocabInputType === "topic" && (
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: IELTS Academic, Business English, Biology, Machine Learning…"
+                        value={vocabContent}
+                        onChange={(e) => setVocabContent(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                      />
+                    )}
+                    {vocabInputType === "word_list" && (
+                      <textarea
+                        placeholder={"Nhập các từ cần học, mỗi từ một dòng hoặc cách nhau bởi dấu phẩy.\nVí dụ:\nvocabulary\nfluency\npronunciation"}
+                        value={vocabContent}
+                        onChange={(e) => setVocabContent(e.target.value)}
+                        rows={5}
+                        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] resize-none leading-relaxed"
+                      />
+                    )}
+                  </div>
                 )}
 
                 {/* File upload */}
-                <section
+                {(mode !== "vocab" || vocabInputType === "text") && <section
                   className={cn(
                     "overflow-hidden rounded-[24px] border border-border/80 bg-background/65 shadow-sm transition-colors",
                     dragOver ? "border-primary bg-primary/5" : "hover:border-primary/35"
@@ -868,7 +1183,7 @@ export default function GeneratePage() {
                       </div>
                     </div>
                   )}
-                </section>
+                </section>}
 
                 {/* Error messages */}
                 {mode === "text" && message && (
@@ -882,6 +1197,11 @@ export default function GeneratePage() {
                     <X className="w-4 h-4 flex-shrink-0 mt-0.5" /> {imgError}
                   </div>
                 )}
+                {mode === "vocab" && vocabError && (
+                  <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-200 text-[0.88rem] font-medium flex gap-2">
+                    <X className="w-4 h-4 flex-shrink-0 mt-0.5" /> {vocabError}
+                  </div>
+                )}
 
                 {/* Generate button */}
                 <div className="flex gap-4 mt-2">
@@ -891,11 +1211,17 @@ export default function GeneratePage() {
                     >
                       <Sparkles className="w-5 h-5" aria-hidden /> Sinh {targetCount} flashcards
                     </Button>
-                  ) : (
+                  ) : mode === "image" ? (
                     <Button variant="primary" className="w-full" onClick={handleImageGenerate}
                       disabled={files.length === 0 || !isDestinationValid}
                     >
                       <Sparkles className="w-4 h-4" /> Tạo tối đa {imgCount} thẻ có ảnh (~${estimatedCost})
+                    </Button>
+                  ) : (
+                    <Button variant="primary" className="w-full" onClick={handleVocabGenerate}
+                      disabled={!isDestinationValid}
+                    >
+                      <BookOpen className="w-4 h-4" /> Tạo {vocabCount} thẻ từ vựng
                     </Button>
                   )}
                 </div>
@@ -911,11 +1237,16 @@ export default function GeneratePage() {
                     { n: "2", t: "AI trích xuất & tạo thẻ" },
                     { n: "3", t: "Xem lại, sửa hoặc xóa thẻ" },
                     { n: "4", t: "Lưu vào deck → Bắt đầu học" },
-                  ] : [
+                  ] : mode === "image" ? [
                     { n: "1", t: "Chọn deck & upload tài liệu" },
                     { n: "2", t: "AI chọn khái niệm trực quan" },
                     { n: "3", t: "DALL-E 3 tạo ảnh minh hoạ" },
                     { n: "4", t: "Thẻ ảnh lưu thẳng vào deck" },
+                  ] : [
+                    { n: "1", t: "Chọn chủ đề, danh sách từ hoặc tải tài liệu" },
+                    { n: "2", t: "AI phân tích & chọn từ quan trọng" },
+                    { n: "3", t: "Tạo phiên âm, định nghĩa, dịch nghĩa, ví dụ" },
+                    { n: "4", t: "Xem lại & lưu vào deck → Học ngay" },
                   ]).map((s) => (
                     <div key={s.n} className="flex gap-3 items-start">
                       <div className="flex-none w-8 h-8 rounded-lg grid place-items-center font-bold text-[0.88rem] bg-primary/10 text-primary">{s.n}</div>
@@ -932,10 +1263,14 @@ export default function GeneratePage() {
                     { icon: Sparkles, t: "Câu hỏi từ khái niệm chính", c: "text-amber-500 bg-amber-50 dark:bg-amber-500/10" },
                     { icon: Check, t: "Câu trả lời chính xác", c: "text-green-600 bg-green-50 dark:bg-green-500/10" },
                     { icon: BrainCircuit, t: "Phân loại độ khó thông minh", c: "text-rose-500 bg-rose-50 dark:bg-rose-500/10" },
-                  ] : [
+                  ] : mode === "image" ? [
                     { icon: ImagePlus, t: "Ảnh DALL-E 3 cho khái niệm", c: "text-blue-500 bg-blue-50 dark:bg-blue-500/10" },
                     { icon: Check, t: "Chỉ tạo khi ảnh giúp học tốt hơn", c: "text-green-600 bg-green-50 dark:bg-green-500/10" },
                     { icon: BrainCircuit, t: "Sơ đồ cho khái niệm trừu tượng", c: "text-purple-500 bg-purple-50 dark:bg-purple-500/10" },
+                  ] : [
+                    { icon: BookOpen, t: "Phiên âm IPA chính xác", c: "text-primary bg-primary/10" },
+                    { icon: Check, t: "Định nghĩa + dịch nghĩa tiếng Việt", c: "text-green-600 bg-green-50 dark:bg-green-500/10" },
+                    { icon: Sparkles, t: "Câu ví dụ tự nhiên trong ngữ cảnh", c: "text-amber-500 bg-amber-50 dark:bg-amber-500/10" },
                   ]).map((f) => {
                     const Icon = f.icon;
                     return (

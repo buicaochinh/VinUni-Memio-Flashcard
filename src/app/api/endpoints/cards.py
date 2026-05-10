@@ -569,6 +569,121 @@ async def preview_image_cards_no_deck(
     return {"cards": enriched, "total": len(enriched)}
 
 
+@router.post("/preview_vocab_cards")
+async def preview_vocab_cards(
+    input_type: str = Form(...),
+    content: str = Form(default=""),
+    count: int = Form(default=20),
+    files: list[UploadFile] = File(default=[]),
+    user_id: int = Depends(get_current_user_id),
+):
+    count = max(5, min(count, 100))
+
+    if input_type == "text":
+        if not files:
+            raise HTTPException(status_code=422, detail="Hãy tải lên ít nhất 1 file.")
+        data_dir = Path(__file__).resolve().parents[4] / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        all_pages = []
+        for file in files:
+            temp_path = data_dir / f"vocab_{user_id}_{file.filename}"
+            async with aio_open(temp_path, "wb") as out:
+                await out.write(await file.read())
+            try:
+                pages, _ = await _load_document_context(temp_path)
+                all_pages.extend(pages)
+            finally:
+                if temp_path.exists():
+                    temp_path.unlink()
+        if not all_pages:
+            raise HTTPException(status_code=422, detail="Không trích xuất được text từ file.")
+        content = "\n\n".join(p.page_content for p in all_pages)[:8000]
+    else:
+        if not content.strip():
+            raise HTTPException(status_code=422, detail="Hãy nhập nội dung.")
+
+    vocab_prompt = PromptTemplate.from_template(
+        """You are a professional English vocabulary flashcard creator. Generate {count} vocabulary flashcards.
+
+INPUT TYPE: {input_type}
+CONTENT: {content}
+
+--- SELECTION RULES ---
+- topic: Choose the {count} most practically useful words for learners of this topic. Prefer high-frequency collocations and domain-specific terms over obscure jargon.
+- word_list: Create exactly one card per entry. Items may be separated by commas OR newlines. Process all items; if fewer than {count} items exist, use all of them.
+- text: Extract the {count} most useful vocabulary items from the provided text. Prioritize domain-specific, advanced, or context-rich terms over common words.
+
+--- OUTPUT FIELDS (strictly required for every card) ---
+- "word": The English word or short phrase (1–4 words). Use the base/dictionary form.
+- "pos": Part of speech abbreviation. Must be one of: n. / v. / adj. / adv. / phr. / idiom
+- "ipa": IPA phonetic transcription enclosed in forward slashes, e.g. /ˈvɒkəbjʊləri/. Use standard IPA symbols. Never omit.
+- "definition": A concise English definition (1–2 sentences). Do NOT include the part of speech label here — that belongs in "pos". Focus on meaning, not etymology.
+- "translation": Natural Vietnamese translation, 1–5 words. Avoid overly literal translations.
+- "example": One natural, context-rich example sentence demonstrating real usage. The sentence must contain the exact word/phrase from "word".
+- "difficulty": Exactly one of: "easy" (A1–B1), "medium" (B1–B2), "hard" (C1–C2+)
+
+--- QUALITY CONSTRAINTS ---
+- Definitions must be standalone — a learner with no dictionary should fully understand the word from the definition alone.
+- Example sentences must be natural, not textbook-stilted. Prefer sentences that show collocation or typical usage context.
+- IPA must be accurate. For multi-syllable words, mark primary stress with ˈ before the stressed syllable.
+- Translations must be the most common, natural Vietnamese equivalent — not dictionary-literal.
+- Do not repeat the word in its own definition.
+
+RETURN ONLY a valid JSON array, no extra text, no markdown fences:
+[{{"word":"cognizant","pos":"adj.","ipa":"/ˈkɒɡnɪzənt/","definition":"Having knowledge or awareness of something, especially a fact or circumstance.","translation":"nhận thức được","example":"The manager was cognizant of the risks before launching the new product.","difficulty":"hard"}}]"""
+    )
+
+    llm = get_llm()
+    try:
+        response = await (vocab_prompt | llm).ainvoke({
+            "input_type": input_type,
+            "content": content.strip()[:6000],
+            "count": count,
+        })
+        raw_cards = _parse_llm_json(response.content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
+
+    if not raw_cards:
+        raise HTTPException(status_code=422, detail="AI không tạo được thẻ từ vựng. Hãy thử lại.")
+
+    result = []
+    for c in raw_cards:
+        if not isinstance(c, dict) or not c.get("word"):
+            continue
+        word = c.get("word", "")
+        pos = c.get("pos", "")
+        ipa = c.get("ipa", "")
+        definition = c.get("definition", "")
+        translation = c.get("translation", "")
+        example = c.get("example", "")
+        difficulty = c.get("difficulty", "medium")
+        back_parts = []
+        if pos and definition:
+            back_parts.append(f"{pos} {definition}")
+        elif definition:
+            back_parts.append(definition)
+        if ipa:
+            back_parts.append(ipa)
+        if translation:
+            back_parts.append(f"→ {translation}")
+        if example:
+            back_parts.append(f'E.g.: "{example}"')
+        result.append({
+            "front": word,
+            "back": "\n".join(back_parts),
+            "difficulty": difficulty if difficulty in ("easy", "medium", "hard") else "medium",
+            "word": word,
+            "pos": pos,
+            "ipa": ipa,
+            "definition": definition,
+            "translation": translation,
+            "example": example,
+        })
+
+    return {"cards": result[:count], "total": len(result)}
+
+
 @router.post("/{deck_id}/generate_image_cards")
 async def generate_image_cards(
     deck_id: int,

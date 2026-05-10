@@ -69,6 +69,8 @@ export default function WorkspacePage() {
   const [showReadyOnly, setShowReadyOnly] = useState(false);
   const [sort, setSort] = useState<"activity" | "name">("activity");
   const [shareModal, setShareModal] = useState<Deck | null>(null);
+  const [deleteConfirmDeck, setDeleteConfirmDeck] = useState<Deck | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [createDeckOpen, setCreateDeckOpen] = useState(false);
   const [streak, setStreak] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -230,13 +232,21 @@ export default function WorkspacePage() {
     }
   };
 
-  const handleDeleteDeck = async (deckId: number) => {
-    if (!confirm("Xóa deck này? Tất cả flashcards sẽ bị xóa.")) return;
+  const handleDeleteDeck = (deck: Deck) => {
+    setDeleteConfirmDeck(deck);
+  };
+
+  const confirmDeleteDeck = async () => {
+    if (!deleteConfirmDeck) return;
+    setDeleting(true);
     try {
-      await deleteDeck(deckId);
+      await deleteDeck(deleteConfirmDeck.id);
+      setDeleteConfirmDeck(null);
       if (user) await hydrate(user.id);
     } catch {
       setMsg("Không xóa được deck.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -764,7 +774,7 @@ export default function WorkspacePage() {
                         <button
                           type="button"
                           className="inline-flex items-center justify-center rounded-xl px-3 py-2 border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-950/25 text-rose-700 dark:text-rose-300 font-semibold hover:opacity-90 transition-opacity"
-                          onClick={() => handleDeleteDeck(deck.id)}
+                          onClick={() => handleDeleteDeck(deck)}
                           aria-label="Xóa deck"
                           title="Xóa deck"
                         >
@@ -1144,6 +1154,50 @@ export default function WorkspacePage() {
                 </button>
               </div>
             )}
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Delete deck confirm dialog */}
+      <Dialog.Root open={!!deleteConfirmDeck} onOpenChange={(open) => { if (!open && !deleting) setDeleteConfirmDeck(null); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/40 z-[200] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-[50%] top-[50%] z-[201] w-full max-w-sm translate-x-[-50%] translate-y-[-50%] border border-border bg-background p-6 shadow-xl sm:rounded-[24px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] outline-none">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <Dialog.Title className="text-lg font-bold">Xóa deck?</Dialog.Title>
+              <Dialog.Close asChild>
+                <button disabled={deleting} className="rounded-lg p-1 text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors disabled:opacity-40" aria-label="Đóng">
+                  <X className="w-4 h-4" />
+                </button>
+              </Dialog.Close>
+            </div>
+            <Dialog.Description className="text-[0.92rem] text-muted-foreground leading-relaxed mb-6">
+              Deck <span className="font-semibold text-foreground">&ldquo;{deleteConfirmDeck?.name}&rdquo;</span> và toàn bộ flashcard bên trong sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.
+            </Dialog.Description>
+            <div className="flex gap-3">
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  className="flex-1 inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-[0.9rem] font-semibold border border-border bg-muted/30 hover:bg-muted/50 transition-colors disabled:opacity-40"
+                >
+                  Hủy
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={confirmDeleteDeck}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[0.9rem] font-semibold bg-rose-600 text-white hover:bg-rose-700 transition-colors disabled:opacity-60"
+              >
+                {deleting ? (
+                  <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash className="w-4 h-4" />
+                )}
+                Xóa deck
+              </button>
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
