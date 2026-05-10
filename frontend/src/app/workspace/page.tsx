@@ -27,7 +27,6 @@ import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import UserSettingsModal from "../../components/UserSettingsModal";
 
 function shareUrl(token: string) {
   if (typeof window === "undefined") return "";
@@ -68,7 +67,6 @@ export default function WorkspacePage() {
   const [showReadyOnly, setShowReadyOnly] = useState(false);
   const [sort, setSort] = useState<"activity" | "name">("activity");
   const [shareModal, setShareModal] = useState<Deck | null>(null);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const setRevealVars = (e: React.PointerEvent<HTMLElement>) => {
@@ -380,15 +378,6 @@ export default function WorkspacePage() {
                 Tạo deck theo chủ đề, thêm tài liệu để sinh thẻ, rồi ôn đều mỗi ngày.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setSettingsModalOpen(true)}
-              className="inline-flex w-fit items-center gap-2 rounded-xl border border-border bg-background/80 px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-              aria-label="Mở cài đặt học"
-            >
-              <SlidersHorizontal className="w-4 h-4 text-primary" aria-hidden />
-              Cài đặt học
-            </button>
           </div>
         </header>
 
@@ -1101,14 +1090,6 @@ export default function WorkspacePage() {
         </Dialog.Portal>
       </Dialog.Root>
 
-      <UserSettingsModal
-        userId={user.id}
-        open={settingsModalOpen}
-        onOpenChange={(open) => {
-          setSettingsModalOpen(open);
-          if (!open) hydrate(user.id);
-        }}
-      />
     </AppShell>
   );
 }
