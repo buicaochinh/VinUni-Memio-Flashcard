@@ -51,6 +51,15 @@ export type PreviewCard = {
   diagram_spec?: string | null;
 };
 
+export type VocabCard = PreviewCard & {
+  word: string;
+  pos?: string;
+  ipa?: string;
+  definition?: string;
+  translation?: string;
+  example?: string;
+};
+
 export type UserXP = {
   total_xp: number;
   level: number;
@@ -678,6 +687,32 @@ export async function previewImageCardsNoDeck(files: File[], count = 15): Promis
   }
   const data = await res.json();
   return (data.cards ?? []) as PreviewCard[];
+}
+
+/** Generate vocabulary flashcards from a topic, word list, or uploaded document */
+export async function previewVocabCards(
+  inputType: "topic" | "word_list" | "text",
+  content: string,
+  files: File[],
+  count = 20
+): Promise<VocabCard[]> {
+  const form = new FormData();
+  form.append("input_type", inputType);
+  form.append("content", content);
+  form.append("count", String(count));
+  if (inputType === "text") {
+    files.forEach(f => form.append("files", f));
+  }
+  const res = await authFetch("/api/cards/preview_vocab_cards", {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.detail ?? `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return (data.cards ?? []) as VocabCard[];
 }
 
 /** Upload document → LLM picks visual concepts → DALL-E generates images → save cards to deck */
