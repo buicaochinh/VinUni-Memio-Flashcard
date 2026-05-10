@@ -4,6 +4,7 @@ from src.app.models.domain import (
     Deck,
     ExternalNote,
     Flashcard,
+    GameSession,
     IngestionCardMap,
     IngestionCursor,
     IngestionItem,
@@ -107,6 +108,10 @@ def delete_deck(session: Session, deck_id: int, user_id: int | None = None):
 
         for row in source_rows:
             session.delete(row)
+
+    game_rows = session.exec(select(GameSession).where(GameSession.deck_id == deck_id)).all()
+    for row in game_rows:
+        session.delete(row)
 
     study_rows = session.exec(select(StudySession).where(StudySession.deck_id == deck_id)).all()
     for row in study_rows:
