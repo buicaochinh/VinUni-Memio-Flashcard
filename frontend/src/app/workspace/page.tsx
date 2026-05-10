@@ -68,6 +68,7 @@ export default function WorkspacePage() {
   const [showReadyOnly, setShowReadyOnly] = useState(false);
   const [sort, setSort] = useState<"activity" | "name">("activity");
   const [shareModal, setShareModal] = useState<Deck | null>(null);
+  const [createDeckOpen, setCreateDeckOpen] = useState(false);
   const [streak, setStreak] = useState(0);
   const [copied, setCopied] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -219,6 +220,7 @@ export default function WorkspacePage() {
     try {
       await createDeck(newDeckName.trim(), newDeckDesc.trim());
       setNewDeckName(""); setNewDeckDesc(""); setMsg(null);
+      setCreateDeckOpen(false);
       await hydrate(user.id);
     } catch {
       setMsg("Không tạo được deck.");
@@ -267,7 +269,7 @@ export default function WorkspacePage() {
 
   const handlePrimaryMission = () => {
     if (missionState === "no_deck") {
-      document.getElementById("new-deck-name")?.focus();
+      setCreateDeckOpen(true);
       return;
     }
     if (missionState === "no_cards") {
@@ -386,8 +388,8 @@ export default function WorkspacePage() {
           </div>
         </header>
 
-        {/* Daily Mission + Create */}
-        <section className="grid grid-cols-1 lg:grid-cols-[1fr_360px] items-start gap-6 px-6 sm:px-8 pb-8">
+        {/* Daily Mission */}
+        <section className="px-6 sm:px-8 pb-8">
         <section
           aria-label="Nhiệm vụ hôm nay"
           className="self-start overflow-hidden rounded-2xl ring-1 ring-border/80 bg-background/75 shadow-sm"
@@ -581,74 +583,25 @@ export default function WorkspacePage() {
           </div>
         </section>
 
-        <section
-          aria-label="Tạo deck mới"
-          className="rounded-2xl border border-border/80 bg-background/70 px-6 py-6 shadow-sm"
-        >
-          <h2 className="text-base font-semibold tracking-tight mb-4">Tạo deck mới</h2>
-
-          <div className="space-y-3">
-            <label className="sr-only" htmlFor="new-deck-name">
-              Tên deck
-            </label>
-            <Input
-              id="new-deck-name"
-              value={newDeckName}
-              onChange={(e) => setNewDeckName(e.target.value)}
-              placeholder="Tên deck (ví dụ: IELTS Writing)"
-              onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
-            />
-            <label className="sr-only" htmlFor="new-deck-desc">
-              Mô tả deck
-            </label>
-            <Input
-              id="new-deck-desc"
-              value={newDeckDesc}
-              onChange={(e) => setNewDeckDesc(e.target.value)}
-              placeholder="Mô tả ngắn (tùy chọn)"
-              onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
-            />
-
-            <Button
-              type="button"
-              variant="primary"
-              className="w-full"
-              onClick={handleCreateDeck}
-              onPointerMove={setRevealVars}
-              disabled={creating || !newDeckName.trim()}
-            >
-              {creating ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Đang tạo
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5" aria-hidden /> Tạo deck
-                </>
-              )}
-            </Button>
-
-            {msg && (
-              <p className="text-danger text-[0.88rem] leading-[1.5]">{msg}</p>
-            )}
-          </div>
-        </section>
         </section>
       </section>
 
       {/* Deck list */}
       <section className="rounded-2xl border border-border bg-background/70 backdrop-blur-md mt-6 shadow-[0_10px_36px_rgba(0,0,0,0.04)] dark:shadow-[0_10px_36px_rgba(0,0,0,0.30)]">
-        <div className="px-6 sm:px-8 py-6 border-b border-border flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div className="px-6 sm:px-8 py-6 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-1">
-            <h2 className="font-semibold text-lg tracking-tight">Deck của bạn</h2>
+            <h2 className="font-semibold text-lg tracking-tight">Deck của tôi</h2>
             <p className="text-muted-foreground text-[0.9rem]">
-              {decks.length === 0 ? "Chưa có deck nào. Tạo một deck để bắt đầu." : `${decks.length} deck`}
+              {decks.length === 0 ? "Chưa có deck nào. Tạo một deck để bắt đầu." : `${decks.length} deck · ${readyDecks} sẵn sàng`}
             </p>
           </div>
-          <div className="text-[0.85rem] text-muted-foreground">
-            {readyDecks} sẵn sàng
-          </div>
+          <Button
+            variant="primary"
+            onClick={() => setCreateDeckOpen(true)}
+            className="shrink-0"
+          >
+            <Plus className="w-4 h-4" aria-hidden /> Thêm
+          </Button>
         </div>
 
         {decks.length === 0 ? (
@@ -1035,6 +988,72 @@ export default function WorkspacePage() {
           </div>
         )}
       </section>
+
+      {/* ── Create Deck Modal ── */}
+      <Dialog.Root open={createDeckOpen} onOpenChange={(open) => { setCreateDeckOpen(open); if (!open) { setNewDeckName(""); setNewDeckDesc(""); setMsg(null); } }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/40 z-[200] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-[50%] top-[50%] z-[201] w-full max-w-md translate-x-[-50%] translate-y-[-50%] border border-border bg-background p-6 shadow-xl sm:rounded-[24px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] outline-none">
+            <div className="flex justify-between items-center mb-5">
+              <Dialog.Title className="text-xl font-bold">Tạo deck mới</Dialog.Title>
+              <Dialog.Close asChild>
+                <button className="rounded-full w-8 h-8 flex items-center justify-center hover:bg-muted/50 transition-colors outline-none cursor-pointer">
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </Dialog.Close>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="sr-only" htmlFor="modal-deck-name">Tên deck</label>
+                <Input
+                  id="modal-deck-name"
+                  value={newDeckName}
+                  onChange={(e) => setNewDeckName(e.target.value)}
+                  placeholder="Tên deck (ví dụ: IELTS Writing)"
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="sr-only" htmlFor="modal-deck-desc">Mô tả</label>
+                <Input
+                  id="modal-deck-desc"
+                  value={newDeckDesc}
+                  onChange={(e) => setNewDeckDesc(e.target.value)}
+                  placeholder="Mô tả ngắn (tùy chọn)"
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateDeck()}
+                />
+              </div>
+
+              {msg && (
+                <p className="text-rose-600 dark:text-rose-400 text-[0.88rem]">{msg}</p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Dialog.Close asChild>
+                  <button className="flex-1 px-4 py-2.5 rounded-xl border border-border bg-background text-foreground font-semibold text-sm cursor-pointer hover:bg-muted/40 transition-colors">
+                    Hủy
+                  </button>
+                </Dialog.Close>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="flex-[2]"
+                  onClick={handleCreateDeck}
+                  disabled={creating || !newDeckName.trim()}
+                >
+                  {creating ? (
+                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Đang tạo</>
+                  ) : (
+                    <><Plus className="w-4 h-4" aria-hidden /> Tạo deck</>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* ── Radix UI Share Modal ── */}
       <Dialog.Root open={!!shareModal} onOpenChange={(open) => !open && setShareModal(null)}>
