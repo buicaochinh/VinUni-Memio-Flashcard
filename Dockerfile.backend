@@ -22,7 +22,10 @@ RUN apk del .build-deps
 # ── Runtime ───────────────────────────────────────────────────────────────────
 FROM python:3.11-alpine AS runtime
 
+RUN addgroup -S app && adduser -S -G app app
 WORKDIR /app
+RUN chown app:app /app
+
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -31,8 +34,7 @@ RUN apk add --no-cache \
     curl \
     gcompat \
     libpq \
-    tzdata \
- && addgroup -S app && adduser -S -G app app
+    tzdata
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=app:app alembic.ini .
