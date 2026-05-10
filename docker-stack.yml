@@ -97,13 +97,15 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
+        order: stop-first
+        failure_action: rollback
+        monitor: 30s
 
   beat:
     image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
     env_file:
       - .env
-    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "beat", "-l", "INFO"]
+    command: ["celery", "-A", "src.app.worker.celery_app.celery_app", "beat", "-l", "INFO", "--schedule", "/tmp/celerybeat-schedule"]
     deploy:
       replicas: 1
       restart_policy:
@@ -117,6 +119,8 @@ services:
         parallelism: 1
         delay: 5s
         order: stop-first
+        failure_action: rollback
+        monitor: 30s
 
   frontend:
     image: ${FRONTEND_IMAGE:-a20-app-001-frontend:pilot}

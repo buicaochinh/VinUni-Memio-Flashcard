@@ -9,7 +9,6 @@ from xml.etree.ElementTree import Element
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
-from src.app.api.endpoints.cards import _generate_cards_chunked
 from src.app.core.time import utc_now_naive
 from src.app.models.domain import (
     Deck,
@@ -456,6 +455,7 @@ async def sync_source(session: Session, source: IngestionSource, *, preview_only
             if not text:
                 continue
             pages = [SimplePage(text)]
+            from src.app.api.endpoints.cards import _generate_cards_chunked  # noqa: PLC0415
             cards = await _generate_cards_chunked(pages, source.cards_per_item)
             if not cards and not preview_only:
                 raise IngestionSyncError("Không tạo được flashcard từ nội dung Notion này. Hãy thử nội dung khác hoặc kiểm tra cấu hình AI.")
