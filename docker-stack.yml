@@ -86,11 +86,11 @@ services:
       - .env
     volumes:
       - ./data:/app/data
-    command: ["celery", "-A", "src.app.worker.celery_app:celery_app", "worker", "-l", "INFO", "--pool", "solo"]
+    command: ["celery", "-A", "src.app.worker.celery_app:app", "worker", "-l", "INFO", "--pool", "solo"]
     environment:
       - PYTHONPATH=.
     healthcheck:
-      test: ["CMD-SHELL", "celery -A src.app.worker.celery_app:celery_app inspect ping"]
+      test: ["CMD-SHELL", "celery -A src.app.worker.celery_app:app inspect ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -114,7 +114,7 @@ services:
       - .env
     volumes:
       - ./data:/app/data
-    command: ["celery", "-A", "src.app.worker.celery_app:celery_app", "beat", "-l", "INFO", "--schedule", "/tmp/celerybeat-schedule", "--pidfile", "/tmp/celerybeat.pid"]
+    command: ["celery", "-A", "src.app.worker.celery_app:app", "beat", "-l", "INFO", "--schedule", "/tmp/celerybeat-schedule", "--pidfile", "/tmp/celerybeat.pid"]
     environment:
       - PYTHONPATH=.
     deploy:
