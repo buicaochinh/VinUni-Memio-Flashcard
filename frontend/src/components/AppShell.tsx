@@ -13,7 +13,7 @@ import CoachLauncher from "./CoachLauncher";
 
 type AppShellProps = {
   children: React.ReactNode;
-  user: User;
+  user: User | null;
 };
 
 const NAV_ITEMS = [
@@ -57,10 +57,11 @@ export default function AppShell({ children, user }: AppShellProps) {
   useEffect(() => { setTransitionReady(true); }, []);
 
   useEffect(() => {
+    if (!user) return;
     syncBrowserTimezone().catch(() => {});
     fetchUserXP().then(setXp).catch(() => {});
     fetchNotifications().then(setNotifications).catch(() => {});
-  }, [user.id, pathname]);
+  }, [user?.id, pathname]);
 
   useEffect(() => {
     if (!notifOpen) return;
@@ -176,9 +177,10 @@ export default function AppShell({ children, user }: AppShellProps) {
           <div className={cn("border-t border-border w-full pt-4", collapsed ? "flex flex-col items-center gap-3" : "flex flex-col gap-4")}>
             {collapsed ? (
               <>
-                {/* Avatar only */}
                 <div className="w-9 h-9 rounded-full overflow-hidden ring-1 ring-border/70 flex-shrink-0">
-                  {user.photo_url && !imgError ? (
+                  {!user ? (
+                    <div className="w-full h-full bg-muted/60 animate-pulse" />
+                  ) : user.photo_url && !imgError ? (
                     <Image
                       src={user.photo_url}
                       alt={user.name}
@@ -194,15 +196,25 @@ export default function AppShell({ children, user }: AppShellProps) {
                     </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  title="Đăng xuất"
-                  className="w-11 h-11 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+                {user && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    title="Đăng xuất"
+                    className="w-11 h-11 flex items-center justify-center rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                )}
               </>
+            ) : !user ? (
+              <div className="flex flex-col gap-2 px-3 py-2 rounded-2xl bg-[hsl(var(--acrylic))] border border-border/60 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-muted/70 flex-shrink-0" />
+                  <div className="h-3.5 w-24 rounded-full bg-muted/70" />
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted/50" />
+              </div>
             ) : (
               <>
                 <div className="flex flex-col gap-2 px-3 py-2 rounded-2xl bg-[hsl(var(--acrylic))] border border-border/60">
@@ -405,7 +417,7 @@ export default function AppShell({ children, user }: AppShellProps) {
         </button>
       </nav>
 
-      {pathname !== "/coach" && <CoachLauncher user={user} />}
+      {user && pathname !== "/coach" && <CoachLauncher user={user} />}
     </div>
   );
 }

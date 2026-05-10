@@ -35,6 +35,7 @@ import {
   Lock,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Skeleton } from "../../components/ui/skeleton";
 
 type EditState = {
   front: string;
@@ -290,8 +291,22 @@ export default function GeneratePage() {
     setImgCards(prev => prev.filter((_, i) => i !== idx));
   };
 
-  if (!clientReady) return null;
-  if (!user) return null;
+  if (!clientReady || !user) return (
+    <AppShell user={null}>
+      <div className="space-y-4">
+        <Skeleton className="h-5 w-36 rounded-full" />
+        <Skeleton className="h-10 w-72 rounded-xl" />
+        <Skeleton className="h-4 w-96 rounded-full" />
+        <div className="pt-4 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <Skeleton className="h-[500px] rounded-[32px]" />
+          <div className="space-y-4">
+            <Skeleton className="h-56 rounded-3xl" />
+            <Skeleton className="h-56 rounded-3xl" />
+          </div>
+        </div>
+      </div>
+    </AppShell>
+  );
 
   const diffCount = cards.reduce(
     (acc, c) => { acc[c.difficulty] = (acc[c.difficulty] ?? 0) + 1; return acc; },

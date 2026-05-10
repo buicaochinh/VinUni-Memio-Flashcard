@@ -426,9 +426,7 @@ export default function StudyPage() {
 
   const card = cards[idx];
 
-  if (!user) return null;
-
-  if (isLoading) {
+  if (!user || isLoading) {
     return (
       <main className="min-h-screen grid place-items-center p-5 bg-background">
         <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
