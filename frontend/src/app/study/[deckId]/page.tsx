@@ -846,7 +846,10 @@ export default function StudyPage() {
                     </div>
                     <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-1">
                       <div className="min-h-full flex items-center justify-center">
-                        <p className="max-w-[720px] text-center text-base md:text-lg lg:text-xl font-semibold leading-relaxed text-foreground">
+                        <p className={cn(
+                          "max-w-[720px] text-base md:text-lg lg:text-xl font-semibold leading-relaxed text-foreground whitespace-pre-wrap",
+                          card.back.includes("\n") ? "text-left" : "text-center"
+                        )}>
                           {card.back}
                         </p>
                       </div>
