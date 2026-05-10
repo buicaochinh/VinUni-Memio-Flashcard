@@ -8,7 +8,7 @@ import {
   createDeck,
   Deck,
   fetchDecks,
-  generateImageCards,
+  previewImageCardsNoDeck,
   useClientReady,
   useStoredUser,
   previewCardsNoDeck,
@@ -43,7 +43,7 @@ type EditState = {
 };
 
 type TextStage = "setup" | "loading" | "preview" | "saved";
-type ImgStage = "setup" | "generating" | "done" | "error";
+type ImgStage = "setup" | "generating" | "preview" | "done" | "error";
 
 export default function GeneratePage() {
   const router = useRouter();
@@ -58,6 +58,10 @@ export default function GeneratePage() {
   const [dragOver, setDragOver] = useState(false);
   const [mode, setMode] = useState<"text" | "image">("text");
 
+  // Shared: save destination (used in both modes' setup)
+  const [saveTarget, setSaveTarget] = useState<"new" | "existing">("new");
+  const [newDeckName, setNewDeckName] = useState("");
+
   // Text mode
   const [textStage, setTextStage] = useState<TextStage>("setup");
   const [cards, setCards] = useState<PreviewCard[]>([]);
@@ -67,18 +71,13 @@ export default function GeneratePage() {
   const [message, setMessage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
 
-  // Save destination (text mode preview)
-  const [saveTarget, setSaveTarget] = useState<"new" | "existing">("new");
-  const [newDeckName, setNewDeckName] = useState("");
-  const [newDeckDesc, setNewDeckDesc] = useState("");
-
   // Image mode
   const [imgStage, setImgStage] = useState<ImgStage>("setup");
   const [imgCount, setImgCount] = useState(15);
+  const [imgCards, setImgCards] = useState<PreviewCard[]>([]);
+  const [imgSaving, setImgSaving] = useState(false);
   const [imgResult, setImgResult] = useState<{ saved: number; real_image: number; diagram: number } | null>(null);
   const [imgError, setImgError] = useState<string | null>(null);
-  const [imgSaveTarget, setImgSaveTarget] = useState<"new" | "existing">("new");
-  const [imgNewDeckName, setImgNewDeckName] = useState("");
 
   const loadDecks = useCallback(async () => {
     try {
@@ -111,14 +110,15 @@ export default function GeneratePage() {
 
   const switchMode = (m: "text" | "image") => {
     setMode(m);
+    setSaveTarget("new");
+    setNewDeckName("");
     if (m === "text") {
       setTextStage("setup");
     } else {
       setImgStage("setup");
+      setImgCards([]);
       setImgResult(null);
       setImgError(null);
-      setImgSaveTarget("new");
-      setImgNewDeckName("");
     }
     syncUrl(m, selectedDeckId);
   };
@@ -158,6 +158,13 @@ export default function GeneratePage() {
     return "FILE";
   };
 
+  const isDestinationValid = saveTarget === "new" ? !!newDeckName.trim() : !!selectedDeckId;
+
+  const resolvedDeckLabel =
+    saveTarget === "new"
+      ? newDeckName.trim() || "Deck mới"
+      : (decks.find((d) => d.id === selectedDeckId)?.name ?? "—");
+
   const handleGenerate = async () => {
     if (files.length === 0) { setMessage("Hãy chọn ít nhất 1 file hợp lệ (PDF, DOCX, TXT)."); return; }
 
@@ -174,9 +181,6 @@ export default function GeneratePage() {
       const generated = await previewCardsNoDeck(files, targetCount);
       setProgress(100);
       setCards(generated);
-      setSaveTarget("new");
-      setNewDeckName("");
-      setNewDeckDesc("");
       setTextStage("preview");
     } catch (err) {
       const detail = err instanceof Error ? err.message : "Lỗi không xác định";
@@ -225,7 +229,7 @@ export default function GeneratePage() {
       let deckId: number;
       if (saveTarget === "new") {
         if (!newDeckName.trim()) { setMessage("Hãy nhập tên deck."); return; }
-        deckId = await createDeck(newDeckName.trim(), newDeckDesc.trim());
+        deckId = await createDeck(newDeckName.trim());
         setSelectedDeckId(deckId);
         setDecks(prev => [...prev, { id: deckId, name: newDeckName.trim() }]);
       } else {
@@ -242,27 +246,48 @@ export default function GeneratePage() {
 
   const handleImageGenerate = async () => {
     if (files.length === 0) return;
-    if (imgSaveTarget === "new" && !imgNewDeckName.trim()) return;
-    if (imgSaveTarget === "existing" && !selectedDeckId) return;
+    if (!isDestinationValid) return;
 
     setImgStage("generating");
     setImgError(null);
     try {
-      let deckId: number;
-      if (imgSaveTarget === "new") {
-        deckId = await createDeck(imgNewDeckName.trim());
-        setSelectedDeckId(deckId);
-        setDecks(prev => [...prev, { id: deckId, name: imgNewDeckName.trim() }]);
-      } else {
-        deckId = selectedDeckId!;
-      }
-      const r = await generateImageCards(deckId, files, imgCount);
-      setImgResult(r);
-      setImgStage("done");
+      const generated = await previewImageCardsNoDeck(files, imgCount);
+      setImgCards(generated);
+      setImgStage("preview");
     } catch (err) {
       setImgError(err instanceof Error ? err.message : "Lỗi không xác định.");
       setImgStage("error");
     }
+  };
+
+  const handleImageSave = async () => {
+    if (imgCards.length === 0) return;
+    setImgSaving(true);
+    try {
+      let deckId: number;
+      if (saveTarget === "new") {
+        deckId = await createDeck(newDeckName.trim());
+        setSelectedDeckId(deckId);
+        setDecks(prev => [...prev, { id: deckId, name: newDeckName.trim() }]);
+      } else {
+        deckId = selectedDeckId!;
+      }
+      await bulkCreateCards(deckId, imgCards);
+      setImgResult({
+        saved: imgCards.length,
+        real_image: imgCards.filter(c => c.image_type === "real_image").length,
+        diagram: imgCards.filter(c => c.image_type === "diagram").length,
+      });
+      setImgStage("done");
+    } catch {
+      setImgError("Lỗi khi lưu thẻ. Hãy thử lại.");
+    } finally {
+      setImgSaving(false);
+    }
+  };
+
+  const removeImgCard = (idx: number) => {
+    setImgCards(prev => prev.filter((_, i) => i !== idx));
   };
 
   if (!clientReady) return null;
@@ -276,6 +301,63 @@ export default function GeneratePage() {
   const estimatedCost = (imgCount * 0.04).toFixed(2);
   const isSetup = (mode === "text" && textStage === "setup") ||
     (mode === "image" && (imgStage === "setup" || imgStage === "error"));
+  const isImgPreview = mode === "image" && imgStage === "preview";
+
+  // Shared "Lưu vào đâu?" panel — rendered in both modes' setup
+  const SaveDestinationPanel = (
+    <div className="p-5 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-2xl">
+      <p className="text-[0.78rem] font-bold text-muted-foreground uppercase tracking-wider mb-3">Lưu vào đâu?</p>
+      <div className="flex gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setSaveTarget("new")}
+          className={cn(
+            "flex-1 py-2 px-3 rounded-xl font-semibold text-sm transition-all border",
+            saveTarget === "new"
+              ? "bg-primary text-white border-primary"
+              : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          )}
+        >
+          <Plus className="w-3.5 h-3.5 inline mr-1" /> Tạo deck mới
+        </button>
+        <button
+          type="button"
+          onClick={() => setSaveTarget("existing")}
+          className={cn(
+            "flex-1 py-2 px-3 rounded-xl font-semibold text-sm transition-all border",
+            saveTarget === "existing"
+              ? "bg-primary text-white border-primary"
+              : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          )}
+        >
+          Thêm vào deck có sẵn
+        </button>
+      </div>
+      {saveTarget === "new" ? (
+        <input
+          type="text"
+          placeholder="Nhập tên deck mới…"
+          value={newDeckName}
+          onChange={(e) => setNewDeckName(e.target.value)}
+          className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+        />
+      ) : (
+        <Select
+          value={selectedDeckId ? String(selectedDeckId) : ""}
+          onValueChange={(v) => setSelectedDeckId(Number(v) || null)}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={decks.length ? "Chọn deck" : "Chưa có deck"} />
+          </SelectTrigger>
+          <SelectContent>
+            {decks.map((d) => (
+              <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+    </div>
+  );
 
   return (
     <AppShell user={user}>
@@ -312,10 +394,10 @@ export default function GeneratePage() {
               <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-2">
                 <Pencil className="w-3.5 h-3.5" /> Xem lại trước khi lưu
               </div>
-              <h2 className="text-3xl font-bold tracking-tight mb-2.5">
+              <h2 className="text-3xl font-bold tracking-tight mb-2">
                 {cards.length} flashcards được tạo
               </h2>
-              <div className="flex gap-2.5 flex-wrap">
+              <div className="flex flex-wrap items-center gap-2">
                 {Object.entries(diffCount).map(([d, n]) => (
                   <span key={d} className={cn(
                     "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.75rem] font-bold tracking-tight",
@@ -326,6 +408,9 @@ export default function GeneratePage() {
                     {d === "easy" ? "Dễ" : d === "medium" ? "TB" : "Khó"}: {n}
                   </span>
                 ))}
+                <span className="text-[0.78rem] text-muted-foreground">
+                  → <span className="font-semibold text-foreground">{resolvedDeckLabel}</span>
+                </span>
               </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
@@ -339,65 +424,11 @@ export default function GeneratePage() {
                 variant="primary"
                 onClick={handleSave}
                 className="flex-[1.5] md:flex-none"
-                disabled={saveTarget === "new" ? !newDeckName.trim() : !selectedDeckId}
+                disabled={!isDestinationValid}
               >
                 <Save className="w-4 h-4" aria-hidden /> Lưu tất cả
               </Button>
             </div>
-          </div>
-
-          {/* Save destination */}
-          <div className="mb-6 p-5 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-2xl">
-            <p className="text-[0.78rem] font-bold text-muted-foreground uppercase tracking-wider mb-3">Lưu vào đâu?</p>
-            <div className="flex gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => setSaveTarget("new")}
-                className={cn(
-                  "flex-1 py-2 px-3 rounded-xl font-semibold text-sm transition-all border",
-                  saveTarget === "new"
-                    ? "bg-primary text-white border-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}
-              >
-                <Plus className="w-3.5 h-3.5 inline mr-1" /> Tạo deck mới
-              </button>
-              <button
-                type="button"
-                onClick={() => setSaveTarget("existing")}
-                className={cn(
-                  "flex-1 py-2 px-3 rounded-xl font-semibold text-sm transition-all border",
-                  saveTarget === "existing"
-                    ? "bg-primary text-white border-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}
-              >
-                Thêm vào deck có sẵn
-              </button>
-            </div>
-            {saveTarget === "new" ? (
-              <input
-                type="text"
-                placeholder="Nhập tên deck mới…"
-                value={newDeckName}
-                onChange={(e) => setNewDeckName(e.target.value)}
-                className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-              />
-            ) : (
-              <Select
-                value={selectedDeckId ? String(selectedDeckId) : ""}
-                onValueChange={(v) => setSelectedDeckId(Number(v) || null)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={decks.length ? "Chọn deck" : "Chưa có deck"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {decks.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
 
           {message && (
@@ -545,6 +576,79 @@ export default function GeneratePage() {
         </div>
       )}
 
+      {/* ── Image mode: preview ── */}
+      {isImgPreview && (
+        <div className="pb-20">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 sticky top-[-32px] md:top-[-40px] z-40 bg-background/80 backdrop-blur-xl py-6 border-b border-border/50">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[hsl(var(--acrylic))] backdrop-blur-md border border-border/70 text-muted-foreground text-[0.82rem] font-semibold mb-2">
+                <ImagePlus className="w-3.5 h-3.5" /> Xem lại thẻ ảnh
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight mb-2">
+                {imgCards.length} thẻ hình ảnh
+              </h2>
+              <span className="text-[0.78rem] text-muted-foreground">
+                → <span className="font-semibold text-foreground">{resolvedDeckLabel}</span>
+              </span>
+            </div>
+            <div className="flex gap-3 w-full md:w-auto">
+              <Button variant="ghost" onClick={() => { setImgStage("setup"); setImgCards([]); }} className="flex-1 md:flex-none">
+                <RotateCcw className="w-4 h-4" aria-hidden /> Làm lại
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleImageSave}
+                disabled={imgCards.length === 0 || imgSaving}
+                className="flex-[1.5] md:flex-none"
+              >
+                <Save className="w-4 h-4" aria-hidden /> {imgSaving ? "Đang lưu…" : "Lưu tất cả"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {imgCards.map((card, idx) => (
+              <div
+                key={idx}
+                className="flex flex-col bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-2xl shadow-sm overflow-hidden hover:border-primary/30 transition-colors"
+              >
+                {card.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={card.image_url} alt={card.back} className="w-full aspect-video object-cover" />
+                ) : card.image_type === "diagram" ? (
+                  <div className="w-full aspect-video bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
+                    <BrainCircuit className="w-10 h-10 text-purple-400" />
+                  </div>
+                ) : (
+                  <div className="w-full aspect-video bg-surface-muted flex items-center justify-center">
+                    <ImagePlus className="w-10 h-10 text-muted-foreground/40" />
+                  </div>
+                )}
+                <div className="p-4 flex-1 flex flex-col gap-3">
+                  <div>
+                    <p className="font-bold text-[0.92rem] leading-snug mb-1 text-foreground line-clamp-3">{card.front}</p>
+                    <p className="text-muted-foreground text-[0.82rem] leading-relaxed line-clamp-2">{card.back}</p>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-border/50 mt-auto">
+                    <span className={cn(
+                      "inline-flex items-center rounded-full px-2.5 py-1 text-[0.72rem] font-bold tracking-tight",
+                      card.difficulty === "easy" ? "bg-green-100 text-green-700 dark:text-green-400" :
+                      card.difficulty === "medium" ? "bg-amber-100 text-amber-700 dark:text-amber-400" :
+                      "bg-red-100 text-red-700"
+                    )}>
+                      {card.difficulty === "easy" ? "Dễ" : card.difficulty === "medium" ? "Trung bình" : "Khó"}
+                    </span>
+                    <Button type="button" variant="danger" size="sm" className="h-8 w-8 p-0" onClick={() => removeImgCard(idx)} title="Xóa thẻ">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Image mode: done ── */}
       {mode === "image" && imgStage === "done" && (
         <div className="p-10 bg-[hsl(var(--acrylic-strong))] backdrop-blur-md border border-border rounded-[40px] shadow-sm text-center">
@@ -566,7 +670,7 @@ export default function GeneratePage() {
             <Button variant="primary" onClick={() => selectedDeckId && router.push(`/study/${selectedDeckId}`)} disabled={!selectedDeckId}>
               <Repeat className="w-4 h-4" /> Học ngay
             </Button>
-            <Button variant="secondary" onClick={() => { setImgStage("setup"); setFiles([]); setImgResult(null); }}>
+            <Button variant="secondary" onClick={() => { setImgStage("setup"); setFiles([]); setImgCards([]); setImgResult(null); setSaveTarget("new"); setNewDeckName(""); }}>
               Tạo thêm
             </Button>
           </div>
@@ -589,8 +693,8 @@ export default function GeneratePage() {
             </h1>
             <p className="text-muted-foreground text-base max-w-[64ch] leading-relaxed">
               {mode === "text"
-                ? <>Tải tài liệu → AI tạo đến <strong className="text-foreground">{targetCount}</strong> thẻ → Xem lại & chỉnh sửa → Chọn deck và lưu.</>
-                : "Tải tài liệu → Chọn deck → AI chọn khái niệm trực quan → DALL-E 3 tạo ảnh → Lưu thẳng vào deck."
+                ? <>Chọn deck → Tải tài liệu → AI tạo đến <strong className="text-foreground">{targetCount}</strong> thẻ → Xem lại & lưu.</>
+                : <>Chọn deck → Tải tài liệu → AI chọn khái niệm → DALL-E 3 tạo ảnh → Lưu vào deck.</>
               }
             </p>
           </div>
@@ -629,7 +733,10 @@ export default function GeneratePage() {
               </h3>
 
               <div className="grid gap-6">
+                {/* Deck destination — identical for both modes */}
+                {SaveDestinationPanel}
 
+                {/* Count slider */}
                 {mode === "text" ? (
                   <div>
                     <div className="flex justify-between items-center mb-2">
@@ -666,6 +773,7 @@ export default function GeneratePage() {
                   </div>
                 )}
 
+                {/* File upload */}
                 <section
                   className={cn(
                     "overflow-hidden rounded-[24px] border border-border/80 bg-background/65 shadow-sm transition-colors",
@@ -747,61 +855,7 @@ export default function GeneratePage() {
                   )}
                 </section>
 
-                {mode === "image" && (
-                  <div className="p-5 bg-[hsl(var(--acrylic))] border border-border rounded-2xl">
-                    <p className="text-[0.78rem] font-bold text-muted-foreground uppercase tracking-wider mb-3">Lưu vào đâu?</p>
-                    <div className="flex gap-2 mb-3">
-                      <button
-                        type="button"
-                        onClick={() => setImgSaveTarget("new")}
-                        className={cn(
-                          "flex-1 py-2 px-3 rounded-xl font-semibold text-sm transition-all border",
-                          imgSaveTarget === "new"
-                            ? "bg-primary text-white border-primary"
-                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        )}
-                      >
-                        <Plus className="w-3.5 h-3.5 inline mr-1" /> Tạo deck mới
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setImgSaveTarget("existing")}
-                        className={cn(
-                          "flex-1 py-2 px-3 rounded-xl font-semibold text-sm transition-all border",
-                          imgSaveTarget === "existing"
-                            ? "bg-primary text-white border-primary"
-                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                        )}
-                      >
-                        Thêm vào deck có sẵn
-                      </button>
-                    </div>
-                    {imgSaveTarget === "new" ? (
-                      <input
-                        type="text"
-                        placeholder="Nhập tên deck mới…"
-                        value={imgNewDeckName}
-                        onChange={(e) => setImgNewDeckName(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-                      />
-                    ) : (
-                      <Select
-                        value={selectedDeckId ? String(selectedDeckId) : ""}
-                        onValueChange={(v) => setSelectedDeckId(Number(v) || null)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={decks.length ? "Chọn deck" : "Chưa có deck"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {decks.map((d) => (
-                            <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                )}
-
+                {/* Error messages */}
                 {mode === "text" && message && (
                   <div className="p-4 bg-rose-50 dark:bg-rose-950/25 border border-rose-200 dark:border-rose-500/30 rounded-2xl flex items-center gap-3">
                     <X className="w-5 h-5 text-rose-700 dark:text-rose-300 flex-shrink-0" />
@@ -814,14 +868,17 @@ export default function GeneratePage() {
                   </div>
                 )}
 
+                {/* Generate button */}
                 <div className="flex gap-4 mt-2">
                   {mode === "text" ? (
-                    <Button variant="primary" className="w-full" onClick={handleGenerate} disabled={files.length === 0}>
+                    <Button variant="primary" className="w-full" onClick={handleGenerate}
+                      disabled={files.length === 0 || !isDestinationValid}
+                    >
                       <Sparkles className="w-5 h-5" aria-hidden /> Sinh {targetCount} flashcards
                     </Button>
                   ) : (
                     <Button variant="primary" className="w-full" onClick={handleImageGenerate}
-                      disabled={files.length === 0 || (imgSaveTarget === "new" ? !imgNewDeckName.trim() : !selectedDeckId)}
+                      disabled={files.length === 0 || !isDestinationValid}
                     >
                       <Sparkles className="w-4 h-4" /> Tạo tối đa {imgCount} thẻ có ảnh (~${estimatedCost})
                     </Button>
@@ -835,14 +892,14 @@ export default function GeneratePage() {
                 <h3 className="mb-4 font-bold text-lg">Luồng hoạt động</h3>
                 <div className="grid gap-4">
                   {(mode === "text" ? [
-                    { n: "1", t: "Upload PDF tài liệu" },
+                    { n: "1", t: "Chọn deck & upload tài liệu" },
                     { n: "2", t: "AI trích xuất & tạo thẻ" },
                     { n: "3", t: "Xem lại, sửa hoặc xóa thẻ" },
-                    { n: "4", t: "Chọn deck & lưu → Bắt đầu học" },
+                    { n: "4", t: "Lưu vào deck → Bắt đầu học" },
                   ] : [
-                    { n: "1", t: "Upload tài liệu" },
-                    { n: "2", t: "Chọn deck & tạo thẻ" },
-                    { n: "3", t: "AI + DALL-E 3 tạo ảnh" },
+                    { n: "1", t: "Chọn deck & upload tài liệu" },
+                    { n: "2", t: "AI chọn khái niệm trực quan" },
+                    { n: "3", t: "DALL-E 3 tạo ảnh minh hoạ" },
                     { n: "4", t: "Thẻ ảnh lưu thẳng vào deck" },
                   ]).map((s) => (
                     <div key={s.n} className="flex gap-3 items-start">

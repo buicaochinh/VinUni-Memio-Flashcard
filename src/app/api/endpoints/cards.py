@@ -515,6 +515,60 @@ async def generate_deck_images(deck_id: int, session: Session = Depends(get_sess
     }
 
 
+@router.post("/preview_image_cards")
+async def preview_image_cards_no_deck(
+    files: list[UploadFile] = File(...),
+    count: int = Form(default=15),
+    user_id: int = Depends(get_current_user_id),
+):
+    if count < 1:
+        count = 1
+    if count > 20:
+        count = 20
+
+    data_dir = Path(__file__).resolve().parents[4] / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    all_pages = []
+    load_errors = []
+    for file in files:
+        temp_path = data_dir / f"imgcard_prev_{user_id}_{file.filename}"
+        file_bytes = await file.read()
+        async with aio_open(temp_path, "wb") as out:
+            await out.write(file_bytes)
+        try:
+            pages, _ = await _load_document_context(temp_path)
+            all_pages.extend(pages)
+        except Exception as load_err:
+            load_errors.append(str(load_err))
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    if not all_pages:
+        detail = f"Không trích xuất được text từ file. Lỗi: {'; '.join(load_errors)}" if load_errors else "Không trích xuất được text từ file."
+        raise HTTPException(status_code=422, detail=detail)
+
+    context = "\n\n".join(p.page_content for p in all_pages)[:8000]
+    llm = get_llm()
+    try:
+        response = await (IMAGE_CARD_PROMPT | llm).ainvoke({"context": context, "count": count})
+        raw_cards = _parse_llm_json(response.content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
+
+    visual_cards = [
+        c for c in raw_cards
+        if isinstance(c, dict) and c.get("image_type") in ("real_image", "diagram")
+    ][:count]
+
+    if not visual_cards:
+        raise HTTPException(status_code=422, detail="LLM không tìm thấy khái niệm nào có thể minh hoạ bằng ảnh trong tài liệu này.")
+
+    enriched = await enrich_cards_with_images(visual_cards)
+    return {"cards": enriched, "total": len(enriched)}
+
+
 @router.post("/{deck_id}/generate_image_cards")
 async def generate_image_cards(
     deck_id: int,

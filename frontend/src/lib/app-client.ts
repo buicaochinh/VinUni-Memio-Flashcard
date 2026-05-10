@@ -651,6 +651,26 @@ export async function generateDeckImages(deckId: number): Promise<{ generated: n
   return res.json();
 }
 
+/** Upload document → LLM picks visual concepts → DALL-E generates images → return cards WITHOUT saving */
+export async function previewImageCardsNoDeck(files: File[], count = 15): Promise<PreviewCard[]> {
+  const form = new FormData();
+  files.forEach((f) => form.append("files", f));
+  form.append("count", String(count));
+  const res = await authFetch("/api/cards/preview_image_cards", {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map((e: { msg?: string; loc?: string[] }) => `${e.loc?.join(".")}: ${e.msg}`).join("; ")
+      : (body.detail ?? `HTTP ${res.status}`);
+    throw new Error(detail);
+  }
+  const data = await res.json();
+  return (data.cards ?? []) as PreviewCard[];
+}
+
 /** Upload document → LLM picks visual concepts → DALL-E generates images → save cards to deck */
 export async function generateImageCards(
   deckId: number,
