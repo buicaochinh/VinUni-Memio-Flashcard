@@ -20,8 +20,7 @@ passlib[bcrypt]
 bcrypt
 email-validator
 PyJWT
-celery
-redis
+apscheduler>=3.10,<4.0
 alembic
 datasketch>=1.6
 defusedxml>=0.0.1
