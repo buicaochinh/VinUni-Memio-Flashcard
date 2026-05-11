@@ -26,7 +26,7 @@ app = FastAPI(title="AI Flashcard API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://mem.io.vn",
+        "https://a20-app-001.mem.io.vn",
         "https://api.mem.io.vn",
         "http://localhost:3000",
         "http://localhost:3001",

@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # Notifications
     CRON_SECRET: str = ""
-    APP_URL: str = "https://mem.io.vn"
+    APP_URL: str = "https://a20-app-001.mem.io.vn"
 
     model_config = SettingsConfigDict(
         env_file=".env",

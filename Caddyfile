@@ -1,4 +1,4 @@
-mem.io.vn {
+a20-app-001.mem.io.vn {
     reverse_proxy frontend:3000
 }
 
