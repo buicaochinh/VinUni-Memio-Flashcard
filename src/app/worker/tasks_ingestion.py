@@ -1,6 +1,5 @@
 import asyncio
 
-from celery import shared_task
 from sqlmodel import Session, select
 
 from src.app.db.session import engine
@@ -9,7 +8,6 @@ from src.app.models.domain import IngestionSource
 from src.app.services import ingestion_service
 
 
-@shared_task(name="src.app.worker.tasks_ingestion.sync_ingestion_sources")
 def sync_ingestion_sources():
     now = utc_now_naive()
     synced_source_ids: list[int] = []
