@@ -35,45 +35,6 @@ services:
       timeout: 10s
       retries: 3
 
-  redis:
-    image: redis:7-alpine
-    container_name: redis
-    restart: always
-    mem_limit: 128m
-    cpus: 0.25
-
-  worker:
-    image: a20-app-001-backend:pilot
-    env_file:
-      - .env
-    depends_on:
-      - redis
-      - backend
-    volumes:
-      - ./data:/app/data
-    restart: always
-    mem_limit: 384m
-    cpus: 0.75
-    environment:
-      - PYTHONPATH=.
-    command: ["celery", "-A", "src.app.worker.celery_app:celery_app", "worker", "-l", "INFO", "--pool", "solo"]
-
-  beat:
-    image: a20-app-001-backend:pilot
-    env_file:
-      - .env
-    depends_on:
-      - redis
-      - backend
-    volumes:
-      - ./data:/app/data
-    restart: always
-    mem_limit: 128m
-    cpus: 0.25
-    environment:
-      - PYTHONPATH=.
-    command: ["celery", "-A", "src.app.worker.celery_app:celery_app", "beat", "-l", "INFO", "--schedule", "/tmp/celerybeat-schedule"]
-
   frontend:
     image: a20-app-001-frontend:pilot
     build:
