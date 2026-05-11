@@ -19,11 +19,11 @@ export default function Home() {
       <nav className="absolute top-0 w-full p-6 flex justify-between items-center z-50">
         <div className="flex items-center gap-2.5">
           <div className="relative h-10 w-10">
-            <Image 
-              src="/icon.svg" 
-              alt="Memio Logo" 
+            <Image
+              src="/icon.svg"
+              alt="Memio Logo"
               fill
-              className="object-contain" 
+              className="object-contain"
               priority
             />
           </div>
@@ -58,7 +58,7 @@ export default function Home() {
             ) : (
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center rounded-full border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md px-4 py-2 text-foreground font-semibold shadow-sm transition-[background-color,border-color,transform,color] hover:bg-muted/35 hover:border-primary/25 hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
+                className="inline-flex items-center justify-center rounded-full border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md px-4 py-2 text-foreground font-semibold shadow-sm transition-[background-color,border-color,color] hover:bg-muted/35 hover:border-primary/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
               >
                 Đăng nhập
               </Link>
@@ -70,29 +70,29 @@ export default function Home() {
 
       {/* HERO SECTION */}
       <section className="pt-32 pb-16 px-5 flex flex-col items-center text-center relative z-10">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-bold mb-8 uppercase tracking-widest shadow-sm">
-          <Sparkles className="w-3.5 h-3.5" /> AI Tạo thẻ tự động
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/20 bg-primary/5 text-primary text-xs font-semibold mb-8 tracking-wide shadow-sm">
+          <Sparkles className="w-3.5 h-3.5" /> AI tạo thẻ tự động
         </div>
-        
+
         <h1 className="text-[clamp(2.4rem,5.6vw,4.8rem)] font-extrabold tracking-tight mb-6 max-w-[920px] leading-[1.05] text-foreground">
           Thẻ ghi nhớ thông minh<br />giúp bạn học nhanh hơn
         </h1>
-        
+
         <p className="text-muted-foreground text-[1.05rem] md:text-xl max-w-[66ch] mb-10 leading-relaxed">
           Tải tài liệu, tạo thẻ trong vài phút, rồi ôn theo nhịp. Memio giúp bạn học sâu hơn bằng spaced repetition và một luồng làm việc không gây nhiễu.
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8 w-full max-w-md mx-auto relative z-20">
-          <Link 
+          <Link
             href={user ? "/workspace" : "/signup"}
-            className="w-full sm:w-auto px-8 py-4 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-semibold text-lg hover:opacity-95 transition-[opacity,transform] shadow-sm active:translate-y-px flex items-center justify-center gap-2 relative overflow-hidden"
+            className="w-full sm:w-auto px-8 py-4 rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] font-semibold text-lg hover:opacity-95 transition-opacity shadow-sm active:translate-y-px flex items-center justify-center gap-2 relative overflow-hidden"
           >
             {user ? "Vào Workspace" : "Bắt đầu miễn phí"} <ArrowRight className="w-5 h-5" />
           </Link>
-          <Link 
+          <Link
             href={user ? "/generate" : "/login"}
-            className="w-full sm:w-auto px-8 py-4 rounded-full border border-border/80 bg-[hsl(var(--acrylic))] backdrop-blur-md text-foreground font-semibold text-lg hover:bg-muted/35 transition-colors flex items-center justify-center shadow-sm"
+            className="w-full sm:w-auto px-8 py-4 rounded-full border border-border/80 bg-muted/30 text-foreground font-semibold text-lg hover:bg-muted/50 transition-colors flex items-center justify-center shadow-sm"
           >
             {user ? "Tạo thẻ mới" : "Đăng nhập"}
           </Link>
@@ -163,7 +163,7 @@ export default function Home() {
                     Chọn một deck, bắt đầu phiên ngắn, rồi dừng đúng lúc. Nhớ lâu là nhờ nhịp, không phải marathon.
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-[hsl(var(--acrylic))] backdrop-blur-md px-3 py-2">
+                <div className="inline-flex items-center gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3 py-2">
                   <span className="text-[0.75rem] font-semibold text-muted-foreground">Tiến độ tuần</span>
                   <span className="text-sm font-bold tabular-nums text-foreground">120</span>
                   <span className="text-[0.75rem] text-muted-foreground">thẻ</span>
@@ -175,7 +175,7 @@ export default function Home() {
                   { title: "IELTS Writing Task 2", note: "12 thẻ cần ôn", tone: "text-primary" },
                   { title: "Lịch sử Thế giới", note: "34 thẻ cần ôn", tone: "text-muted-foreground" },
                 ].map((d) => (
-                  <div key={d.title} className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-5 shadow-sm">
+                  <div key={d.title} className="rounded-2xl border border-border bg-surface/90 p-5 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-semibold text-foreground truncate">{d.title}</div>
@@ -211,17 +211,17 @@ export default function Home() {
             </p>
           </div>
 
-          <ol className="grid gap-5">
+          <ol className="divide-y divide-border">
             {[
               { n: "01", t: "Tải tài liệu", d: "PDF, DOCX, TXT. Chỉ cần kéo thả, không cần chuẩn bị định dạng." },
               { n: "02", t: "AI tạo thẻ", d: "Chọn số lượng, rồi xem lại. Bạn giữ quyền chỉnh sửa trước khi lưu." },
               { n: "03", t: "Ôn theo nhịp", d: "SM-2 lên lịch ôn. Bạn chỉ tập trung vào thẻ đến hạn." },
             ].map((s) => (
-              <li key={s.n} className="rounded-2xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-6 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <div className="flex-none w-12 h-12 rounded-2xl bg-primary/10 text-primary grid place-items-center font-semibold">
+              <li key={s.n} className="py-6 first:pt-0 last:pb-0">
+                <div className="flex items-start gap-5">
+                  <span className="flex-none text-3xl font-extrabold tabular-nums text-primary/30 leading-none mt-0.5 w-10 text-right">
                     {s.n}
-                  </div>
+                  </span>
                   <div className="min-w-0">
                     <div className="text-lg font-semibold tracking-tight text-foreground">
                       {s.t}
@@ -267,7 +267,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border bg-[hsl(var(--acrylic-strong))] backdrop-blur-md p-7 shadow-sm">
+          <div className="rounded-3xl border border-border bg-muted/30 p-7">
             <div className="text-[0.78rem] font-semibold uppercase tracking-wide text-muted-foreground">
               Một phiên hợp lý
             </div>
@@ -275,7 +275,7 @@ export default function Home() {
               8–12 phút là đủ.
             </div>
             <p className="text-muted-foreground text-[0.95rem] leading-relaxed mt-3">
-              Memio được thiết kế cho phiên ngắn. Bạn dễ bắt đầu, dễ dừng, và dễ quay lại mà không cần “lấy đà”.
+              Memio được thiết kế cho phiên ngắn. Bạn dễ bắt đầu, dễ dừng, và dễ quay lại mà không cần "lấy đà".
             </p>
             <div className="mt-6 grid gap-3">
               {[
@@ -297,7 +297,7 @@ export default function Home() {
       <section className="py-24 px-5 bg-surface-muted border-y border-border">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-16 items-center">
           <div>
-            <h2 className="text-4xl font-black tracking-tight mb-6 leading-tight">Các nền tảng học tập khác quá chậm, phức tạp và đắt đỏ.</h2>
+            <h2 className="text-4xl font-extrabold tracking-tight mb-6 leading-tight">Các nền tảng học tập khác quá chậm, phức tạp và đắt đỏ.</h2>
             <p className="text-muted-foreground text-lg mb-8 leading-relaxed">
               Memio được thiết kế tinh gọn, tập trung hoàn toàn vào việc ghi nhớ hiệu quả. Không quảng cáo, không giao diện thừa, không phí ẩn.
             </p>
@@ -309,18 +309,18 @@ export default function Home() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-surface p-8 rounded-3xl border border-border shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors duration-300 text-primary">
-                <Clock className="w-6 h-6" />
+            <div className="bg-surface p-8 rounded-3xl border border-border shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="flex items-center gap-2.5 mb-4">
+                <Clock className="w-5 h-5 text-primary flex-none" />
+                <h4 className="font-bold text-lg">Tiết kiệm 80% thời gian</h4>
               </div>
-              <h4 className="font-bold text-lg mb-2">Tiết kiệm 80% thời gian</h4>
               <p className="text-muted-foreground text-sm">Thay vì mất hàng giờ tự viết thẻ, AI của Memio làm điều đó trong 10 giây.</p>
             </div>
-            <div className="bg-surface p-8 rounded-3xl border border-border shadow-sm hover:shadow-lg hover:-translate-y-2 transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors duration-300 text-primary">
-                <Layers className="w-6 h-6" />
+            <div className="bg-surface p-8 rounded-3xl border border-border shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="flex items-center gap-2.5 mb-4">
+                <Layers className="w-5 h-5 text-primary flex-none" />
+                <h4 className="font-bold text-lg">Tập trung tối đa</h4>
               </div>
-              <h4 className="font-bold text-lg mb-2">Tập trung tối đa</h4>
               <p className="text-muted-foreground text-sm">Giao diện học toàn màn hình, không bị phân tâm bởi các yếu tố thừa.</p>
             </div>
           </div>
@@ -329,7 +329,7 @@ export default function Home() {
 
       {/* BIG IMAGE FEATURE 1 */}
       <section className="py-24 px-5 max-w-5xl mx-auto text-center">
-        <h2 className="text-4xl font-black tracking-tight mb-6">Trải nghiệm tạo thẻ mượt mà nhất</h2>
+        <h2 className="text-4xl font-extrabold tracking-tight mb-6">Trải nghiệm tạo thẻ mượt mà nhất</h2>
         <p className="text-muted-foreground text-lg max-w-2xl mx-auto mb-16 leading-relaxed">
           Quên đi việc copy-paste từng dòng. Kéo thả file PDF, chọn số lượng thẻ mong muốn, và xem phép màu xảy ra.
         </p>
@@ -339,8 +339,8 @@ export default function Home() {
             <div className="rounded-3xl border border-border bg-surface/90 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-primary mb-2">Bước 1</p>
-                  <h3 className="text-xl font-black">Tải tài liệu lên</h3>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary mb-2">Bước 1</p>
+                  <h3 className="text-xl font-bold">Tải tài liệu lên</h3>
                 </div>
                 <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                   <FileText className="h-6 w-6" />
@@ -371,8 +371,8 @@ export default function Home() {
                 <Sparkles className="h-8 w-8 animate-pulse" />
               </div>
               <div className="text-center">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-primary mb-2">AI xử lý</p>
-                <h3 className="text-xl font-black">Tạo thẻ trong vài giây</h3>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary mb-2">AI xử lý</p>
+                <h3 className="text-xl font-bold">Tạo thẻ trong vài giây</h3>
                 <p className="mt-3 text-sm text-muted-foreground leading-relaxed">Chọn số lượng thẻ, độ chi tiết và để AI biến tài liệu thành bộ flashcards có ngữ cảnh.</p>
               </div>
               <div className="w-full space-y-3">
@@ -388,8 +388,8 @@ export default function Home() {
             <div className="rounded-3xl border border-border bg-surface/90 p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-primary mb-2">Bước 2</p>
-                  <h3 className="text-xl font-black">Duyệt thẻ trước khi lưu</h3>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary mb-2">Bước 2</p>
+                  <h3 className="text-xl font-bold">Duyệt thẻ trước khi lưu</h3>
                 </div>
                 <div className="h-12 w-12 rounded-2xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
                   <Brain className="h-6 w-6" />
@@ -402,7 +402,7 @@ export default function Home() {
                 ].map(([front, back, level]) => (
                   <div key={front} className="rounded-2xl border border-border bg-background p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <p className="text-sm font-black">{front}</p>
+                      <p className="text-sm font-bold">{front}</p>
                       <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{level}</span>
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed">{back}</p>
@@ -411,16 +411,16 @@ export default function Home() {
               </div>
               <div className="mt-5 grid grid-cols-3 gap-3 text-center">
                 <div className="rounded-2xl bg-primary/10 p-3">
-                  <p className="text-lg font-black text-primary">24</p>
-                  <p className="text-[11px] font-bold text-muted-foreground">thẻ mới</p>
+                  <p className="text-lg font-bold text-primary">24</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground">thẻ mới</p>
                 </div>
                 <div className="rounded-2xl bg-green-500/10 p-3">
-                  <p className="text-lg font-black text-green-600">3</p>
-                  <p className="text-[11px] font-bold text-muted-foreground">độ khó</p>
+                  <p className="text-lg font-bold text-green-600">3</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground">độ khó</p>
                 </div>
                 <div className="rounded-2xl bg-amber-500/10 p-3">
-                  <p className="text-lg font-black text-amber-600">10s</p>
-                  <p className="text-[11px] font-bold text-muted-foreground">xử lý</p>
+                  <p className="text-lg font-bold text-amber-600">10s</p>
+                  <p className="text-[11px] font-semibold text-muted-foreground">xử lý</p>
                 </div>
               </div>
             </div>
@@ -453,26 +453,21 @@ export default function Home() {
 
       {/* FOOTER CTA */}
       <section className="py-24 px-5">
-        <div className="max-w-4xl mx-auto bg-surface-muted border border-border rounded-[3rem] p-12 md:p-20 text-center relative overflow-hidden shadow-sm">
-          <div className="relative z-10">
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6 text-foreground">
-              {user ? `Tiếp tục học nhé, ${displayName}` : "Sẵn sàng để học tốt hơn?"}
-            </h2>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-10">
-              {user
-                ? "Quay lại workspace để tạo thẻ mới, ôn tập các deck đang học và theo dõi tiến độ của bạn."
-                : "Gia nhập cùng hàng ngàn học sinh, sinh viên đang sử dụng Memio để đạt điểm cao hơn mỗi ngày."}
-            </p>
-            <Link
-              href={user ? "/workspace" : "/signup"}
-              className="bg-primary text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-primary/90 transition-all shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)]"
-            >
-              {user ? "Mở Workspace" : "Tạo tài khoản miễn phí"}
-            </Link>
-          </div>
-          {/* Decorative circles */}
-          <div className="absolute top-0 left-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-64 h-64 bg-blue-400/20 rounded-full blur-3xl translate-x-1/3 translate-y-1/3"></div>
+        <div className="max-w-4xl mx-auto bg-surface-muted border border-border rounded-[3rem] p-12 md:p-20 text-center shadow-sm">
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-6 text-foreground">
+            {user ? `Tiếp tục học nhé, ${displayName}` : "Sẵn sàng để học tốt hơn?"}
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-10">
+            {user
+              ? "Quay lại workspace để tạo thẻ mới, ôn tập các deck đang học và theo dõi tiến độ của bạn."
+              : "Gia nhập cùng hàng ngàn học sinh, sinh viên đang sử dụng Memio để đạt điểm cao hơn mỗi ngày."}
+          </p>
+          <Link
+            href={user ? "/workspace" : "/signup"}
+            className="inline-flex bg-primary text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-primary/90 transition-[background-color] shadow-[0_0_40px_-10px_rgba(37,99,235,0.5)]"
+          >
+            {user ? "Mở Workspace" : "Tạo tài khoản miễn phí"}
+          </Link>
         </div>
       </section>
 
@@ -506,7 +501,7 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 text-sm font-black uppercase tracking-[0.18em] text-foreground">Sản phẩm</h4>
+              <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-foreground">Sản phẩm</h4>
               <div className="flex flex-col gap-3 text-sm font-bold text-muted-foreground">
                 <a href="#" className="transition-colors hover:text-foreground">Tính năng</a>
                 {user ? (
@@ -524,7 +519,7 @@ export default function Home() {
             </div>
 
             <div>
-              <h4 className="mb-4 text-sm font-black uppercase tracking-[0.18em] text-foreground">Học tập</h4>
+              <h4 className="mb-4 text-sm font-semibold uppercase tracking-wide text-foreground">Học tập</h4>
               <div className="flex flex-col gap-3 text-sm font-bold text-muted-foreground">
                 <a href="#" className="transition-colors hover:text-foreground">Tạo bộ thẻ</a>
                 <a href="#" className="transition-colors hover:text-foreground">Ôn tập thông minh</a>
@@ -533,10 +528,7 @@ export default function Home() {
             </div>
 
             <div className="rounded-3xl border border-border bg-background p-6 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <h4 className="mb-2 text-lg font-black text-foreground">Bắt đầu trong vài giây</h4>
+              <h4 className="mb-2 text-lg font-bold text-foreground">Bắt đầu trong vài giây</h4>
               <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
                 {user
                   ? "Bạn đã đăng nhập. Tiếp tục tạo bộ thẻ mới từ tài liệu của mình."
@@ -544,7 +536,7 @@ export default function Home() {
               </p>
               <Link
                 href={user ? "/generate" : "/signup"}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-bold text-white transition-all hover:bg-primary/90"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-bold text-white transition-[background-color] hover:bg-primary/90"
               >
                 {user ? "Tạo thẻ mới" : "Tạo tài khoản"} <ArrowRight className="h-4 w-4" />
               </Link>
