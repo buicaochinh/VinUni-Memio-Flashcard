@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Card,
@@ -14,22 +14,29 @@ import {
   useClientReady,
   User,
 } from "../../../lib/app-client";
-import AppShell from "../../../components/AppShell";
-import { Button } from "../../../components/ui/button";
 import { cn } from "../../../lib/utils";
 import {
   ArrowLeft,
   CheckCircle2,
   Flag,
-  HelpCircle,
-  Loader2,
-  Map,
+  Heart,
   Play,
   RotateCcw,
+  Swords,
   Trophy,
   XCircle,
   Zap,
 } from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type Phase =
+  | "loading"
+  | "stage-intro"
+  | "playing"
+  | "feedback"
+  | "game-over"
+  | "complete";
 
 type AnswerRecord = {
   questionId: string;
@@ -40,22 +47,36 @@ type AnswerRecord = {
   quality: 0 | 1 | 2 | 3;
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MAX_LIVES = 3;
+const FEEDBACK_MS = 1500;
+const CHOICE_LABELS = ["A", "B", "C", "D"];
+const LOAD_STEPS = [
+  "Đang đọc deck của bạn...",
+  "Dựng câu chuyện...",
+  "Tạo các thử thách...",
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function flattenQuestions(campaign: GameCampaign): GameQuestion[] {
-  return campaign.stages.flatMap((stage) => stage.questions);
+  return campaign.stages.flatMap((s) => s.questions);
 }
 
-function qualityForAnswer(correct: boolean, usedHint: boolean): 0 | 1 | 2 | 3 {
+function quality(correct: boolean, usedHint: boolean): 0 | 1 | 2 | 3 {
   if (correct && !usedHint) return 3;
   if (correct && usedHint) return 2;
   if (!correct && usedHint) return 1;
   return 0;
 }
 
-function scoreForAnswer(correct: boolean, usedHint: boolean, combo: number) {
+function score(correct: boolean, usedHint: boolean, combo: number): number {
   if (!correct) return 0;
-  const base = usedHint ? 70 : 100;
-  return base + Math.min(combo, 5) * 12;
+  return (usedHint ? 70 : 100) + Math.min(combo, 5) * 12;
 }
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PlayCampaignPage() {
   const params = useParams<{ deckId: string }>();
@@ -63,383 +84,682 @@ export default function PlayCampaignPage() {
   const router = useRouter();
   const clientReady = useClientReady();
 
+  // Game data
   const [user, setUser] = useState<User | null>(null);
   const [cardsById, setCardsById] = useState<Record<number, Card>>({});
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [campaign, setCampaign] = useState<GameCampaign | null>(null);
+
+  // Navigation
+  const [phase, setPhase] = useState<Phase>("loading");
   const [stageIndex, setStageIndex] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+
+  // Answer state
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [usedHint, setUsedHint] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [score, setScore] = useState(0);
+
+  // Score / lives
+  const [totalScore, setTotalScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [bestCombo, setBestCombo] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isCompleting, setIsCompleting] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [lives, setLives] = useState(MAX_LIVES);
+  const [answers, setAnswers] = useState<AnswerRecord[]>([]);
+  const [scoreGain, setScoreGain] = useState<number | null>(null);
 
-  const questions = useMemo(() => campaign ? flattenQuestions(campaign) : [], [campaign]);
+  // Misc
+  const [loadStep, setLoadStep] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  // Refs to avoid stale closures in timers
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const advanceRef = useRef<(() => void) | null>(null);
+
+  // ─── Derived ──────────────────────────────────────────────────────────────
+
+  const questions = useMemo(
+    () => (campaign ? flattenQuestions(campaign) : []),
+    [campaign]
+  );
   const stage = campaign?.stages[stageIndex] ?? null;
   const question = stage?.questions[questionIndex] ?? null;
   const answeredCount = answers.length;
   const correctCount = answers.filter((a) => a.correct).length;
-  const progressPct = questions.length ? Math.round((answeredCount / questions.length) * 100) : 0;
-  const accuracy = answeredCount ? Math.round((correctCount / answeredCount) * 100) : 0;
-  const xpEarned = Math.max(0, Math.round(score / 10) + correctCount * 8 + bestCombo * 4);
+  const progressPct = questions.length
+    ? Math.round((answeredCount / questions.length) * 100)
+    : 0;
+  const xpEarned = Math.max(
+    0,
+    Math.round(totalScore / 10) + correctCount * 8 + bestCombo * 4
+  );
+  const lastWasCorrect = answers[answers.length - 1]?.correct ?? false;
 
-  const startGame = useCallback(async (currentUser: User) => {
-    setIsLoading(true);
-    setMsg(null);
-    try {
-      const [game, deckCards] = await Promise.all([
-        startAdventureCampaign(deckId, 12),
-        fetchDeckCards(deckId),
-      ]);
-      setSessionId(game.session_id);
-      setCampaign(game.campaign);
-      setCardsById(Object.fromEntries(deckCards.map((card) => [card.id, card])));
-      setStageIndex(0);
-      setQuestionIndex(0);
-      setAnswers([]);
-      setSelectedIndex(null);
-      setUsedHint(false);
-      setShowFeedback(false);
-      setScore(0);
-      setCombo(0);
-      setBestCombo(0);
-      setIsComplete(false);
-    } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Không khởi tạo được Thử thách AI.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [deckId]);
+  // ─── Loading animation ────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const timers = LOAD_STEPS.map((_, i) =>
+      setTimeout(() => setLoadStep(i), i * 1600)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [phase]);
+
+  // ─── Start game ───────────────────────────────────────────────────────────
+
+  const startGame = useCallback(
+    async (currentUser: User) => {
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+      advanceRef.current = null;
+      setPhase("loading");
+      setLoadStep(0);
+      setErrorMsg(null);
+      try {
+        const [game, deckCards] = await Promise.all([
+          startAdventureCampaign(deckId, 12),
+          fetchDeckCards(deckId),
+        ]);
+        setSessionId(game.session_id);
+        setCampaign(game.campaign);
+        setCardsById(
+          Object.fromEntries(deckCards.map((c) => [c.id, c]))
+        );
+        setStageIndex(0);
+        setQuestionIndex(0);
+        setAnswers([]);
+        setSelectedIndex(null);
+        setUsedHint(false);
+        setTotalScore(0);
+        setCombo(0);
+        setBestCombo(0);
+        setLives(MAX_LIVES);
+        setPhase("stage-intro");
+      } catch (err) {
+        setErrorMsg(
+          err instanceof Error ? err.message : "Không khởi tạo được game."
+        );
+      }
+    },
+    [deckId]
+  );
 
   useEffect(() => {
     if (!clientReady) return;
-    const storedUser = getStoredUser();
-    if (!storedUser) {
-      router.replace("/");
-      return;
-    }
-    setUser(storedUser);
-    void startGame(storedUser);
+    const u = getStoredUser();
+    if (!u) { router.replace("/"); return; }
+    setUser(u);
+    void startGame(u);
   }, [clientReady, router, startGame]);
 
-  const completeGame = useCallback(async (nextAnswers: AnswerRecord[], nextScore: number, nextBestCombo: number) => {
-    if (!user || !sessionId || isCompleting) return;
-    setIsCompleting(true);
-    const nextCorrect = nextAnswers.filter((a) => a.correct).length;
-    const nextAccuracy = nextAnswers.length ? Math.round((nextCorrect / nextAnswers.length) * 100) : 0;
-    const nextXp = Math.max(0, Math.round(nextScore / 10) + nextCorrect * 8 + nextBestCombo * 4);
+  // ─── Stage intro auto-advance ─────────────────────────────────────────────
 
-    try {
-      await completeAdventureCampaign(sessionId, {
-        score: nextScore,
-        xp_earned: nextXp,
-        accuracy: nextAccuracy,
-        total_questions: nextAnswers.length,
-        correct_answers: nextCorrect,
-      });
-    } catch {
-      setMsg("Đã hoàn thành, nhưng chưa lưu được điểm XP. Bạn có thể thử lại sau.");
-    } finally {
-      setIsCompleting(false);
-      setIsComplete(true);
-    }
-  }, [isCompleting, sessionId, user]);
+  const startStage = useCallback(() => {
+    setPhase("playing");
+  }, []);
 
-  const handleAnswer = async (choiceIndex: number) => {
-    if (!question || selectedIndex !== null || !user) return;
-    const correct = choiceIndex === question.answer_index;
-    const quality = qualityForAnswer(correct, usedHint);
-    const nextCombo = correct ? combo + 1 : 0;
-    const nextBestCombo = Math.max(bestCombo, nextCombo);
-    const gained = scoreForAnswer(correct, usedHint, nextCombo);
-    const nextScore = score + gained;
-    const record: AnswerRecord = {
-      questionId: question.id,
-      cardId: question.card_id,
-      selectedIndex: choiceIndex,
-      correct,
-      usedHint,
-      quality,
-    };
-    const nextAnswers = [...answers, record];
+  useEffect(() => {
+    if (phase !== "stage-intro") return;
+    const t = setTimeout(startStage, 3000);
+    return () => clearTimeout(t);
+  }, [phase, stageIndex, startStage]);
 
-    setSelectedIndex(choiceIndex);
-    setShowFeedback(true);
-    setScore(nextScore);
-    setCombo(nextCombo);
-    setBestCombo(nextBestCombo);
-    setAnswers(nextAnswers);
+  // ─── Complete game ────────────────────────────────────────────────────────
 
-    const card = cardsById[question.card_id];
-    if (card) {
-      await updateCardProgress(card, quality).catch(() => {
-        setMsg("Một câu trả lời chưa cập nhật được lịch ôn. Kết quả game vẫn được giữ.");
-      });
-    }
+  const completeGame = useCallback(
+    async (
+      finalAnswers: AnswerRecord[],
+      finalScore: number,
+      finalBestCombo: number
+    ) => {
+      if (!sessionId || isCompleting) return;
+      setIsCompleting(true);
+      const nc = finalAnswers.filter((a) => a.correct).length;
+      const acc = finalAnswers.length
+        ? Math.round((nc / finalAnswers.length) * 100)
+        : 0;
+      const xp = Math.max(
+        0,
+        Math.round(finalScore / 10) + nc * 8 + finalBestCombo * 4
+      );
+      try {
+        await completeAdventureCampaign(sessionId, {
+          score: finalScore,
+          xp_earned: xp,
+          accuracy: acc,
+          total_questions: finalAnswers.length,
+          correct_answers: nc,
+        });
+      } catch {
+        // score recorded client-side regardless
+      } finally {
+        setIsCompleting(false);
+        setPhase("complete");
+      }
+    },
+    [sessionId, isCompleting]
+  );
 
-    const isLastQuestionInStage = stage ? questionIndex >= stage.questions.length - 1 : true;
-    const isLastStage = campaign ? stageIndex >= campaign.stages.length - 1 : true;
-    if (isLastQuestionInStage && isLastStage) {
-      await completeGame(nextAnswers, nextScore, nextBestCombo);
-    }
-  };
+  // ─── Advance to next question ──────────────────────────────────────────────
 
-  const goNext = () => {
-    if (!campaign || !stage) return;
-    const isLastQuestionInStage = questionIndex >= stage.questions.length - 1;
-    if (isLastQuestionInStage) {
-      if (stageIndex < campaign.stages.length - 1) {
+  const goNext = useCallback(
+    (
+      nextAnswers: AnswerRecord[],
+      nextScore: number,
+      nextBestCombo: number,
+      nextLives: number
+    ) => {
+      if (!campaign || !stage) return;
+
+      if (nextLives <= 0) {
+        setPhase("game-over");
+        return;
+      }
+
+      const isLastQInStage = questionIndex >= stage.questions.length - 1;
+      const isLastStage = stageIndex >= campaign.stages.length - 1;
+
+      if (isLastQInStage && isLastStage) {
+        void completeGame(nextAnswers, nextScore, nextBestCombo);
+        return;
+      }
+
+      setSelectedIndex(null);
+      setUsedHint(false);
+
+      if (isLastQInStage) {
         setStageIndex((i) => i + 1);
         setQuestionIndex(0);
+        setPhase("stage-intro");
+      } else {
+        setQuestionIndex((i) => i + 1);
+        setPhase("playing");
       }
-    } else {
-      setQuestionIndex((i) => i + 1);
-    }
-    setSelectedIndex(null);
-    setUsedHint(false);
-    setShowFeedback(false);
-  };
+    },
+    [campaign, stage, questionIndex, stageIndex, completeGame]
+  );
+
+  // ─── Handle answer ────────────────────────────────────────────────────────
+
+  const handleAnswer = useCallback(
+    async (choiceIndex: number) => {
+      if (!question || selectedIndex !== null || phase !== "playing") return;
+
+      const correct = choiceIndex === question.answer_index;
+      const q = quality(correct, usedHint);
+      const nextCombo = correct ? combo + 1 : 0;
+      const nextBestCombo = Math.max(bestCombo, nextCombo);
+      const gained = score(correct, usedHint, nextCombo);
+      const nextScore = totalScore + gained;
+      const nextLives = correct ? lives : lives - 1;
+      const record: AnswerRecord = {
+        questionId: question.id,
+        cardId: question.card_id,
+        selectedIndex: choiceIndex,
+        correct,
+        usedHint,
+        quality: q,
+      };
+      const nextAnswers = [...answers, record];
+
+      setSelectedIndex(choiceIndex);
+      setTotalScore(nextScore);
+      setCombo(nextCombo);
+      setBestCombo(nextBestCombo);
+      setLives(nextLives);
+      setAnswers(nextAnswers);
+      setScoreGain(gained > 0 ? gained : null);
+      setPhase("feedback");
+
+      const card = cardsById[question.card_id];
+      if (card) updateCardProgress(card, q).catch(() => {});
+
+      // Capture advance in a ref so timer + skip both work without stale closures
+      advanceRef.current = () => {
+        setScoreGain(null);
+        goNext(nextAnswers, nextScore, nextBestCombo, nextLives);
+      };
+      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+      feedbackTimer.current = setTimeout(() => {
+        advanceRef.current?.();
+        advanceRef.current = null;
+      }, FEEDBACK_MS);
+    },
+    [
+      question,
+      selectedIndex,
+      phase,
+      usedHint,
+      combo,
+      bestCombo,
+      totalScore,
+      lives,
+      answers,
+      cardsById,
+      goNext,
+    ]
+  );
+
+  // ─── Skip feedback on click ───────────────────────────────────────────────
+
+  const skipFeedback = useCallback(() => {
+    if (phase !== "feedback") return;
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    advanceRef.current?.();
+    advanceRef.current = null;
+  }, [phase]);
+
+  // ─── Keyboard shortcuts ───────────────────────────────────────────────────
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (phase === "feedback") { skipFeedback(); return; }
+      if (phase === "stage-intro") { startStage(); return; }
+      if (phase !== "playing") return;
+      const map: Record<string, number> = { "1": 0, "2": 1, "3": 2, "4": 3 };
+      if (e.key in map) void handleAnswer(map[e.key]);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, handleAnswer, skipFeedback, startStage]);
 
   if (!user) return null;
 
-  return (
-    <AppShell user={user}>
-      <div className="space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={() => router.push("/workspace")}
-            className="inline-flex w-fit items-center gap-2 rounded-xl border border-border bg-background/70 px-3.5 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted/45 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            Workspace
-          </button>
+  // ─── Render ───────────────────────────────────────────────────────────────
 
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background/75 px-3 py-2 font-semibold">
-              <Trophy className="h-4 w-4 text-[hsl(var(--warning))]" aria-hidden />
-              {score} điểm
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background/75 px-3 py-2 font-semibold">
-              <Zap className="h-4 w-4 text-primary" aria-hidden />
-              Combo {combo}
-            </span>
+  return (
+    <div className="fixed inset-0 bg-background flex flex-col overflow-hidden">
+
+      {/* ── HUD ── */}
+      <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/95 backdrop-blur-sm z-10">
+        <button
+          type="button"
+          onClick={() => router.push("/workspace")}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Thoát
+        </button>
+
+        {campaign && (
+          <p className="hidden sm:block text-xs font-semibold text-muted-foreground truncate max-w-xs">
+            {campaign.title}
+          </p>
+        )}
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1">
+            {Array.from({ length: MAX_LIVES }).map((_, i) => (
+              <Heart
+                key={i}
+                className={cn(
+                  "h-5 w-5 transition-all duration-300",
+                  i < lives
+                    ? "text-red-500 fill-red-500"
+                    : "text-muted-foreground/25 fill-transparent"
+                )}
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
+            <Trophy className="h-4 w-4 text-yellow-500" />
+            {totalScore}
+          </div>
+
+          <div
+            className={cn(
+              "flex items-center gap-1 text-sm font-bold transition-all duration-200",
+              combo >= 2 ? "text-primary scale-110" : "text-muted-foreground/40 scale-100"
+            )}
+          >
+            <Zap className="h-4 w-4" />
+            {combo}×
           </div>
         </div>
+      </header>
 
-        <section className="relative overflow-hidden rounded-2xl border border-border bg-background/70 shadow-sm">
-          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(800px_circle_at_18%_0%,hsl(var(--primary)/0.10),transparent_42%),radial-gradient(620px_circle_at_88%_12%,hsl(var(--success)/0.10),transparent_38%)]" />
-          <div className="relative px-5 py-5 sm:px-7 sm:py-6">
-            {isLoading ? (
-              <div className="min-h-[420px] flex flex-col items-center justify-center gap-4 text-center">
-                <Loader2 className="h-9 w-9 animate-spin text-primary" aria-hidden />
+      {/* ── Progress bar ── */}
+      {campaign && (phase === "playing" || phase === "feedback") && (
+        <div className="h-1 bg-muted shrink-0">
+          <div
+            className="h-full bg-primary transition-[width] duration-500"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      )}
+
+      {/* ── Main ── */}
+      <main className="flex-1 overflow-y-auto">
+
+        {/* LOADING */}
+        {phase === "loading" && (
+          <div className="flex flex-col items-center justify-center min-h-full gap-8 px-5 py-16 text-center">
+            {errorMsg ? (
+              <>
+                <XCircle className="h-12 w-12 text-[hsl(var(--danger))]" />
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">AI đang dựng bản đồ học</h1>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Campaign được tạo một lần từ deck của bạn, sau đó bạn chơi liền mạch.
-                  </p>
+                  <p className="text-xl font-bold">Chưa khởi tạo được</p>
+                  <p className="mt-2 text-sm text-muted-foreground max-w-sm">{errorMsg}</p>
                 </div>
-              </div>
-            ) : msg && !campaign ? (
-              <div className="min-h-[360px] flex flex-col items-center justify-center gap-4 text-center">
-                <XCircle className="h-10 w-10 text-[hsl(var(--danger))]" aria-hidden />
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Chưa bắt đầu được game</h1>
-                  <p className="mt-2 max-w-xl text-sm text-muted-foreground">{msg}</p>
-                </div>
-                <Button type="button" variant="primary" onClick={() => startGame(user)}>
-                  <RotateCcw className="h-4 w-4" aria-hidden />
-                  Thử lại
-                </Button>
-              </div>
-            ) : isComplete && campaign ? (
-              <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-2xl border border-border bg-background/80 p-6">
-                  <p className="mb-3 inline-flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary">
-                    <Flag className="h-4 w-4" aria-hidden />
-                    Campaign complete
-                  </p>
-                  <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{campaign.title}</h1>
-                  <p className="mt-3 text-muted-foreground leading-relaxed">{campaign.final_goal}</p>
-                  {msg && <p className="mt-4 text-sm text-[hsl(var(--warning))]">{msg}</p>}
-                  <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {[
-                      ["Điểm", score],
-                      ["XP", xpEarned],
-                      ["Đúng", `${correctCount}/${answers.length}`],
-                      ["Combo", bestCombo],
-                    ].map(([label, value]) => (
-                      <div key={label} className="rounded-2xl border border-border bg-muted/25 px-4 py-4">
-                        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-                        <p className="mt-1 text-xl font-bold tabular-nums">{value}</p>
-                      </div>
-                    ))}
+                <button
+                  type="button"
+                  onClick={() => user && void startGame(user)}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 font-bold text-white hover:bg-primary/90 transition-colors"
+                >
+                  <RotateCcw className="h-4 w-4" /> Thử lại
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="relative">
+                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Swords className="h-10 w-10 text-primary animate-pulse" />
                   </div>
-                  <div className="mt-6 flex flex-wrap gap-2">
-                    <Button type="button" variant="primary" onClick={() => startGame(user)}>
-                      <Play className="h-4 w-4" aria-hidden />
-                      Chơi lại
-                    </Button>
-                    <Button type="button" variant="secondary" onClick={() => router.push(`/study/${deckId}`)}>
-                      Ôn flashcard
-                    </Button>
+                  <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                    <Zap className="h-3 w-3 text-white" />
                   </div>
                 </div>
+                <div className="space-y-3">
+                  {LOAD_STEPS.map((step, i) => (
+                    <p
+                      key={step}
+                      className={cn(
+                        "text-sm font-semibold transition-all duration-500",
+                        i < loadStep && "text-muted-foreground line-through opacity-50",
+                        i === loadStep && "text-foreground",
+                        i > loadStep && "text-muted-foreground/30"
+                      )}
+                    >
+                      {i < loadStep ? "✓ " : i === loadStep ? "· " : "  "}{step}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
-                <div className="rounded-2xl border border-border bg-background/80 p-5">
-                  <h2 className="font-semibold tracking-tight">Báo cáo chặng</h2>
-                  <div className="mt-4 space-y-3">
-                    {campaign.stages.map((item) => {
-                      const stageAnswers = answers.filter((a) => item.questions.some((q) => q.id === a.questionId));
-                      const stageCorrect = stageAnswers.filter((a) => a.correct).length;
-                      return (
-                        <div key={item.id} className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-                          <p className="font-semibold">{item.title}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {stageCorrect}/{stageAnswers.length} câu đúng
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+        {/* STAGE INTRO */}
+        {phase === "stage-intro" && stage && campaign && (
+          <div
+            className="flex flex-col items-center justify-center min-h-full gap-6 px-5 py-16 text-center cursor-pointer select-none"
+            onClick={startStage}
+          >
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+              Chặng {stageIndex + 1} / {campaign.stages.length}
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight max-w-lg">
+              {stage.title}
+            </h2>
+            <p className="text-muted-foreground max-w-md leading-relaxed">
+              {stage.mission}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {stage.questions.length} câu · Tự động bắt đầu sau 3 giây
+            </p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); startStage(); }}
+              className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 font-bold text-white hover:bg-primary/90 transition-colors"
+            >
+              <Play className="h-4 w-4" /> Bắt đầu ngay
+            </button>
+          </div>
+        )}
+
+        {/* PLAYING / FEEDBACK */}
+        {(phase === "playing" || phase === "feedback") && question && stage && (
+          <div
+            className={cn(
+              "flex flex-col items-center min-h-full px-5 py-10",
+              phase === "feedback" && "cursor-pointer select-none"
+            )}
+            onClick={phase === "feedback" ? skipFeedback : undefined}
+          >
+            <div className="w-full max-w-2xl mx-auto flex flex-col gap-7">
+
+              {/* Stage label + question */}
+              <div className="text-center space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                  {stage.title}
+                </p>
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight leading-snug">
+                  {question.prompt}
+                </h2>
               </div>
-            ) : campaign && stage && question ? (
-              <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-                <aside className="rounded-2xl border border-border bg-background/80 p-5">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                      <Map className="h-5 w-5 text-primary" aria-hidden />
-                    </span>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground">Thử thách AI</p>
-                      <h1 className="font-bold tracking-tight">{campaign.title}</h1>
-                    </div>
-                  </div>
-                  <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{campaign.premise}</p>
 
-                  <div className="mt-5 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-[width] duration-300"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                  <p className="mt-2 text-xs font-semibold text-muted-foreground">
-                    {answeredCount}/{questions.length} câu, accuracy {accuracy}%
-                  </p>
+              {/* Choices */}
+              <div className="grid gap-3">
+                {question.choices.map((choice, index) => {
+                  const isSelected = selectedIndex === index;
+                  const isCorrect = index === question.answer_index;
+                  const revealCorrect = phase === "feedback" && isCorrect;
+                  const revealWrong =
+                    phase === "feedback" && isSelected && !isCorrect;
 
-                  <div className="mt-5 space-y-2">
-                    {campaign.stages.map((item, index) => (
-                      <div
-                        key={item.id}
+                  return (
+                    <button
+                      key={`${question.id}-${index}`}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleAnswer(index);
+                      }}
+                      disabled={phase !== "playing"}
+                      className={cn(
+                        "flex items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left font-semibold transition-all duration-150",
+                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]",
+                        phase === "playing" &&
+                          "hover:border-primary/40 hover:bg-primary/5 active:scale-[0.99]",
+                        revealCorrect &&
+                          "border-[hsl(var(--success))] bg-[hsl(var(--success)/0.10)] scale-[1.01]",
+                        revealWrong &&
+                          "border-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.08)] animate-shake",
+                        !revealCorrect &&
+                          !revealWrong &&
+                          "border-border bg-background/80"
+                      )}
+                    >
+                      <span
                         className={cn(
-                          "rounded-xl border px-3 py-3 text-sm",
-                          index === stageIndex
-                            ? "border-primary/50 bg-primary/10 text-foreground"
-                            : index < stageIndex
-                              ? "border-border bg-muted/25 text-muted-foreground"
-                              : "border-border bg-background/60 text-muted-foreground"
+                          "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold text-sm transition-colors",
+                          revealCorrect
+                            ? "bg-[hsl(var(--success))] text-white"
+                            : revealWrong
+                            ? "bg-[hsl(var(--danger))] text-white"
+                            : isSelected
+                            ? "bg-primary text-white"
+                            : "bg-muted text-muted-foreground"
                         )}
                       >
-                        <p className="font-semibold">{item.title}</p>
-                        <p className="mt-1 text-xs">{item.questions.length} thử thách</p>
-                      </div>
-                    ))}
-                  </div>
-                </aside>
-
-                <main className="rounded-2xl border border-border bg-background/85 p-5 sm:p-7">
-                  <p className="text-sm font-semibold text-primary">{stage.title}</p>
-                  <h2 className="mt-2 text-2xl font-bold tracking-tight">{question.prompt}</h2>
-                  <p className="mt-3 text-sm text-muted-foreground">{stage.mission}</p>
-
-                  <div className="mt-6 grid gap-3">
-                    {question.choices.map((choice, index) => {
-                      const isSelected = selectedIndex === index;
-                      const isCorrect = index === question.answer_index;
-                      const revealCorrect = showFeedback && isCorrect;
-                      const revealWrong = showFeedback && isSelected && !isCorrect;
-                      return (
-                        <button
-                          key={`${question.id}-${choice}-${index}`}
-                          type="button"
-                          onClick={() => handleAnswer(index)}
-                          disabled={selectedIndex !== null}
-                          className={cn(
-                            "flex min-h-14 items-center gap-3 rounded-2xl border px-4 py-3 text-left font-semibold transition-[background-color,border-color,transform]",
-                            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]",
-                            selectedIndex === null && "hover:bg-muted/35 active:translate-y-px",
-                            revealCorrect && "border-[hsl(var(--success))] bg-[hsl(var(--success)/0.10)]",
-                            revealWrong && "border-[hsl(var(--danger))] bg-[hsl(var(--danger)/0.10)]",
-                            !revealCorrect && !revealWrong && "border-border bg-background/70"
-                          )}
-                        >
-                          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-sm tabular-nums">
-                            {index + 1}
-                          </span>
-                          <span className="leading-relaxed">{choice}</span>
-                          {revealCorrect && <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-[hsl(var(--success))]" aria-hidden />}
-                          {revealWrong && <XCircle className="ml-auto h-5 w-5 shrink-0 text-[hsl(var(--danger))]" aria-hidden />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-5 rounded-2xl border border-border bg-muted/25 p-4">
-                    {showFeedback ? (
-                      <div className="space-y-2">
-                        <p className="font-semibold">
-                          {selectedIndex === question.answer_index ? "Chính xác" : "Chưa đúng"}
-                        </p>
-                        <p className="text-sm leading-relaxed text-muted-foreground">{question.explanation}</p>
-                      </div>
-                    ) : usedHint ? (
-                      <div className="space-y-2">
-                        <p className="font-semibold">Gợi ý</p>
-                        <p className="text-sm leading-relaxed text-muted-foreground">{question.hint}</p>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setUsedHint(true)}
-                        className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline underline-offset-4"
-                      >
-                        <HelpCircle className="h-4 w-4" aria-hidden />
-                        Dùng gợi ý
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="mt-6 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={goNext}
-                      disabled={!showFeedback || isComplete || isCompleting}
-                    >
-                      {isCompleting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                          Đang lưu
-                        </>
-                      ) : (
-                        "Tiếp tục"
+                        {CHOICE_LABELS[index]}
+                      </span>
+                      <span className="leading-relaxed flex-1">{choice}</span>
+                      {revealCorrect && (
+                        <CheckCircle2 className="ml-auto h-5 w-5 shrink-0 text-[hsl(var(--success))]" />
                       )}
-                    </Button>
-                  </div>
-                </main>
+                      {revealWrong && (
+                        <XCircle className="ml-auto h-5 w-5 shrink-0 text-[hsl(var(--danger))]" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            ) : null}
+
+              {/* Feedback / hint */}
+              {phase === "feedback" ? (
+                <div
+                  className={cn(
+                    "rounded-2xl border-2 p-5 text-sm leading-relaxed",
+                    lastWasCorrect
+                      ? "border-[hsl(var(--success)/0.35)] bg-[hsl(var(--success)/0.06)]"
+                      : "border-[hsl(var(--danger)/0.35)] bg-[hsl(var(--danger)/0.06)]"
+                  )}
+                >
+                  <p className="font-bold mb-1.5">
+                    {lastWasCorrect
+                      ? combo > 1
+                        ? `${combo}× Combo! Chính xác.`
+                        : "Chính xác!"
+                      : "Chưa đúng."}
+                  </p>
+                  <p className="text-muted-foreground">{question.explanation}</p>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Nhấn phím bất kỳ hoặc click để tiếp tục
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => !usedHint && setUsedHint(true)}
+                    className={cn(
+                      "text-sm font-semibold transition-colors",
+                      usedHint
+                        ? "text-muted-foreground cursor-default"
+                        : "text-primary hover:underline underline-offset-4"
+                    )}
+                  >
+                    {usedHint
+                      ? `Gợi ý: ${question.hint}`
+                      : "Dùng gợi ý (điểm thấp hơn)"}
+                  </button>
+                  <p className="text-xs text-muted-foreground">Phím 1–4</p>
+                </div>
+              )}
+            </div>
+
+            {/* Score gain popup */}
+            {scoreGain !== null && scoreGain > 0 && (
+              <div className="fixed top-14 right-6 animate-score-pop text-xl font-extrabold text-[hsl(var(--success))] pointer-events-none select-none z-50">
+                +{scoreGain}
+              </div>
+            )}
           </div>
-        </section>
-      </div>
-    </AppShell>
+        )}
+
+        {/* GAME OVER */}
+        {phase === "game-over" && (
+          <div className="flex flex-col items-center justify-center min-h-full gap-8 px-5 py-16 text-center">
+            <div className="text-6xl select-none">💔</div>
+            <div>
+              <h2 className="text-3xl font-extrabold tracking-tight">Hết tim rồi!</h2>
+              <p className="mt-2 text-muted-foreground">
+                Bạn đã trả lời đúng {correctCount}/{answeredCount} câu trước khi dừng.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 w-full max-w-xs">
+              {(
+                [
+                  ["Điểm", totalScore],
+                  ["Combo tốt nhất", bestCombo],
+                ] as const
+              ).map(([l, v]) => (
+                <div
+                  key={l}
+                  className="rounded-2xl border border-border bg-muted/25 px-4 py-4"
+                >
+                  <p className="text-xs font-semibold text-muted-foreground">{l}</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{v}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => user && void startGame(user)}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 font-bold text-white hover:bg-primary/90 transition-colors"
+              >
+                <RotateCcw className="h-4 w-4" /> Chơi lại
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/workspace")}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-7 py-3.5 font-bold hover:bg-muted/40 transition-colors"
+              >
+                Workspace
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* COMPLETE */}
+        {phase === "complete" && campaign && (
+          <div className="flex flex-col items-center justify-center min-h-full gap-8 px-5 py-16 text-center">
+            <div className="text-6xl select-none">🏆</div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                Hoàn thành
+              </p>
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight">
+                {campaign.title}
+              </h2>
+              <p className="mt-3 text-muted-foreground max-w-md leading-relaxed">
+                {campaign.final_goal}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-lg">
+              {(
+                [
+                  ["Điểm", totalScore],
+                  ["XP", xpEarned],
+                  ["Đúng", `${correctCount}/${answers.length}`],
+                  ["Combo", bestCombo],
+                ] as const
+              ).map(([l, v]) => (
+                <div
+                  key={l}
+                  className="rounded-2xl border border-border bg-muted/25 px-4 py-4"
+                >
+                  <p className="text-xs font-semibold text-muted-foreground">{l}</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{v}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Stage breakdown */}
+            <div className="w-full max-w-lg space-y-2 text-left">
+              {campaign.stages.map((s) => {
+                const sa = answers.filter((a) =>
+                  s.questions.some((q) => q.id === a.questionId)
+                );
+                const sc = sa.filter((a) => a.correct).length;
+                return (
+                  <div
+                    key={s.id}
+                    className="flex items-center justify-between rounded-xl border border-border bg-muted/20 px-4 py-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Flag className="h-4 w-4 text-primary shrink-0" />
+                      <p className="font-semibold text-sm">{s.title}</p>
+                    </div>
+                    <p className="text-sm text-muted-foreground tabular-nums">
+                      {sc}/{sa.length}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => user && void startGame(user)}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3.5 font-bold text-white hover:bg-primary/90 transition-colors"
+              >
+                <Play className="h-4 w-4" /> Chơi lại
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/study/${deckId}`)}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-7 py-3.5 font-bold hover:bg-muted/40 transition-colors"
+              >
+                Ôn flashcard
+              </button>
+            </div>
+          </div>
+        )}
+
+      </main>
+    </div>
   );
 }
