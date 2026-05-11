@@ -115,7 +115,7 @@ export default function AppShell({ children, user }: AppShellProps) {
           {/* Logo */}
           <div className={cn("flex items-center w-full", collapsed ? "justify-center" : "px-2")}>
             {collapsed ? (
-              <Link href="/workspace" className="outline-none" title="Memio">
+              <Link href="/" className="outline-none" title="Memio">
                 <div className="relative h-8 w-8">
                   <Image
                     src="/icon.svg"
@@ -128,7 +128,7 @@ export default function AppShell({ children, user }: AppShellProps) {
                 </div>
               </Link>
             ) : (
-              <Link href="/workspace" className="flex items-center gap-3 overflow-hidden outline-none">
+              <Link href="/" className="flex items-center gap-3 overflow-hidden outline-none">
                 <div className="relative h-[42px] w-[42px] flex-shrink-0">
                   <Image
                     src="/icon.svg"
@@ -284,7 +284,7 @@ export default function AppShell({ children, user }: AppShellProps) {
 
           {/* Left: logo (mobile) or page title (desktop) */}
           <div className="flex items-center gap-3">
-            <Link href="/workspace" className="md:hidden flex items-center gap-2 outline-none">
+            <Link href="/" className="md:hidden flex items-center gap-2 outline-none">
               <div className="relative h-7 w-7">
                 <Image
                   src="/icon.svg"
