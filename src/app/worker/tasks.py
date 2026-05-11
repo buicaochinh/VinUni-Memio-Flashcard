@@ -1,6 +1,5 @@
 import datetime
 
-from celery import shared_task
 from sqlmodel import Session, select
 
 from src.app.db.session import engine
@@ -41,7 +40,6 @@ def _in_send_window(*, now_local: datetime.datetime, window: str) -> bool:
     return cur >= start or cur <= end
 
 
-@shared_task(name="src.app.worker.tasks.send_due_cards")
 def send_due_cards():
     """
     Starter task: just finds users with due cards.
@@ -145,7 +143,6 @@ def send_due_cards():
     return {"today": local_date_key(), "due_counts": due_counts}
 
 
-@shared_task(name="src.app.worker.tasks.send_weekly_report")
 def send_weekly_report():
     """
     Weekly progress report (Telegram only):
