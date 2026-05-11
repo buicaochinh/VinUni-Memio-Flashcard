@@ -66,6 +66,30 @@ def _fallback_campaign(cards: list[dict]) -> dict:
     }
 
 
+def get_cached_campaign(session: Session, user_id: int, deck_id: int, max_age_hours: int = 4) -> dict | None:
+    from datetime import timedelta
+    cutoff = utc_now_naive() - timedelta(hours=max_age_hours)
+    stmt = (
+        select(GameSession)
+        .where(
+            GameSession.user_id == user_id,
+            GameSession.deck_id == deck_id,
+            GameSession.created_at >= cutoff,
+        )
+        .order_by(GameSession.created_at.desc())
+    )
+    game = session.exec(stmt).first()
+    if not game or not game.campaign_json:
+        return None
+    try:
+        data = json.loads(game.campaign_json) if isinstance(game.campaign_json, str) else game.campaign_json
+        if isinstance(data, dict) and data.get("stages"):
+            return data
+    except Exception:
+        pass
+    return None
+
+
 def get_campaign_cards(session: Session, deck_id: int, limit: int) -> list[dict]:
     statement = (
         select(Flashcard)
