@@ -96,17 +96,20 @@ async def start_campaign(deck_id: int, payload: GameStartRequest, user_id: int =
         for c in cards
     ]
 
-    raw_campaign: dict = {}
-    try:
-        llm = get_llm()
-        response = await (CAMPAIGN_PROMPT | llm).ainvoke({
-            "cards_json": json.dumps(compact_cards, ensure_ascii=False),
-        })
-        raw_campaign = _parse_json_object(response.content)
-    except Exception:
-        raw_campaign = {}
-
-    campaign = game_service.normalize_campaign(raw_campaign, cards)
+    cached = game_service.get_cached_campaign(session, user_id, deck_id, max_age_hours=4)
+    if cached:
+        campaign = cached
+    else:
+        raw_campaign: dict = {}
+        try:
+            llm = get_llm()
+            response = await (CAMPAIGN_PROMPT | llm).ainvoke({
+                "cards_json": json.dumps(compact_cards, ensure_ascii=False),
+            })
+            raw_campaign = _parse_json_object(response.content)
+        except Exception:
+            raw_campaign = {}
+        campaign = game_service.normalize_campaign(raw_campaign, cards)
     try:
         game = game_service.create_game_session(session, user_id, deck_id, campaign)
     except ProgrammingError as exc:
