@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from sqlmodel import Session, select
 
@@ -7,11 +8,14 @@ from src.app.core.time import utc_now_naive
 from src.app.models.domain import IngestionSource
 from src.app.services import ingestion_service
 
+logger = logging.getLogger(__name__)
+
 
 def sync_ingestion_sources():
     now = utc_now_naive()
     synced_source_ids: list[int] = []
     skipped_source_ids: list[int] = []
+    failed_source_ids: list[int] = []
 
     with Session(engine) as session:
         sources = session.exec(
@@ -33,11 +37,16 @@ def sync_ingestion_sources():
                 if delta.total_seconds() < interval * 60:
                     continue
 
-            asyncio.run(ingestion_service.sync_source(session, source, preview_only=False))
-            synced_source_ids.append(source.id)
+            try:
+                asyncio.run(ingestion_service.sync_source(session, source, preview_only=False))
+                synced_source_ids.append(source.id)
+            except Exception as exc:
+                logger.warning("sync_ingestion_sources: source %d (%s) failed — %s", source.id, source.provider, exc)
+                failed_source_ids.append(source.id)
 
     return {
         "synced_source_ids": synced_source_ids,
         "skipped_source_ids": skipped_source_ids,
+        "failed_source_ids": failed_source_ids,
         "timestamp": now.isoformat(),
     }
