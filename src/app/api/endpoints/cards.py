@@ -431,12 +431,9 @@ async def _classify_cards_for_images(cards: list[Flashcard]) -> list[dict]:
     llm = get_llm()
     try:
         response = await (_IMAGE_CLASSIFY_PROMPT | llm).ainvoke({"cards_text": cards_text})
-        print(f"[IMG_CLASSIFY] raw response: {response.content[:300]}")
         result = _parse_llm_json(response.content)
-        print(f"[IMG_CLASSIFY] parsed {len(result)} items: {result[:3]}")
         return result
-    except Exception as e:
-        print(f"[IMG_CLASSIFY] ERROR: {e}")
+    except Exception:
         return []
 
 
@@ -444,14 +441,12 @@ async def _classify_cards_for_images(cards: list[Flashcard]) -> list[dict]:
 async def generate_deck_images(deck_id: int, session: Session = Depends(get_session)):
     all_cards = session.exec(select(Flashcard).where(Flashcard.deck_id == deck_id)).all()
     unimaged = [c for c in all_cards if not c.image_url]
-    print(f"[GEN_IMAGES] deck={deck_id} total={len(all_cards)} unimaged={len(unimaged)}")
 
     if not unimaged:
         return {"generated": 0, "total_candidates": 0, "skipped": "all cards already have images"}
 
     pre_classified = [c for c in unimaged if c.image_type == "real_image"]
     unclassified = [c for c in unimaged if c.image_type != "real_image"]
-    print(f"[GEN_IMAGES] pre_classified={len(pre_classified)} unclassified={len(unclassified)}")
 
     newly_classified: list[dict] = []
     if unclassified:
@@ -482,13 +477,11 @@ async def generate_deck_images(deck_id: int, session: Session = Depends(get_sess
                         "_id": card.id,
                     })
         session.commit()
-        print(f"[GEN_IMAGES] newly_classified real_image={len(newly_classified)}")
 
     dall_e_candidates = [
         {"image_type": "real_image", "image_prompt": c.front[:80], "_id": c.id}
         for c in pre_classified
     ] + newly_classified
-    print(f"[GEN_IMAGES] dall_e_candidates={len(dall_e_candidates)}")
 
     if not dall_e_candidates:
         return {"generated": 0, "total_candidates": 0, "classified_by_llm": len(newly_classified)}
@@ -498,7 +491,6 @@ async def generate_deck_images(deck_id: int, session: Session = Depends(get_sess
     generated = 0
     for item in enriched:
         url = item.get("image_url")
-        print(f"[GEN_IMAGES] card _id={item.get('_id')} image_url={url}")
         if url:
             card = session.get(Flashcard, item["_id"])
             if card:
@@ -507,7 +499,6 @@ async def generate_deck_images(deck_id: int, session: Session = Depends(get_sess
                 generated += 1
 
     session.commit()
-    print(f"[GEN_IMAGES] done generated={generated}/{len(dall_e_candidates)}")
     return {
         "generated": generated,
         "total_candidates": len(dall_e_candidates),
@@ -691,7 +682,6 @@ async def generate_image_cards(
     count: int = Form(default=15),
     session: Session = Depends(get_session),
 ):
-    print(f"[GEN_IMAGE_CARDS] called deck_id={deck_id} count={count} files={[f.filename for f in files]}")
     if count < 1:
         count = 1
     if count > 20:
@@ -705,35 +695,28 @@ async def generate_image_cards(
     for file in files:
         temp_path = data_dir / f"imgcard_{deck_id}_{file.filename}"
         file_bytes = await file.read()
-        print(f"[GEN_IMAGE_CARDS] file={file.filename} size={len(file_bytes)} bytes")
         async with aio_open(temp_path, "wb") as out:
             await out.write(file_bytes)
         try:
             pages, _ = await _load_document_context(temp_path)
-            print(f"[GEN_IMAGE_CARDS] loaded {len(pages)} pages from {file.filename}")
             all_pages.extend(pages)
         except Exception as load_err:
-            print(f"[GEN_IMAGE_CARDS] load error for {file.filename}: {load_err}")
             load_errors.append(str(load_err))
         finally:
             if temp_path.exists():
                 temp_path.unlink()
 
-    print(f"[GEN_IMAGE_CARDS] total pages={len(all_pages)} load_errors={load_errors}")
     if not all_pages:
         detail = f"Không trích xuất được text từ file. Lỗi: {'; '.join(load_errors)}" if load_errors else "Không trích xuất được text từ file."
         raise HTTPException(status_code=422, detail=detail)
 
     # Single LLM call — take up to 8000 chars to keep context rich
     context = "\n\n".join(p.page_content for p in all_pages)[:8000]
-    print(f"[GEN_IMAGE_CARDS] context len={len(context)} chars, calling LLM...")
     llm = get_llm()
     try:
         response = await (IMAGE_CARD_PROMPT | llm).ainvoke({"context": context, "count": count})
         raw_cards = _parse_llm_json(response.content)
-        print(f"[GEN_IMAGE_CARDS] LLM returned {len(raw_cards)} raw cards")
     except Exception as e:
-        print(f"[GEN_IMAGE_CARDS] LLM error: {e}")
         raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
 
     # Keep only cards that have a valid image_type
@@ -741,7 +724,6 @@ async def generate_image_cards(
         c for c in raw_cards
         if isinstance(c, dict) and c.get("image_type") in ("real_image", "diagram")
     ][:count]
-    print(f"[GEN_IMAGE_CARDS] visual_cards={len(visual_cards)} (raw={len(raw_cards)})")
 
     if not visual_cards:
         raise HTTPException(status_code=422, detail="LLM không tìm thấy khái niệm nào có thể minh hoạ bằng ảnh trong tài liệu này.")

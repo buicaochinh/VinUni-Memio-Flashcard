@@ -5,7 +5,7 @@
 # Lưu ý:
 #   - Image dùng local tag, không phụ thuộc GHCR/CI.
 #   - Postgres tự host KHÔNG nằm trong stack này (chạy riêng).
-#   - update_config: start-first cho service stateless, stop-first cho beat (chỉ 1 instance).
+#   - Periodic tasks (APScheduler) chạy trong tiến trình backend, không cần worker/beat riêng.
 version: "3.8"
 
 services:
@@ -59,7 +59,7 @@ services:
         delay: 5s
       resources:
         limits:
-          memory: 512M
+          memory: 640M
           cpus: "1.0"
       update_config:
         parallelism: 1
@@ -67,69 +67,6 @@ services:
         order: start-first
         failure_action: rollback
         monitor: 30s
-
-  redis:
-    image: redis:7-alpine
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
-        delay: 5s
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.25"
-
-  worker:
-    image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
-    env_file:
-      - .env
-    volumes:
-      - ./data:/app/data
-    command: ["celery", "-A", "src.app.worker.celery_app:app", "worker", "-l", "INFO", "--pool", "solo"]
-    environment:
-      - PYTHONPATH=.
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A src.app.worker.celery_app:app inspect ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
-        delay: 5s
-      resources:
-        limits:
-          memory: 384M
-          cpus: "0.75"
-      update_config:
-        parallelism: 1
-        delay: 10s
-        order: stop-first
-
-  beat:
-    image: ${BACKEND_IMAGE:-a20-app-001-backend:pilot}
-    env_file:
-      - .env
-    volumes:
-      - ./data:/app/data
-    command: ["celery", "-A", "src.app.worker.celery_app:app", "beat", "-l", "INFO", "--schedule", "/tmp/celerybeat-schedule", "--pidfile", "/tmp/celerybeat.pid"]
-    environment:
-      - PYTHONPATH=.
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
-        delay: 5s
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.25"
-      update_config:
-        parallelism: 1
-        delay: 5s
-        order: stop-first
 
   frontend:
     image: ${FRONTEND_IMAGE:-a20-app-001-frontend:pilot}

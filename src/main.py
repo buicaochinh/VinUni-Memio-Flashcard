@@ -9,13 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.db.session import init_db
 from src.app.api.api import api_router
-from src.app.worker.celery_app import celery_app  # noqa: F401
+from src.app.worker.scheduler import scheduler, setup_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    setup_scheduler()
+    scheduler.start()
     yield
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="AI Flashcard API", version="1.0.0", lifespan=lifespan)

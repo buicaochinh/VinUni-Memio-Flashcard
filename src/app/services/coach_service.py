@@ -617,7 +617,6 @@ def log_trust_event(
         "source_type": source_type,
         "created_at": utc_now_naive().isoformat(),
     }
-    print(_json_dumps(event))
 
 
 def call_coach_llm(

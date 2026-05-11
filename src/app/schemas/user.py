@@ -23,6 +23,3 @@ class UserResponse(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     auth_type: str
-
-# Keep for backward compatibility
-LoginRequest = GoogleLoginRequest

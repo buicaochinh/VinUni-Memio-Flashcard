@@ -1,9 +1,6 @@
-import os
-from pathlib import Path
 from typing import Generator
 
-from sqlalchemy.exc import ProgrammingError
-from sqlmodel import create_engine, Session, SQLModel
+from sqlmodel import create_engine, Session
 from src.app.core.config import DATABASE_URL
 
 if not DATABASE_URL:
