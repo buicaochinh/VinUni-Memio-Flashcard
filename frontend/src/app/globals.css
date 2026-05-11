@@ -171,3 +171,22 @@
 .citation-badge {
   @apply inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[0.65rem] font-bold border border-primary/20 ml-1 hover:bg-primary hover:text-white transition-all transform hover:-translate-y-0.5 active:scale-95;
 }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-7px); }
+  40%       { transform: translateX(7px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+
+@keyframes score-pop {
+  0%   { opacity: 1; transform: translateY(0) scale(0.85); }
+  35%  { opacity: 1; transform: translateY(-18px) scale(1.25); }
+  100% { opacity: 0; transform: translateY(-48px) scale(1); }
+}
+
+@layer utilities {
+  .animate-shake      { animation: shake 0.4s ease-in-out; }
+  .animate-score-pop  { animation: score-pop 0.75s ease-out forwards; }
+}
