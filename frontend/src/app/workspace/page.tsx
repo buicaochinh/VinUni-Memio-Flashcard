@@ -929,7 +929,7 @@ export default function WorkspacePage() {
                                   max={100}
                                   placeholder="85"
                                   value={goalDraft.desired_mastery}
-                                  onChange={(e) => updateGoalDraft(deck.id, { desired_mastery: e.target.value === "" ? "" : Number(e.target.value) })}
+                                  onChange={(e) => updateGoalDraft(deck.id, { desired_mastery: e.target.value === "" ? undefined : Number(e.target.value) })}
                                   className="h-9 bg-background/70 text-[0.82rem]"
                                 />
                               </div>
@@ -942,7 +942,7 @@ export default function WorkspacePage() {
                                   max={200}
                                   placeholder="20"
                                   value={goalDraft.daily_workload}
-                                  onChange={(e) => updateGoalDraft(deck.id, { daily_workload: e.target.value === "" ? "" : Number(e.target.value) })}
+                                  onChange={(e) => updateGoalDraft(deck.id, { daily_workload: e.target.value === "" ? undefined : Number(e.target.value) })}
                                   className="h-9 bg-background/70 text-[0.82rem]"
                                 />
                               </div>
