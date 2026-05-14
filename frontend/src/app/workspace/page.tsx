@@ -919,7 +919,7 @@ export default function WorkspacePage() {
                                 className="h-9 bg-background/70 text-[0.82rem]"
                               />
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-4">
                               <div className="flex flex-col">
                                 <label htmlFor={`goal-mastery-${deck.id}`} className="text-[0.75rem] font-semibold text-muted-foreground block mb-1 whitespace-nowrap">Mastery mong muốn (%)</label>
                                 <Input
