@@ -103,8 +103,11 @@ export default function GeneratePage() {
       if (Number.isFinite(qId) && qId > 0) {
         setSelectedDeckId(qId);
         setSaveTarget("existing");
+      } else if (d.length > 0) {
+        setSelectedDeckId(d[0].id);
+        setSaveTarget("existing");
       } else {
-        setSelectedDeckId(d[0]?.id ?? null);
+        setSelectedDeckId(null);
       }
       if (qMode === "image") setMode("image");
       else if (qMode === "vocab") setMode("vocab");
