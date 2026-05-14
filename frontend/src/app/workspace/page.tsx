@@ -322,6 +322,17 @@ export default function WorkspacePage() {
   const saveGoal = async (deckId: number) => {
     if (!user) return;
     const draft = goalDrafts[deckId] ?? defaultGoal;
+
+    // Validate inputs
+    if (!draft.desired_mastery || draft.desired_mastery < 50 || draft.desired_mastery > 100) {
+      setMsg("Mastery phải từ 50 đến 100%");
+      return;
+    }
+    if (!draft.daily_workload || draft.daily_workload < 5 || draft.daily_workload > 200) {
+      setMsg("Thẻ mỗi ngày phải từ 5 đến 200");
+      return;
+    }
+
     setSavingGoalId(deckId);
     try {
       const goal = await upsertLearningGoal({
@@ -917,8 +928,8 @@ export default function WorkspacePage() {
                                   min={50}
                                   max={100}
                                   placeholder="85"
-                                  value={goalDraft.desired_mastery || ""}
-                                  onChange={(e) => updateGoalDraft(deck.id, { desired_mastery: e.target.value === "" ? 0 : Number(e.target.value) })}
+                                  value={goalDraft.desired_mastery}
+                                  onChange={(e) => updateGoalDraft(deck.id, { desired_mastery: e.target.value === "" ? "" : Number(e.target.value) })}
                                   className="h-9 bg-background/70 text-[0.82rem]"
                                 />
                               </div>
@@ -930,8 +941,8 @@ export default function WorkspacePage() {
                                   min={5}
                                   max={200}
                                   placeholder="20"
-                                  value={goalDraft.daily_workload || ""}
-                                  onChange={(e) => updateGoalDraft(deck.id, { daily_workload: e.target.value === "" ? 0 : Number(e.target.value) })}
+                                  value={goalDraft.daily_workload}
+                                  onChange={(e) => updateGoalDraft(deck.id, { daily_workload: e.target.value === "" ? "" : Number(e.target.value) })}
                                   className="h-9 bg-background/70 text-[0.82rem]"
                                 />
                               </div>
