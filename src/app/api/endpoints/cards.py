@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 from dotenv import load_dotenv
 from aiofiles import open as aio_open
@@ -283,13 +284,13 @@ async def preview_cards_no_deck(
     count: int = Form(default=100),
     user_id: int = Depends(get_current_user_id),
 ):
-    data_dir = Path(__file__).resolve().parents[4] / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
     all_pages = []
 
     for file in files:
-        temp_path = data_dir / f"preview_{user_id}_{file.filename}"
+        suffix = Path(file.filename or "upload").suffix or ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        temp_path = Path(temp_path_str)
         async with aio_open(temp_path, "wb") as out:
             await out.write(await file.read())
 
@@ -323,13 +324,13 @@ async def preview_cards(
     files: list[UploadFile] = File(...),
     count: int = Form(default=100),
 ):
-    data_dir = Path(__file__).resolve().parents[4] / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
     all_pages = []
 
     for file in files:
-        temp_path = data_dir / f"preview_{deck_id}_{file.filename}"
+        suffix = Path(file.filename or "upload").suffix or ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        temp_path = Path(temp_path_str)
         async with aio_open(temp_path, "wb") as out:
             await out.write(await file.read())
 
@@ -370,13 +371,13 @@ async def generate_cards(
     count: int = Form(default=100),
     session: Session = Depends(get_session),
 ):
-    data_dir = Path(__file__).resolve().parents[4] / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
     all_pages = []
 
     for file in files:
-        temp_path = data_dir / f"temp_{deck_id}_{file.filename}"
+        suffix = Path(file.filename or "upload").suffix or ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        temp_path = Path(temp_path_str)
         async with aio_open(temp_path, "wb") as out:
             await out.write(await file.read())
 
@@ -517,13 +518,13 @@ async def preview_image_cards_no_deck(
     if count > 20:
         count = 20
 
-    data_dir = Path(__file__).resolve().parents[4] / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
     all_pages = []
     load_errors = []
     for file in files:
-        temp_path = data_dir / f"imgcard_prev_{user_id}_{file.filename}"
+        suffix = Path(file.filename or "upload").suffix or ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        temp_path = Path(temp_path_str)
         file_bytes = await file.read()
         async with aio_open(temp_path, "wb") as out:
             await out.write(file_bytes)
@@ -573,11 +574,12 @@ async def preview_vocab_cards(
     if input_type == "text":
         if not files:
             raise HTTPException(status_code=422, detail="Hãy tải lên ít nhất 1 file.")
-        data_dir = Path(__file__).resolve().parents[4] / "data"
-        data_dir.mkdir(parents=True, exist_ok=True)
         all_pages = []
         for file in files:
-            temp_path = data_dir / f"vocab_{user_id}_{file.filename}"
+            suffix = Path(file.filename or "upload").suffix or ".tmp"
+            fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+            os.close(fd)
+            temp_path = Path(temp_path_str)
             async with aio_open(temp_path, "wb") as out:
                 await out.write(await file.read())
             try:
@@ -687,13 +689,13 @@ async def generate_image_cards(
     if count > 20:
         count = 20
 
-    data_dir = Path(__file__).resolve().parents[4] / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
     all_pages = []
     load_errors = []
     for file in files:
-        temp_path = data_dir / f"imgcard_{deck_id}_{file.filename}"
+        suffix = Path(file.filename or "upload").suffix or ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        temp_path = Path(temp_path_str)
         file_bytes = await file.read()
         async with aio_open(temp_path, "wb") as out:
             await out.write(file_bytes)
