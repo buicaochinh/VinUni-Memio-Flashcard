@@ -152,6 +152,7 @@ def _parse_llm_json(content: str) -> list[dict]:
 
 
 async def _load_document_context(temp_path: Path, max_chars: int = 6000) -> tuple[list, str]:
+    from pypdf.errors import DependencyError as PypdfDependencyError
     suffix = temp_path.suffix.lower()
     if suffix == '.pdf':
         loader = PyPDFLoader(str(temp_path))
@@ -162,7 +163,13 @@ async def _load_document_context(temp_path: Path, max_chars: int = 6000) -> tupl
     else:
         return [], ""
 
-    pages = loader.load_and_split()
+    try:
+        pages = loader.load_and_split()
+    except PypdfDependencyError:
+        raise HTTPException(
+            status_code=422,
+            detail="PDF bị mã hóa hoặc có mật khẩu. Vui lòng gỡ mật khẩu trước khi tải lên.",
+        )
     context = "\n\n".join(p.page_content for p in pages)[:max_chars]
     return pages, context
 
