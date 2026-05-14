@@ -899,7 +899,7 @@ export default function WorkspacePage() {
                         ) : (
                           <div className="space-y-2">
                             <div className="grid grid-cols-1 gap-2">
-                              <label className="sr-only" htmlFor={`goal-date-${deck.id}`}>Ngày thi</label>
+                              <label htmlFor={`goal-date-${deck.id}`} className="text-[0.75rem] font-semibold text-muted-foreground">Ngày thi</label>
                               <Input
                                 id={`goal-date-${deck.id}`}
                                 type="date"
@@ -909,26 +909,32 @@ export default function WorkspacePage() {
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                              <label className="sr-only" htmlFor={`goal-mastery-${deck.id}`}>Mastery mong muốn</label>
-                              <Input
-                                id={`goal-mastery-${deck.id}`}
-                                type="number"
-                                min={50}
-                                max={100}
-                                value={goalDraft.desired_mastery}
-                                onChange={(e) => updateGoalDraft(deck.id, { desired_mastery: Number(e.target.value) })}
-                                className="h-9 bg-background/70 text-[0.82rem]"
-                              />
-                              <label className="sr-only" htmlFor={`goal-workload-${deck.id}`}>Thẻ mỗi ngày</label>
-                              <Input
-                                id={`goal-workload-${deck.id}`}
-                                type="number"
-                                min={5}
-                                max={200}
-                                value={goalDraft.daily_workload}
-                                onChange={(e) => updateGoalDraft(deck.id, { daily_workload: Number(e.target.value) })}
-                                className="h-9 bg-background/70 text-[0.82rem]"
-                              />
+                              <div>
+                                <label htmlFor={`goal-mastery-${deck.id}`} className="text-[0.75rem] font-semibold text-muted-foreground block mb-1">Mastery mong muốn (%)</label>
+                                <Input
+                                  id={`goal-mastery-${deck.id}`}
+                                  type="number"
+                                  min={50}
+                                  max={100}
+                                  placeholder="85"
+                                  value={goalDraft.desired_mastery || ""}
+                                  onChange={(e) => updateGoalDraft(deck.id, { desired_mastery: e.target.value === "" ? 0 : Number(e.target.value) })}
+                                  className="h-9 bg-background/70 text-[0.82rem]"
+                                />
+                              </div>
+                              <div>
+                                <label htmlFor={`goal-workload-${deck.id}`} className="text-[0.75rem] font-semibold text-muted-foreground block mb-1">Thẻ mỗi ngày</label>
+                                <Input
+                                  id={`goal-workload-${deck.id}`}
+                                  type="number"
+                                  min={5}
+                                  max={200}
+                                  placeholder="20"
+                                  value={goalDraft.daily_workload || ""}
+                                  onChange={(e) => updateGoalDraft(deck.id, { daily_workload: e.target.value === "" ? 0 : Number(e.target.value) })}
+                                  className="h-9 bg-background/70 text-[0.82rem]"
+                                />
+                              </div>
                             </div>
                             <div className="flex gap-2">
                               <button
