@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     CRON_SECRET: str = ""
     APP_URL: str = "https://a20-app-001.mem.io.vn"
 
+    # Backend public base URL (used to build absolute image URLs served by FastAPI)
+    BACKEND_BASE_URL: str = "https://api.mem.io.vn"
+
+    # Directory for generated images; Docker maps ./data:/app/data
+    IMAGES_DATA_DIR: str = "/app/data/generated-images"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env before any module that reads env vars
@@ -6,7 +7,9 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
+from src.app.core.config import settings
 from src.app.db.session import init_db
 from src.app.api.api import api_router
 from src.app.worker.scheduler import scheduler, setup_scheduler
@@ -51,3 +54,8 @@ def health():
 
 # All API routes prefixed with /api
 app.include_router(api_router, prefix="/api")
+
+# Serve generated images from the data volume (path configured via IMAGES_DATA_DIR)
+_IMAGES_DIR = Path(settings.IMAGES_DATA_DIR)
+_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/generated-images", StaticFiles(directory=str(_IMAGES_DIR)), name="generated-images")

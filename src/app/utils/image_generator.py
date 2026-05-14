@@ -10,12 +10,14 @@ from src.app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Save images to frontend/public/generated-images/ so Next.js serves them as static assets
-_IMAGES_DIR = Path(__file__).resolve().parents[3] / "frontend" / "public" / "generated-images"
+# Store generated images in the data volume (IMAGES_DATA_DIR, default /app/data/generated-images).
+# In production the backend container mounts ./data:/app/data so images persist.
+# FastAPI serves them at /generated-images/* (mounted in main.py).
+_IMAGES_DIR = Path(settings.IMAGES_DATA_DIR)
 
 
 async def _download_and_save(url: str) -> str | None:
-    """Download image from a temporary URL and save locally. Returns permanent relative URL."""
+    """Download image from a temporary URL and save to data volume. Returns absolute URL."""
     _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}.png"
     dest = _IMAGES_DIR / filename
@@ -24,7 +26,7 @@ async def _download_and_save(url: str) -> str | None:
             r = await client.get(url)
             r.raise_for_status()
             dest.write_bytes(r.content)
-        return f"/generated-images/{filename}"
+        return f"{settings.BACKEND_BASE_URL}/generated-images/{filename}"
     except Exception as e:
         logger.error("Failed to download/save DALL-E image: %s", e)
         return None
