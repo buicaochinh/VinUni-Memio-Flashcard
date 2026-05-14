@@ -100,7 +100,12 @@ export default function GeneratePage() {
       const params = new URLSearchParams(window.location.search);
       const qId = Number(params.get("deckId"));
       const qMode = params.get("mode");
-      setSelectedDeckId(Number.isFinite(qId) && qId > 0 ? qId : (d[0]?.id ?? null));
+      if (Number.isFinite(qId) && qId > 0) {
+        setSelectedDeckId(qId);
+        setSaveTarget("existing");
+      } else {
+        setSelectedDeckId(d[0]?.id ?? null);
+      }
       if (qMode === "image") setMode("image");
       else if (qMode === "vocab") setMode("vocab");
     } catch {
