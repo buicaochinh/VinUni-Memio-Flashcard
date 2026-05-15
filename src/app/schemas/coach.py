@@ -125,3 +125,5 @@ class CoachTrustEventRequest(BaseModel):
     citation_id: Optional[str] = None
     value: Optional[str] = None
     source_type: Optional[str] = None
+    target_type: Optional[str] = None
+    target_id: Optional[str] = None
