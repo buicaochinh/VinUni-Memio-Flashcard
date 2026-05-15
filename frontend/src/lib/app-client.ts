@@ -1441,6 +1441,12 @@ export async function fetchAdminPilotEvaluation(days = 7): Promise<PilotEvaluati
   return res.json() as Promise<PilotEvaluationResponse>;
 }
 
+export async function fetchMe(): Promise<User> {
+  const res = await authFetch("/api/users/me");
+  if (!res.ok) throw new Error("FETCH_ME_FAILED");
+  return res.json() as Promise<User>;
+}
+
 // ─── Offline cache (localStorage) ────────────────────────────────────────────
 
 const CARDS_CACHE_KEY = "fc_cards_cache";

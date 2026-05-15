@@ -5,10 +5,26 @@ from pydantic import BaseModel
 from src.app.api.deps import get_current_user_id
 from src.app.core.time import default_timezone_name, validate_timezone
 from src.app.db.session import get_session
-from src.app.models.domain import UserSettings
+from src.app.models.domain import User, UserSettings
 from src.app.services import xp_service
 
 router = APIRouter()
+
+
+@router.get("/me")
+def get_current_user(user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "username": user.username,
+        "photo_url": user.photo_url,
+        "auth_type": user.auth_type,
+        "is_admin": user.is_admin,
+    }
 
 class UserSettingsUpdate(BaseModel):
     daily_new_limit: int

@@ -8,7 +8,9 @@ import AppShell from "../../../components/AppShell";
 import { Skeleton } from "../../../components/ui/skeleton";
 import {
   fetchAdminPilotEvaluation,
+  fetchMe,
   PilotEvaluationResponse,
+  saveStoredUser,
   useClientReady,
   useStoredUser,
 } from "../../../lib/app-client";
@@ -40,33 +42,42 @@ function MetricCard({
 export default function AdminEvaluationPage() {
   const router = useRouter();
   const clientReady = useClientReady();
-  const user = useStoredUser();
+  const storedUser = useStoredUser();
+  const [verifiedAdmin, setVerifiedAdmin] = useState<boolean | null>(null);
   const [days, setDays] = useState<7 | 14 | 30>(7);
   const [data, setData] = useState<PilotEvaluationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!clientReady) return;
-    if (!user) {
+    if (!storedUser) {
       const t = window.setTimeout(() => router.replace("/"), 0);
       return () => window.clearTimeout(t);
     }
-    if (!user.is_admin) {
-      const t = window.setTimeout(() => router.replace("/workspace"), 0);
-      return () => window.clearTimeout(t);
-    }
-  }, [clientReady, router, user]);
+    fetchMe()
+      .then((freshUser) => {
+        saveStoredUser(freshUser);
+        if (!freshUser.is_admin) {
+          router.replace("/workspace");
+        } else {
+          setVerifiedAdmin(true);
+        }
+      })
+      .catch(() => {
+        router.replace("/");
+      });
+  }, [clientReady, router, storedUser]);
 
   useEffect(() => {
-    if (!clientReady || !user?.is_admin) return;
+    if (!verifiedAdmin) return;
     fetchAdminPilotEvaluation(days)
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : "Không tải được dashboard evaluation."))
-  }, [clientReady, user?.is_admin, days]);
+  }, [verifiedAdmin, days]);
 
   const loading = !data && !error;
 
-  if (!clientReady || !user) {
+  if (!clientReady || !storedUser || verifiedAdmin === null) {
     return (
       <AppShell user={null}>
         <div className="space-y-5">
@@ -84,7 +95,7 @@ export default function AdminEvaluationPage() {
   const metrics = data?.metrics;
 
   return (
-    <AppShell user={user}>
+    <AppShell user={storedUser}>
       <header className="mb-8 max-w-4xl">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-muted/35 px-3 py-1.5 text-[0.78rem] font-semibold text-muted-foreground">
           <ShieldAlert className="h-3.5 w-3.5 text-primary" aria-hidden />
