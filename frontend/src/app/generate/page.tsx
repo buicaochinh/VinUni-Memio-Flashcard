@@ -44,6 +44,15 @@ type EditState = {
   front: string;
   back: string;
   difficulty: "easy" | "medium" | "hard";
+  origin?: string | null;
+  generation_batch_id?: string | null;
+  generation_item_id?: string | null;
+  generated_front?: string | null;
+  generated_back?: string | null;
+  generated_difficulty?: string | null;
+  image_type?: "diagram" | "real_image" | null;
+  image_url?: string | null;
+  diagram_spec?: string | null;
 };
 
 const FEATURE_IMAGE_CARDS = false;
