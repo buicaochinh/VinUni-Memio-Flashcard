@@ -26,6 +26,7 @@ class LearningGoalResponse(BaseModel):
     weak_cards: int
     total_cards: int
     workload_cards: int
+    current_mastery: int
     recommended_daily_cards: int
     readiness_score: int
     urgency: str
