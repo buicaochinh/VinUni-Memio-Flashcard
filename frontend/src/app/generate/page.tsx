@@ -46,6 +46,8 @@ type EditState = {
   difficulty: "easy" | "medium" | "hard";
 };
 
+const FEATURE_IMAGE_CARDS = false;
+
 type TextStage = "setup" | "loading" | "preview" | "saved";
 type ImgStage = "setup" | "generating" | "preview" | "done" | "error";
 type VocabStage = "setup" | "generating" | "preview" | "done" | "error";
@@ -109,7 +111,7 @@ export default function GeneratePage() {
       } else {
         setSelectedDeckId(null);
       }
-      if (qMode === "image") setMode("image");
+      if (qMode === "image" && FEATURE_IMAGE_CARDS) setMode("image");
       else if (qMode === "vocab") setMode("vocab");
     } catch {
       setMessage("Không tải được danh sách deck.");
@@ -644,9 +646,11 @@ export default function GeneratePage() {
                 Tải tài liệu khác
               </Button>
             </div>
-            <Button variant="ghost" onClick={() => switchMode("image")} disabled={!selectedDeckId} className="text-muted-foreground">
-              <ImagePlus className="w-4 h-4" aria-hidden /> Thêm ảnh minh hoạ (DALL-E 3)
-            </Button>
+            {FEATURE_IMAGE_CARDS && (
+              <Button variant="ghost" onClick={() => switchMode("image")} disabled={!selectedDeckId} className="text-muted-foreground">
+                <ImagePlus className="w-4 h-4" aria-hidden /> Thêm ảnh minh hoạ (DALL-E 3)
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -975,19 +979,21 @@ export default function GeneratePage() {
             >
               <Sparkles className="w-4 h-4" /> Thẻ văn bản
             </button>
-            <button
-              type="button"
-              onClick={() => switchMode("image")}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all",
-                mode === "image" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <ImagePlus className="w-4 h-4" /> Thẻ hình ảnh
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[0.65rem] font-bold uppercase tracking-wider">
-                <Lock className="w-2.5 h-2.5" /> Pro
-              </span>
-            </button>
+            {FEATURE_IMAGE_CARDS && (
+              <button
+                type="button"
+                onClick={() => switchMode("image")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all",
+                  mode === "image" ? "bg-primary text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ImagePlus className="w-4 h-4" /> Thẻ hình ảnh
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[0.65rem] font-bold uppercase tracking-wider">
+                  <Lock className="w-2.5 h-2.5" /> Pro
+                </span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => switchMode("vocab")}
