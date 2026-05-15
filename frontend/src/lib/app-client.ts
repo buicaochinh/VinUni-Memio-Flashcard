@@ -46,6 +46,12 @@ export type PreviewCard = {
   front: string;
   back: string;
   difficulty: "easy" | "medium" | "hard";
+  origin?: string | null;
+  generation_batch_id?: string | null;
+  generation_item_id?: string | null;
+  generated_front?: string | null;
+  generated_back?: string | null;
+  generated_difficulty?: string | null;
   image_type?: "diagram" | "real_image" | null;
   image_url?: string | null;
   diagram_spec?: string | null;
@@ -117,6 +123,76 @@ export type AnalyticsData = {
     peer_forgetting_rate: number;
     your_avg_reviews_per_day: number;
     peer_avg_reviews_per_day: number;
+  };
+};
+
+export type PilotEvaluationResponse = {
+  window: {
+    days: number;
+    start_date: string;
+    end_date: string;
+    d7_retention_note: string;
+  };
+  metrics: {
+    weekly_active_learners: { value: number; unit: string };
+    mastered_cards_per_active_learner_per_week: {
+      value: number;
+      unit: string;
+      mastered_cards: number;
+      active_learners: number;
+    };
+    due_card_completion_rate: {
+      value: number;
+      unit: string;
+      completed_due_today: number;
+      remaining_overdue_today: number;
+      denominator: number;
+    };
+    seven_day_retention: {
+      value: number | null;
+      unit: string;
+      cohort_size: number;
+      retained_users: number;
+    };
+    ai_card_acceptance_rate: {
+      value: number;
+      unit: string;
+      accepted_cards: number;
+      generated_candidates: number;
+    };
+    ai_card_edit_delete_rate: {
+      value: {
+        edit_rate_percent: number;
+        delete_rate_percent: number;
+      };
+      unit: string;
+      edited_cards: number;
+      deleted_cards: number;
+      accepted_cards: number;
+    };
+    coach_action_click_through_rate: {
+      value: number;
+      unit: string;
+      action_clicks: number;
+      actions_shown: number;
+    };
+    exam_goal_readiness_accuracy: {
+      value: number | null;
+      unit: string;
+      accurate_snapshots: number;
+      evaluated_snapshots: number;
+    };
+    p95_latency_for_ai_endpoints: {
+      value: number;
+      unit: string;
+      breakdown_ms: Record<string, number>;
+    };
+    openai_cost_per_active_learner: {
+      value: number;
+      unit: string;
+      total_openai_cost_usd: number;
+      active_learners: number;
+    };
   };
 };
 
@@ -280,6 +356,7 @@ export type LearningGoal = {
   weak_cards: number;
   total_cards: number;
   workload_cards: number;
+  current_mastery: number;
   recommended_daily_cards: number;
   readiness_score: number;
   urgency: "low" | "medium" | "high" | string;
@@ -765,7 +842,8 @@ export async function deleteCard(cardId: number) {
 
 export async function updateCardProgress(
   card: Card,
-  quality: 0 | 1 | 2 | 3
+  quality: 0 | 1 | 2 | 3,
+  options: { review_source?: "study" | "coach_quiz" | "game"; used_hint?: boolean } = {}
 ) {
   const res = await authFetch("/api/cards/progress", {
     method: "POST",
@@ -777,6 +855,8 @@ export async function updateCardProgress(
       repetition: card.repetition ?? 0,
       interval: card.interval ?? 0,
       deck_id: 0,
+      review_source: options.review_source ?? "study",
+      used_hint: options.used_hint ?? false,
     }),
   });
   if (!res.ok) throw new Error("UPDATE_PROGRESS_FAILED");
@@ -896,10 +976,12 @@ export async function saveCoachQuizSummary(payload: {
 export async function logCoachTrustEvent(payload: {
   thread_id?: number | null;
   message_id?: number | null;
-  event_type: "citation_click" | "answer_feedback";
+  event_type: "citation_click" | "answer_feedback" | "action_click";
   citation_id?: string | null;
   value?: "helpful" | "not_helpful" | null;
   source_type?: string | null;
+  target_type?: string | null;
+  target_id?: string | null;
 }) {
   await authFetch("/api/coach/trust-event", {
     method: "POST",
@@ -1341,6 +1423,12 @@ export async function fetchAnalytics(): Promise<AnalyticsData> {
   const res = await authFetch("/api/decks/analytics");
   if (!res.ok) throw new Error("ANALYTICS_FAILED");
   return res.json() as Promise<AnalyticsData>;
+}
+
+export async function fetchPilotEvaluation(days = 7): Promise<PilotEvaluationResponse> {
+  const res = await authFetch(`/api/decks/evaluation/pilot?days=${days}`);
+  if (!res.ok) throw new Error("PILOT_EVALUATION_FAILED");
+  return res.json() as Promise<PilotEvaluationResponse>;
 }
 
 // ─── Offline cache (localStorage) ────────────────────────────────────────────
