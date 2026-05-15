@@ -19,7 +19,7 @@
 - **DB / migrations**:
   - DB: PostgreSQL
   - **Alembic là chuẩn**: `alembic upgrade head` (runtime `create_all()` đã tắt)
-  - Latest migration: `0015_user_xp` (thêm `total_xp` vào `users`)
+  - Latest migration: `0016_evaluation_tracking` (adds pilot evaluation tracking tables and AI-generated card provenance fields)
 - **Health check**: `GET /health` → `{"status": "ok"}` (used by Docker HEALTHCHECK)
 - **Deploy (pilot)**:
   - Docker Swarm single-node; deploy qua `scripts/bootstrap.sh` (one-time) + `scripts/redeploy.sh` (hằng ngày)
@@ -140,20 +140,24 @@ A20-App-001/
 |---|---|---|
 | `users` | `id`, `google_id` (unique), `username` (unique), `password_hash`, `name`, `email`, `photo_url`, `auth_type`, `is_guest`, `total_xp` (int, default 0) | Supports Google, username/password, and guest auth. `total_xp` accumulates from study sessions and games. |
 | `decks` | `id`, `user_id` (FK→users), `name`, `description`, `is_public` (int 0/1), `share_token` (unique), `created_at` | Multi-tenant: always filter by `user_id` |
-| `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `image_type`, `image_url`, `diagram_spec`, `created_at` | `source_context` stores original text for citations; image fields support Đuổi Hình / DALL-E cards |
+| `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `image_type`, `image_url`, `diagram_spec`, `origin`, `generation_batch_id`, `generation_item_id`, `accepted_at`, `first_edited_at`, `deleted_at`, `created_at` | `source_context` stores original text for citations; generation provenance fields support AI acceptance/edit/delete metrics |
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
 | `study_sessions` | `id`, `user_id`, `deck_id`, `session_date`, `cards_reviewed`, `avg_quality` | UniqueConstraint on (user_id, deck_id, session_date) |
+| `review_history` | `id`, `user_id`, `card_id`, `deck_id`, `review_date`, `reviewed_at`, `quality`, `previous_quality`, `ease_factor`, `previous_ease_factor`, `interval`, `repetition`, `review_source`, `used_hint`, `was_due`, `became_mastered`, `became_forgotten` | Durable per-review log for retention, forgetting, mastery growth, and learning-transfer metrics |
 | `game_sessions` | `id`, `user_id`, `deck_id`, `mode`, `status`, `campaign_json`, `score`, `xp_earned`, `accuracy`, `total_questions`, `correct_answers`, `started_at`, `completed_at`, `created_at` | Stores AI Adventure Campaign payloads and final score/XP |
 | `coach_threads` | `id`, `user_id`, `title`, `context_deck_id`, `created_at`, `updated_at` | Memio Coach conversation threads |
 | `coach_messages` | `id`, `thread_id`, `user_id`, `role`, `content`, `citations_json`, `actions_json`, `created_at` | Stored Coach messages, citations, and suggested actions |
 | `user_settings` | `id`, `user_id`, `daily_new_limit`, `daily_review_limit`, `timezone` | Per-user study limits and IANA timezone for local-date features |
 | `learning_goals` | `id`, `user_id`, `deck_id`, `goal_type`, `target_date`, `desired_mastery`, `daily_workload`, `status`, `created_at`, `updated_at` | Exam/deadline goals per deck; unique on `(user_id, deck_id)` |
+| `telemetry_events` | `id`, `user_id`, `event_type`, `target_type`, `target_id`, `metadata_json`, `created_at` | Product-level event stream for Coach clicks, notifications, AI card acceptance/edit/delete, and similar pilot metrics |
+| `ai_operation_logs` | `id`, `user_id`, `operation_type`, `endpoint`, `model`, `prompt_tokens`, `completion_tokens`, `total_tokens`, `estimated_cost_usd`, `latency_ms`, `status`, `fallback_used`, `output_count`, `accepted_count`, `metadata_json`, `created_at` | Reliability and cost log for AI endpoints using `gpt-4o-mini` and related flows |
+| `goal_readiness_snapshots` | `id`, `goal_id`, `user_id`, `deck_id`, `target_date`, `desired_mastery`, `predicted_readiness`, `current_mastery`, `workload_cards`, `recommended_daily_cards`, `days_remaining`, `actual_mastery`, `prediction_error`, `created_at` | Daily goal-readiness snapshots for validating exam-readiness accuracy over time |
 
-**Schema is managed via Alembic migrations. Latest: `0015_user_xp`.**
+**Schema is managed via Alembic migrations. Latest: `0016_evaluation_tracking`.**
 
 - Legacy auto-create at runtime has been disabled (see `src/app/db/session.py:init_db()`).
 - Apply migrations with `./.venv/bin/alembic upgrade head`.
-- Migration history: 0001 baseline → … → 0014 learning_goals → 0015 user_xp.
+- Migration history: 0001 baseline → … → 0014 learning_goals → 0015 user_xp → 0016 evaluation_tracking.
 
 ## 6. API Endpoints
 
@@ -180,6 +184,7 @@ Base: `/api` (mounted in `src/main.py`)
 | DELETE | `/{deck_id}/share` | — | Disable sharing (ownership checked) |
 | GET | `/shared/{token}` | — | **Public** (no auth): get shared deck + cards |
 | GET | `/analytics` | — | Global analytics for current user |
+| GET | `/evaluation/pilot?days=7` | — | Pilot dashboard metrics from review history, telemetry, AI logs, and goal readiness snapshots |
 
 ### Cards (`/api/cards/`)
 | Method | Path | Params/Body | Description |
