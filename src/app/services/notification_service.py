@@ -14,6 +14,7 @@ from src.app.models.domain import (
     Progress,
     StudySession,
 )
+from src.app.services import evaluation_service
 from src.app.services.telegram_service import TelegramConfigError, send_message
 from src.app.services.timezone_service import get_user_timezone
 
@@ -131,6 +132,15 @@ async def send_due_notifications(session: Session) -> int:
             await send_message(
                 chat_id=str(integ.dm_chat_id),
                 text=text,
+            )
+            evaluation_service.log_telemetry_event(
+                session,
+                user_id=integ.user_id,
+                event_type="notification_sent",
+                target_type="telegram",
+                target_id=integ.dm_chat_id,
+                metadata={"alert_types": [alert["type"] for alert in alerts]},
+                commit=False,
             )
             integ.sent_today_date = today
             integ.sent_today = (integ.sent_today or 0) + 1
