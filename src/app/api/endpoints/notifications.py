@@ -5,6 +5,7 @@ from src.app.api.deps import get_current_user_id
 from src.app.core.config import settings
 from src.app.db.session import get_session
 from src.app.services import notification_service
+from src.app.services import evaluation_service
 
 router = APIRouter()
 
@@ -14,7 +15,15 @@ def get_my_notifications(
     user_id: int = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
-    return notification_service.get_user_alerts(session, user_id)
+    alerts = notification_service.get_user_alerts(session, user_id)
+    evaluation_service.log_telemetry_event(
+        session,
+        user_id=user_id,
+        event_type="notification_impression",
+        target_type="in_app",
+        metadata={"alert_types": [alert["type"] for alert in alerts], "count": len(alerts)},
+    )
+    return alerts
 
 
 @router.post("/trigger")
