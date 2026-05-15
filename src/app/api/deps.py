@@ -3,7 +3,6 @@ from sqlmodel import Session
 
 from src.app.db.session import get_session
 from src.app.models.domain import User
-from src.app.services.user_service import is_admin_email, sync_admin_status
 from src.app.utils.jwt_auth import decode_token, get_bearer_token
 
 
@@ -33,9 +32,6 @@ def require_admin_user(
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    if sync_admin_status(session, user):
-        session.commit()
-        session.refresh(user)
-    if not user.is_admin and not is_admin_email(user.email):
+    if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")
     return user

@@ -1,30 +1,8 @@
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
-from src.app.core.config import settings
 from src.app.models.domain import User
 from src.app.utils.security import hash_password, verify_password, generate_guest_id
 
-
-def is_admin_email(email: str | None) -> bool:
-    if not email:
-        return False
-    allowed = {
-        item.strip().lower()
-        for item in (settings.ADMIN_EMAILS or "").split(",")
-        if item.strip()
-    }
-    return email.strip().lower() in allowed
-
-
-def sync_admin_status(session: Session, user: User) -> bool:
-    """Promote configured admin emails without demoting manual DB admins."""
-    if user.is_admin:
-        return False
-    if not is_admin_email(user.email):
-        return False
-    user.is_admin = True
-    session.add(user)
-    return True
 
 def get_or_create_user(session: Session, google_id: str, name: str, email: str, photo_url: str = ""):
     """Google OAuth login"""
@@ -38,7 +16,6 @@ def get_or_create_user(session: Session, google_id: str, name: str, email: str, 
             email=email,
             photo_url=photo_url,
             auth_type="google",
-            is_admin=is_admin_email(email),
         )
         session.add(user)
         session.commit()
@@ -47,7 +24,6 @@ def get_or_create_user(session: Session, google_id: str, name: str, email: str, 
         user.name = name
         user.email = email
         user.photo_url = photo_url
-        sync_admin_status(session, user)
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -68,7 +44,6 @@ def register_user(session: Session, username: str, password: str, email: str = N
         email=email,
         name=name or username,
         auth_type="username",
-        is_admin=is_admin_email(email),
     )
     session.add(user)
     try:
@@ -90,10 +65,6 @@ def login_user(session: Session, username: str, password: str):
 
     if not verify_password(password, user.password_hash):
         raise ValueError("Invalid username or password")
-
-    if sync_admin_status(session, user):
-        session.commit()
-        session.refresh(user)
 
     return user.model_dump(exclude={"password_hash"})
 
