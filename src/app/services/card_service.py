@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
-from src.app.core.time import add_days_to_date_key, local_date_key
+from src.app.core.time import add_days_to_date_key, local_date_key, utc_now_naive
 from src.app.models.domain import Flashcard, Progress, StudySession
+from src.app.services import evaluation_service
 from src.app.services.timezone_service import get_user_timezone
 
 def add_flashcard(session: Session, deck_id: int, front: str, back: str, difficulty: str = "medium"):
@@ -11,9 +12,20 @@ def add_flashcard(session: Session, deck_id: int, front: str, back: str, difficu
     return card.id
 
 
-def bulk_add_flashcards(session: Session, deck_id: int, cards: list[dict]):
+def bulk_add_flashcards(session: Session, deck_id: int, cards: list[dict], user_id: int | None = None) -> list[int]:
     """cards: list of dicts with front, back, difficulty keys"""
+    created_ids: list[int] = []
     for card_data in cards:
+        now = utc_now_naive()
+        generated_front = card_data.get("generated_front") or card_data.get("front")
+        generated_back = card_data.get("generated_back") or card_data.get("back")
+        generated_difficulty = card_data.get("generated_difficulty") or card_data.get("difficulty", "medium")
+        is_ai = bool(card_data.get("generation_batch_id"))
+        edited_before_save = (
+            (card_data.get("front") or "") != (generated_front or "")
+            or (card_data.get("back") or "") != (generated_back or "")
+            or card_data.get("difficulty", "medium") != (generated_difficulty or "medium")
+        )
         card = Flashcard(
             deck_id=deck_id,
             front=card_data["front"],
@@ -23,9 +35,53 @@ def bulk_add_flashcards(session: Session, deck_id: int, cards: list[dict]):
             image_type=card_data.get("image_type"),
             diagram_spec=card_data.get("diagram_spec"),
             image_url=card_data.get("image_url"),
+            origin=card_data.get("origin") or ("ai" if is_ai else "manual"),
+            generation_batch_id=card_data.get("generation_batch_id"),
+            generation_item_id=card_data.get("generation_item_id"),
+            generated_front=generated_front if is_ai else None,
+            generated_back=generated_back if is_ai else None,
+            generated_difficulty=generated_difficulty if is_ai else None,
+            accepted_at=now if is_ai else None,
+            first_edited_at=now if is_ai and edited_before_save else None,
         )
         session.add(card)
+        session.flush()
+        if card.id is not None:
+            created_ids.append(card.id)
+            if is_ai:
+                evaluation_service.log_telemetry_event(
+                    session,
+                    user_id=user_id,
+                    event_type="ai_card_accepted",
+                    target_type="flashcard",
+                    target_id=card.id,
+                    metadata={
+                        "deck_id": deck_id,
+                        "generation_batch_id": card.generation_batch_id,
+                        "generation_item_id": card.generation_item_id,
+                        "origin": card.origin,
+                        "edited_before_save": edited_before_save,
+                        "has_source_context": bool(card.source_context),
+                        "image_type": card.image_type,
+                    },
+                    commit=False,
+                )
+                if edited_before_save:
+                    evaluation_service.log_telemetry_event(
+                        session,
+                        user_id=user_id,
+                        event_type="ai_card_edited_before_save",
+                        target_type="flashcard",
+                        target_id=card.id,
+                        metadata={
+                            "deck_id": deck_id,
+                            "generation_batch_id": card.generation_batch_id,
+                            "generation_item_id": card.generation_item_id,
+                        },
+                        commit=False,
+                    )
     session.commit()
+    return created_ids
 
 
 def replace_flashcards(session: Session, deck_id: int, card_ids: list[int], cards: list[dict]) -> list[int]:
@@ -49,18 +105,35 @@ def replace_flashcards(session: Session, deck_id: int, card_ids: list[int], card
     return created_ids
 
 
-def update_flashcard(session: Session, card_id: int, front: str, back: str, difficulty: str = None):
+def update_flashcard(session: Session, card_id: int, front: str, back: str, difficulty: str = None, user_id: int | None = None):
     card = session.get(Flashcard, card_id)
     if card:
+        changed = card.front != front or card.back != back or (difficulty is not None and card.difficulty != difficulty)
         card.front = front
         card.back = back
         if difficulty:
             card.difficulty = difficulty
+        if changed:
+            if card.origin.startswith("ai") and card.first_edited_at is None:
+                card.first_edited_at = utc_now_naive()
+            evaluation_service.log_telemetry_event(
+                session,
+                user_id=user_id,
+                event_type="card_edited",
+                target_type="flashcard",
+                target_id=card.id,
+                metadata={
+                    "deck_id": card.deck_id,
+                    "origin": card.origin,
+                    "generation_batch_id": card.generation_batch_id,
+                },
+                commit=False,
+            )
         session.add(card)
         session.commit()
 
 
-def delete_flashcard(session: Session, card_id: int):
+def delete_flashcard(session: Session, card_id: int, user_id: int | None = None):
     # Delete progress first
     progress_statement = select(Progress).where(Progress.card_id == card_id)
     progresses = session.exec(progress_statement).all()
@@ -69,6 +142,22 @@ def delete_flashcard(session: Session, card_id: int):
 
     card = session.get(Flashcard, card_id)
     if card:
+        card.deleted_at = utc_now_naive()
+        evaluation_service.log_telemetry_event(
+            session,
+            user_id=user_id,
+            event_type="card_deleted",
+            target_type="flashcard",
+            target_id=card.id,
+            metadata={
+                "deck_id": card.deck_id,
+                "origin": card.origin,
+                "generation_batch_id": card.generation_batch_id,
+                "created_at": card.created_at,
+                "accepted_at": card.accepted_at,
+            },
+            commit=False,
+        )
         session.delete(card)
     session.commit()
 
@@ -98,15 +187,39 @@ def get_public_deck_cards(session: Session, deck_id: int):
     return [c.model_dump() for c in cards]
 
 
-def update_card_progress(session: Session, user_id: int, card_id: int, interval: int, repetition: int, ease_factor: float, quality: int = -1):
+def update_card_progress(
+    session: Session,
+    user_id: int,
+    card_id: int,
+    interval: int,
+    repetition: int,
+    ease_factor: float,
+    quality: int = -1,
+    review_source: str = "study",
+    used_hint: bool = False,
+):
     statement = select(Progress).where(Progress.user_id == user_id, Progress.card_id == card_id)
     progress = session.exec(statement).first()
 
     today = local_date_key(get_user_timezone(session, user_id))
     is_new = True
     already_reviewed_today = False
+    previous_quality = None
+    previous_ease_factor = None
+    previous_interval = None
+    previous_repetition = None
+    previous_last_reviewed = None
+    scheduled_review = None
+    was_due = True
 
     if progress:
+        previous_quality = progress.last_quality
+        previous_ease_factor = progress.ease_factor
+        previous_interval = progress.interval
+        previous_repetition = progress.repetition
+        previous_last_reviewed = progress.last_reviewed
+        scheduled_review = progress.next_review
+        was_due = progress.repetition == 0 or progress.next_review is None or progress.next_review <= today
         if progress.repetition > 0:
             is_new = False
         if progress.last_reviewed == today:
@@ -136,8 +249,29 @@ def update_card_progress(session: Session, user_id: int, card_id: int, interval:
 
     session.add(progress)
 
+    card = session.get(Flashcard, card_id)
+    evaluation_service.log_review_history(
+        session,
+        user_id=user_id,
+        card_id=card_id,
+        deck_id=card.deck_id if card else None,
+        review_date=today,
+        quality=quality,
+        previous_quality=previous_quality,
+        ease_factor=ease_factor,
+        previous_ease_factor=previous_ease_factor,
+        interval=interval,
+        previous_interval=previous_interval,
+        repetition=repetition,
+        previous_repetition=previous_repetition,
+        scheduled_review=scheduled_review,
+        days_since_last_review=evaluation_service.days_between(previous_last_reviewed, today),
+        review_source=review_source,
+        used_hint=used_hint,
+        was_due=was_due,
+    )
+
     if not already_reviewed_today:
-        card = session.get(Flashcard, card_id)
         if card:
             session_statement = select(StudySession).where(
                 StudySession.user_id == user_id,
