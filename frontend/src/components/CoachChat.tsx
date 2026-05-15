@@ -43,6 +43,11 @@ function ActionButton({ action, onQuiz }: { action: CoachAction; onQuiz: () => v
 
   const handleClick = () => {
     if (action.requires_confirmation && !confirm(`Xác nhận: ${action.label}?`)) return;
+    void logCoachTrustEvent({
+      event_type: "action_click",
+      target_type: action.type,
+      target_id: action.href ?? action.label,
+    });
     if (action.type === "quiz_in_chat") {
       onQuiz();
       return;
@@ -527,7 +532,7 @@ export default function CoachChat({
       ease_factor: question.ease_factor ?? 2.5,
       repetition: question.repetition ?? 0,
       interval: question.interval ?? 0,
-    }, quality).catch(() => {
+    }, quality, { review_source: "coach_quiz" }).catch(() => {
       setError("Câu trả lời đã ghi trong chat, nhưng chưa cập nhật được lịch ôn.");
     });
   };
