@@ -3,7 +3,8 @@ import datetime
 from sqlmodel import Session, select
 
 from src.app.core.time import local_date, utc_now_naive
-from src.app.models.domain import Deck, Flashcard, LearningGoal, Progress
+from src.app.models.domain import Deck, Flashcard, GoalReadinessSnapshot, LearningGoal, Progress
+from src.app.services import evaluation_service
 from src.app.services.timezone_service import get_user_timezone
 
 
@@ -94,6 +95,7 @@ def _goal_to_response(session: Session, goal: LearningGoal) -> dict:
         "weak_cards": stats["weak_cards"],
         "total_cards": stats["total_cards"],
         "workload_cards": workload_cards,
+        "current_mastery": stats["current_mastery"],
         "recommended_daily_cards": recommended_daily,
         "readiness_score": readiness,
         "urgency": urgency,
@@ -103,13 +105,50 @@ def _goal_to_response(session: Session, goal: LearningGoal) -> dict:
     }
 
 
+def _maybe_snapshot_goal(session: Session, goal: LearningGoal, goal_response: dict) -> None:
+    today = local_date(get_user_timezone(session, goal.user_id)).strftime("%Y-%m-%d")
+    existing = session.exec(
+        select(GoalReadinessSnapshot)
+        .where(GoalReadinessSnapshot.goal_id == goal.id)
+        .where(GoalReadinessSnapshot.created_at >= datetime.datetime.strptime(today, "%Y-%m-%d"))
+        .order_by(GoalReadinessSnapshot.created_at.desc())
+    ).first()
+    if existing:
+        return
+    evaluation_service.log_goal_readiness_snapshot(
+        session,
+        goal_id=goal.id,
+        user_id=goal.user_id,
+        deck_id=goal.deck_id,
+        target_date=goal.target_date,
+        desired_mastery=goal.desired_mastery,
+        predicted_readiness=goal_response["readiness_score"],
+        current_mastery=goal_response["current_mastery"],
+        due_cards=goal_response["due_cards"],
+        new_cards=goal_response["new_cards"],
+        weak_cards=goal_response["weak_cards"],
+        workload_cards=goal_response["workload_cards"],
+        recommended_daily_cards=goal_response["recommended_daily_cards"],
+        days_remaining=goal_response["days_remaining"],
+        commit=False,
+    )
+
+
 def list_goals(session: Session, user_id: int) -> list[dict]:
     goals = session.exec(
         select(LearningGoal)
         .where(LearningGoal.user_id == user_id, LearningGoal.status == "active")
         .order_by(LearningGoal.target_date.asc())
     ).all()
-    return [_goal_to_response(session, goal) for goal in goals]
+    responses = [_goal_to_response(session, goal) for goal in goals]
+    changed = False
+    for goal, response in zip(goals, responses):
+        before = len(session.new)
+        _maybe_snapshot_goal(session, goal, response)
+        changed = changed or len(session.new) > before
+    if changed:
+        session.commit()
+    return responses
 
 
 def upsert_goal(
@@ -139,7 +178,10 @@ def upsert_goal(
     session.add(goal)
     session.commit()
     session.refresh(goal)
-    return _goal_to_response(session, goal)
+    response = _goal_to_response(session, goal)
+    _maybe_snapshot_goal(session, goal, response)
+    session.commit()
+    return response
 
 
 def delete_goal(session: Session, user_id: int, goal_id: int) -> int | None:
