@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 from src.app.api.deps import get_current_user_id
 from src.app.db.session import get_session
-from src.app.services import deck_service, card_service, analytics_service
+from src.app.services import deck_service, card_service, analytics_service, evaluation_service
 from src.app.schemas.deck import DeckCreate
 
 router = APIRouter()
@@ -53,3 +53,12 @@ def get_shared_deck(token: str, session: Session = Depends(get_session)):
 def get_analytics(user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     data = analytics_service.get_analytics(session, user_id)
     return data
+
+
+@router.get("/evaluation/pilot")
+def get_pilot_evaluation(
+    days: int = 7,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    return evaluation_service.get_pilot_evaluation(session, days=max(7, min(days, 30)))
