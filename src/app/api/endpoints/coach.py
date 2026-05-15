@@ -5,9 +5,9 @@ from src.app.api.deps import get_current_user_id
 from src.app.db.session import get_session
 from src.app.models.domain import Deck
 from src.app.schemas.coach import (
+    CoachLearningIntelligenceResponse,
     CoachMessageRequest,
     CoachMessageResponse,
-    CoachLearningIntelligenceResponse,
     CoachQuizStartRequest,
     CoachQuizStartResponse,
     CoachQuizSummaryRequest,
@@ -17,6 +17,7 @@ from src.app.schemas.coach import (
     CoachTrustEventRequest,
 )
 from src.app.services import coach_service
+from src.app.services import evaluation_service
 
 router = APIRouter()
 
@@ -40,7 +41,7 @@ def get_learning_intelligence(limit: int = 4, user_id: int = Depends(get_current
 def send_message(payload: CoachMessageRequest, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     text = payload.message.strip()
     if not text:
-        raise HTTPException(status_code=422, detail="Tin nhắn không được để trống.")
+        raise HTTPException(status_code=422, detail="Tin nhan khong duoc de trong.")
 
     thread = coach_service.get_or_create_thread(
         session,
@@ -58,6 +59,8 @@ def send_message(payload: CoachMessageRequest, user_id: int = Depends(get_curren
     )
     valid_deck_ids = set(session.exec(select(Deck.id).where(Deck.user_id == user_id)).all())
     answer, citations, actions = coach_service.call_coach_llm(
+        session,
+        user_id,
         text,
         context,
         available_citations,
@@ -84,7 +87,18 @@ def start_inline_quiz(payload: CoachQuizStartRequest, user_id: int = Depends(get
         payload.card_ids,
     )
     if not questions:
-        raise HTTPException(status_code=422, detail="Cần ít nhất 2 flashcards để quiz trong chat.")
+        raise HTTPException(status_code=422, detail="Can it nhat 2 flashcards de quiz trong chat.")
+    evaluation_service.log_telemetry_event(
+        session,
+        user_id=user_id,
+        event_type="coach_quiz_started",
+        target_type="deck",
+        target_id=payload.deck_id,
+        metadata={
+            "question_count": len(questions),
+            "scoped_card_count": len(payload.card_ids or []),
+        },
+    )
     return {"questions": questions}
 
 
@@ -92,7 +106,7 @@ def start_inline_quiz(payload: CoachQuizStartRequest, user_id: int = Depends(get
 def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, user_id: int = Depends(get_current_user_id), session: Session = Depends(get_session)):
     summary = payload.summary.strip()
     if not summary:
-        raise HTTPException(status_code=422, detail="Tóm tắt quiz không được để trống.")
+        raise HTTPException(status_code=422, detail="Tom tat quiz khong duoc de trong.")
 
     thread = coach_service.get_or_create_thread(
         session,
@@ -109,6 +123,17 @@ def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, user_id: int = De
         citations=[],
         actions=[action.model_dump() for action in payload.actions],
     )
+    evaluation_service.log_telemetry_event(
+        session,
+        user_id=user_id,
+        event_type="coach_quiz_completed",
+        target_type="coach_thread",
+        target_id=thread.id,
+        metadata={
+            "context_deck_id": payload.context_deck_id,
+            "action_count": len(payload.actions),
+        },
+    )
     return {
         "thread_id": thread.id,
         "message": coach_service.stored_message_to_dict(message),
@@ -116,13 +141,18 @@ def save_inline_quiz_summary(payload: CoachQuizSummaryRequest, user_id: int = De
 
 
 @router.post("/trust-event")
-def log_trust_event(payload: CoachTrustEventRequest, user_id: int = Depends(get_current_user_id)):
-    if payload.event_type not in {"citation_click", "answer_feedback"}:
-        raise HTTPException(status_code=422, detail="Loại trust event không hợp lệ.")
+def log_trust_event(
+    payload: CoachTrustEventRequest,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    if payload.event_type not in {"citation_click", "answer_feedback", "action_click"}:
+        raise HTTPException(status_code=422, detail="Loai trust event khong hop le.")
     if payload.event_type == "answer_feedback" and payload.value not in {"helpful", "not_helpful"}:
-        raise HTTPException(status_code=422, detail="Feedback không hợp lệ.")
+        raise HTTPException(status_code=422, detail="Feedback khong hop le.")
 
     coach_service.log_trust_event(
+        session=session,
         user_id=user_id,
         event_type=payload.event_type,
         thread_id=payload.thread_id,
@@ -130,5 +160,7 @@ def log_trust_event(payload: CoachTrustEventRequest, user_id: int = Depends(get_
         citation_id=payload.citation_id,
         value=payload.value,
         source_type=payload.source_type,
+        target_type=payload.target_type,
+        target_id=payload.target_id,
     )
     return {"message": "success"}
