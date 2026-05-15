@@ -104,6 +104,8 @@ The following are intentionally out of scope for the next roadmap cycle:
 
 ## 7. Success Metrics
 
+Detailed pilot measurement definitions live in `docs/EVALUATION_METRICS.md`. The preferred north-star metric is **mastered cards per active learner per week**, so product success stays tied to learning progress instead of raw activity.
+
 ### Activation
 
 - Percentage of new users who create or import their first deck.
