@@ -138,7 +138,7 @@ A20-App-001/
 
 | Table | Key Columns | Notes |
 |---|---|---|
-| `users` | `id`, `google_id` (unique), `username` (unique), `password_hash`, `name`, `email`, `photo_url`, `auth_type`, `is_guest`, `total_xp` (int, default 0) | Supports Google, username/password, and guest auth. `total_xp` accumulates from study sessions and games. |
+| `users` | `id`, `google_id` (unique), `username` (unique), `password_hash`, `name`, `email`, `photo_url`, `auth_type`, `is_guest`, `is_admin`, `total_xp` (int, default 0) | Supports Google, username/password, and guest auth. `is_admin` gates the in-app evaluation dashboard. `total_xp` accumulates from study sessions and games. |
 | `decks` | `id`, `user_id` (FK→users), `name`, `description`, `is_public` (int 0/1), `share_token` (unique), `created_at` | Multi-tenant: always filter by `user_id` |
 | `flashcards` | `id`, `deck_id` (FK→decks), `front`, `back`, `difficulty`, `source_context`, `image_type`, `image_url`, `diagram_spec`, `origin`, `generation_batch_id`, `generation_item_id`, `accepted_at`, `first_edited_at`, `deleted_at`, `created_at` | `source_context` stores original text for citations; generation provenance fields support AI acceptance/edit/delete metrics |
 | `progress` | `id`, `user_id` (FK), `card_id` (FK), `interval`, `repetition`, `ease_factor`, `last_quality`, `last_reviewed`, `next_review` | UniqueConstraint on (user_id, card_id) |
