@@ -15,6 +15,7 @@ from src.app.schemas.game import (
     GameStartRequest,
     GameStartResponse,
 )
+from src.app.services import evaluation_service
 from src.app.services import game_service
 from src.app.services import xp_service
 
@@ -101,15 +102,36 @@ async def start_campaign(deck_id: int, payload: GameStartRequest, user_id: int =
         campaign = cached
     else:
         raw_campaign: dict = {}
+        used_fallback = False
         try:
-            llm = get_llm()
-            response = await (CAMPAIGN_PROMPT | llm).ainvoke({
-                "cards_json": json.dumps(compact_cards, ensure_ascii=False),
-            })
-            raw_campaign = _parse_json_object(response.content)
+            with evaluation_service.track_ai_operation(
+                session,
+                user_id=user_id,
+                operation_type="adventure_campaign_start",
+                endpoint="/api/games/campaign/{deck_id}/start",
+                metadata={"deck_id": deck_id, "card_count": len(compact_cards)},
+            ) as op:
+                llm = get_llm()
+                response = await (CAMPAIGN_PROMPT | llm).ainvoke({
+                    "cards_json": json.dumps(compact_cards, ensure_ascii=False),
+                })
+                raw_campaign = _parse_json_object(response.content)
+                op["output_count"] = sum(len(stage.get("questions", [])) for stage in raw_campaign.get("stages", [])) if isinstance(raw_campaign, dict) else 0
         except Exception:
             raw_campaign = {}
+            used_fallback = True
         campaign = game_service.normalize_campaign(raw_campaign, cards)
+        if not raw_campaign or campaign.get("title") == "Memory Trail":
+            used_fallback = True
+        if used_fallback:
+            evaluation_service.log_telemetry_event(
+                session,
+                user_id=user_id,
+                event_type="adventure_campaign_fallback",
+                target_type="deck",
+                target_id=deck_id,
+                metadata={"requested_card_count": payload.card_count},
+            )
     try:
         game = game_service.create_game_session(session, user_id, deck_id, campaign)
     except ProgrammingError as exc:
@@ -136,6 +158,20 @@ def complete_campaign(session_id: int, payload: GameCompleteRequest, user_id: in
     if not game:
         raise HTTPException(status_code=404, detail="Không tìm thấy game session.")
     xp_service.award_xp(session, user_id, game.xp_earned)
+    evaluation_service.log_telemetry_event(
+        session,
+        user_id=user_id,
+        event_type="adventure_campaign_completed",
+        target_type="game_session",
+        target_id=game.id,
+        metadata={
+            "deck_id": game.deck_id,
+            "accuracy": game.accuracy,
+            "total_questions": game.total_questions,
+            "correct_answers": game.correct_answers,
+            "score": game.score,
+        },
+    )
     return {
         "session_id": game.id,
         "status": game.status,
