@@ -1,5 +1,9 @@
 ## Docs Index (Memio)
 
+Pilot measurement:
+
+- `docs/EVALUATION_METRICS.md`: North-star metric, learning effectiveness, AI quality, engagement, and ops metrics for pilot evaluation.
+
 Tài liệu trong repo được chia theo mục đích:
 
 ### Product / Người dùng
