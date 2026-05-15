@@ -107,6 +107,15 @@ class Flashcard(SQLModel, table=True):
     image_type: Optional[str] = Field(default=None)      # "diagram" | "real_image" | None
     image_url: Optional[str] = Field(default=None)        # URL ảnh DALL-E 3
     diagram_spec: Optional[str] = Field(default=None)     # JSON string spec cho SVG renderer
+    origin: str = Field(default="manual", index=True)
+    generation_batch_id: Optional[str] = Field(default=None, index=True)
+    generation_item_id: Optional[str] = Field(default=None, index=True)
+    generated_front: Optional[str] = Field(default=None)
+    generated_back: Optional[str] = Field(default=None)
+    generated_difficulty: Optional[str] = Field(default=None)
+    accepted_at: Optional[datetime] = None
+    first_edited_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = Field(default=None, index=True)
 
     deck: Optional[Deck] = Relationship(back_populates="flashcards")
     progress: List["Progress"] = Relationship(back_populates="flashcard")
@@ -348,15 +357,32 @@ class ReviewHistory(SQLModel, table=True):
     __tablename__ = "review_history"
     __table_args__ = (
         Index("ix_review_history_user_card", "user_id", "card_id"),
+        Index("ix_review_history_user_reviewed_at", "user_id", "reviewed_at"),
         Index("ix_review_history_created_at", "created_at"),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    card_id: int = Field(foreign_key="flashcards.id", index=True)
+    card_id: int = Field(index=True)
+    deck_id: Optional[int] = Field(default=None, index=True)
+    review_date: str = Field(index=True)
+    reviewed_at: datetime = Field(default_factory=utc_now_naive)
     quality: int
+    previous_quality: Optional[int] = None
     ease_factor: float
+    previous_ease_factor: Optional[float] = None
     interval: int
+    previous_interval: Optional[int] = None
+    repetition: int = 0
+    previous_repetition: Optional[int] = None
+    scheduled_review: Optional[str] = None
+    days_since_last_review: Optional[int] = None
+    review_source: str = Field(default="study", index=True)
+    used_hint: bool = Field(default=False)
+    is_correct: bool = Field(default=False)
+    was_due: bool = Field(default=False)
+    became_mastered: bool = Field(default=False)
+    became_forgotten: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utc_now_naive)
 
 
@@ -364,6 +390,7 @@ class TelemetryEvent(SQLModel, table=True):
     __tablename__ = "telemetry_events"
     __table_args__ = (
         Index("ix_telemetry_events_user_type", "user_id", "event_type"),
+        Index("ix_telemetry_events_target", "target_type", "target_id"),
         Index("ix_telemetry_events_created_at", "created_at"),
     )
 
@@ -380,18 +407,54 @@ class AIOperationLog(SQLModel, table=True):
     __tablename__ = "ai_operation_logs"
     __table_args__ = (
         Index("ix_ai_operation_logs_user_type", "user_id", "operation_type"),
+        Index("ix_ai_operation_logs_status", "operation_type", "status"),
         Index("ix_ai_operation_logs_created_at", "created_at"),
     )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
     operation_type: str  # "generate_cards", "coach_chat", "image_gen", "quiz_start"
+    endpoint: Optional[str] = Field(default=None, index=True)
     model: str
+    provider: str = "openai"
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
     latency_ms: int = 0
     status: str = "success"  # "success", "error"
     error_message: Optional[str] = None
+    request_count: int = 1
+    output_count: int = 0
+    accepted_count: int = 0
+    fallback_used: bool = False
+    metadata_json: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
+class GoalReadinessSnapshot(SQLModel, table=True):
+    __tablename__ = "goal_readiness_snapshots"
+    __table_args__ = (
+        Index("ix_goal_readiness_goal_created", "goal_id", "created_at"),
+        Index("ix_goal_readiness_user_target", "user_id", "target_date"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    goal_id: int = Field(index=True)
+    user_id: int = Field(index=True)
+    deck_id: int = Field(index=True)
+    target_date: str
+    desired_mastery: int
+    predicted_readiness: int
+    current_mastery: int
+    due_cards: int = 0
+    new_cards: int = 0
+    weak_cards: int = 0
+    workload_cards: int = 0
+    recommended_daily_cards: int = 0
+    days_remaining: int = 0
+    actual_mastery: Optional[int] = None
+    prediction_error: Optional[int] = None
     created_at: datetime = Field(default_factory=utc_now_naive)
 
 
