@@ -57,5 +57,8 @@ app.include_router(api_router, prefix="/api")
 
 # Serve generated images from the data volume (path configured via IMAGES_DATA_DIR)
 _IMAGES_DIR = Path(settings.IMAGES_DATA_DIR)
-_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/generated-images", StaticFiles(directory=str(_IMAGES_DIR)), name="generated-images")
+try:
+    _IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/generated-images", StaticFiles(directory=str(_IMAGES_DIR)), name="generated-images")
+except (PermissionError, OSError):
+    pass
