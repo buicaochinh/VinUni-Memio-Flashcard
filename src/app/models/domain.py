@@ -344,6 +344,57 @@ class OAuthConnection(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now_naive)
 
 
+class ReviewHistory(SQLModel, table=True):
+    __tablename__ = "review_history"
+    __table_args__ = (
+        Index("ix_review_history_user_card", "user_id", "card_id"),
+        Index("ix_review_history_created_at", "created_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    card_id: int = Field(foreign_key="flashcards.id", index=True)
+    quality: int
+    ease_factor: float
+    interval: int
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
+class TelemetryEvent(SQLModel, table=True):
+    __tablename__ = "telemetry_events"
+    __table_args__ = (
+        Index("ix_telemetry_events_user_type", "user_id", "event_type"),
+        Index("ix_telemetry_events_created_at", "created_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+    event_type: str  # "action_click", "hint_used", "notification_open", "card_discarded", "card_edited"
+    target_type: Optional[str] = None  # "coach_action", "game_hint", "flashcard"
+    target_id: Optional[str] = None
+    metadata_json: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
+class AIOperationLog(SQLModel, table=True):
+    __tablename__ = "ai_operation_logs"
+    __table_args__ = (
+        Index("ix_ai_operation_logs_user_type", "user_id", "operation_type"),
+        Index("ix_ai_operation_logs_created_at", "created_at"),
+    )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
+    operation_type: str  # "generate_cards", "coach_chat", "image_gen", "quiz_start"
+    model: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    latency_ms: int = 0
+    status: str = "success"  # "success", "error"
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=utc_now_naive)
+
+
 class IngestionCardMap(SQLModel, table=True):
     __tablename__ = "ingestion_card_maps"
     __table_args__ = (
