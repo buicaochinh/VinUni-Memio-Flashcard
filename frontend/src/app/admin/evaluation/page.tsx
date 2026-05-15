@@ -43,7 +43,6 @@ export default function AdminEvaluationPage() {
   const user = useStoredUser();
   const [days, setDays] = useState<7 | 14 | 30>(7);
   const [data, setData] = useState<PilotEvaluationResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,13 +59,12 @@ export default function AdminEvaluationPage() {
 
   useEffect(() => {
     if (!clientReady || !user?.is_admin) return;
-    setLoading(true);
-    setError(null);
     fetchAdminPilotEvaluation(days)
       .then(setData)
       .catch((err) => setError(err instanceof Error ? err.message : "Khong tai duoc dashboard evaluation."))
-      .finally(() => setLoading(false));
   }, [clientReady, user?.is_admin, days]);
+
+  const loading = !data && !error;
 
   if (!clientReady || !user) {
     return (
@@ -103,7 +101,11 @@ export default function AdminEvaluationPage() {
           <button
             key={value}
             type="button"
-            onClick={() => setDays(value as 7 | 14 | 30)}
+            onClick={() => {
+              setDays(value as 7 | 14 | 30);
+              setData(null);
+              setError(null);
+            }}
             className={cn(
               "rounded-xl border px-4 py-2 text-sm font-semibold transition-colors",
               days === value
