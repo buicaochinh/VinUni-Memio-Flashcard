@@ -90,7 +90,10 @@ export default function AppShell({ children, user }: AppShellProps) {
     localStorage.setItem("sidebar_collapsed", String(next));
   };
 
-  const pageLabel = PAGE_LABELS[pathname] ?? "";
+  const navItems = user?.is_admin
+    ? [...NAV_ITEMS, { href: "/admin/evaluation", label: "Evaluation", icon: BarChart3 }]
+    : NAV_ITEMS;
+  const pageLabel = pathname === "/admin/evaluation" ? "Evaluation" : (PAGE_LABELS[pathname] ?? "");
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-transparent">
@@ -148,7 +151,7 @@ export default function AppShell({ children, user }: AppShellProps) {
 
           {/* Nav */}
           <nav className={cn("flex flex-col gap-2 flex-1 w-full", collapsed && "items-center")}>
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (
@@ -390,7 +393,7 @@ export default function AppShell({ children, user }: AppShellProps) {
 
       {/* ── Mobile bottom navigation ── */}
       <nav className="md:hidden flex fixed bottom-0 left-0 right-0 h-[68px] bg-[hsl(var(--acrylic-strong))] border-t border-border backdrop-blur-md z-[100] pb-[env(safe-area-inset-bottom)] items-stretch shadow-[0_-6px_28px_rgba(0,0,0,0.06)]">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
