@@ -239,6 +239,15 @@ export default function AppShell({ children, user }: AppShellProps) {
                     )}
                     <span className="text-[14px] font-semibold text-foreground truncate">{user.name}</span>
                   </div>
+                  {user.is_admin && (
+                    <Link
+                      href="/admin/evaluation"
+                      className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-wide text-primary"
+                    >
+                      <BarChart3 className="h-3.5 w-3.5" aria-hidden />
+                      Admin
+                    </Link>
+                  )}
                   {xp && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[0.72rem]">
