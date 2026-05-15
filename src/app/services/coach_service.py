@@ -15,6 +15,7 @@ from src.app.core.config import DEFAULT_MODEL, OPENAI_API_KEY
 from src.app.models.domain import CoachMessage, CoachThread, Deck, Flashcard, Progress, StudySession
 from src.app.services.analytics_service import get_analytics
 from src.app.core.time import utc_now_naive
+from src.app.services import evaluation_service
 from src.app.services.goal_service import list_goals
 
 STOPWORDS = {
@@ -598,6 +599,7 @@ def sort_citations_by_trust(citations: list[dict]) -> list[dict]:
 
 
 def log_trust_event(
+    session: Session,
     user_id: int,
     event_type: str,
     thread_id: int | None = None,
@@ -605,21 +607,27 @@ def log_trust_event(
     citation_id: str | None = None,
     value: str | None = None,
     source_type: str | None = None,
+    target_type: str | None = None,
+    target_id: str | None = None,
 ) -> None:
-    event = {
-        "event": "coach_trust",
-        "event_type": event_type,
-        "user_id": user_id,
-        "thread_id": thread_id,
-        "message_id": message_id,
-        "citation_id": citation_id,
-        "value": value,
-        "source_type": source_type,
-        "created_at": utc_now_naive().isoformat(),
-    }
+    evaluation_service.log_telemetry_event(
+        session,
+        user_id=user_id,
+        event_type=f"coach_{event_type}",
+        target_type=target_type or "coach_message",
+        target_id=target_id or message_id,
+        metadata={
+            "thread_id": thread_id,
+            "citation_id": citation_id,
+            "value": value,
+            "source_type": source_type,
+        },
+    )
 
 
 def call_coach_llm(
+    session: Session,
+    user_id: int,
     message: str,
     context: str,
     citations: list[dict],
@@ -656,15 +664,31 @@ def call_coach_llm(
     }
 
     client = OpenAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model=DEFAULT_MODEL,
-        temperature=0.35,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": COACH_SYSTEM_PROMPT},
-            {"role": "user", "content": _json_dumps(user_payload)},
-        ],
-    )
+    with evaluation_service.track_ai_operation(
+        session,
+        user_id=user_id,
+        operation_type="coach_chat",
+        endpoint="/api/coach/message",
+        metadata={
+            "mode": mode,
+            "default_deck_id": default_deck_id,
+            "internal_citation_count": len(citations),
+            "web_citation_count": len(web_results),
+        },
+    ) as op:
+        response = client.chat.completions.create(
+            model=DEFAULT_MODEL,
+            temperature=0.35,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": COACH_SYSTEM_PROMPT},
+                {"role": "user", "content": _json_dumps(user_payload)},
+            ],
+        )
+        prompt_tokens, completion_tokens, total_tokens = evaluation_service.token_usage_from_response(response)
+        op["prompt_tokens"] = prompt_tokens
+        op["completion_tokens"] = completion_tokens
+        op["total_tokens"] = total_tokens
     raw = response.choices[0].message.content or "{}"
     try:
         parsed = json.loads(raw)
