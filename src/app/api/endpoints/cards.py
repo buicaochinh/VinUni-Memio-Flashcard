@@ -22,6 +22,7 @@ from src.app.utils.card_pipeline import (
 from src.app.utils.image_generator import enrich_cards_with_images
 from src.app.db.session import get_session
 from src.app.services import card_service
+from src.app.services import evaluation_service
 from src.app.services import xp_service
 from src.app.core.sm2 import get_updated_sm2_values
 from src.app.schemas.card import (
@@ -270,7 +271,15 @@ def update_progress(payload: ProgressUpdate, user_id: int = Depends(get_current_
     }
     interval, n, ef = get_updated_sm2_values(card_data, payload.quality)
     card_service.update_card_progress(
-        session, user_id, payload.card_id, interval, n, ef, payload.quality
+        session,
+        user_id,
+        payload.card_id,
+        interval,
+        n,
+        ef,
+        payload.quality,
+        payload.review_source,
+        payload.used_hint,
     )
     return {"message": "success", "interval": interval, "ease_factor": ef}
 
@@ -290,92 +299,6 @@ async def preview_cards_no_deck(
     files: list[UploadFile] = File(...),
     count: int = Form(default=100),
     user_id: int = Depends(get_current_user_id),
-):
-    all_pages = []
-
-    for file in files:
-        suffix = Path(file.filename or "upload").suffix or ".tmp"
-        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
-        os.close(fd)
-        temp_path = Path(temp_path_str)
-        async with aio_open(temp_path, "wb") as out:
-            await out.write(await file.read())
-
-        try:
-            pages, _ = await _load_document_context(temp_path)
-            all_pages.extend(pages)
-        finally:
-            if temp_path.exists():
-                temp_path.unlink()
-
-    if not all_pages:
-        raise HTTPException(status_code=422, detail="Không trích xuất được text.")
-
-    try:
-        cards = await _generate_cards_chunked(all_pages, count)
-        return {"cards": cards, "total": len(cards)}
-    except HTTPException:
-        raise
-    except Exception as e:
-        err = str(e).lower()
-        if "429" in str(e):
-            if "invalid" in err or "new_api_error" in err:
-                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
-            raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
-        raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
-
-
-@router.post("/{deck_id}/preview")
-async def preview_cards(
-    deck_id: int,
-    files: list[UploadFile] = File(...),
-    count: int = Form(default=100),
-):
-    all_pages = []
-
-    for file in files:
-        suffix = Path(file.filename or "upload").suffix or ".tmp"
-        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
-        os.close(fd)
-        temp_path = Path(temp_path_str)
-        async with aio_open(temp_path, "wb") as out:
-            await out.write(await file.read())
-
-        try:
-            pages, _ = await _load_document_context(temp_path)
-            all_pages.extend(pages)
-        finally:
-            if temp_path.exists():
-                temp_path.unlink()
-
-    if not all_pages:
-        raise HTTPException(status_code=422, detail="Không trích xuất được text.")
-
-    try:
-        cards = await _generate_cards_chunked(all_pages, count)
-        return {"cards": cards, "total": len(cards)}
-    except HTTPException:
-        raise
-    except Exception as e:
-        err = str(e).lower()
-        if "429" in str(e):
-            if "invalid" in err or "new_api_error" in err:
-                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
-            raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
-        raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
-
-
-@router.post("/{deck_id}/bulk_create")
-def bulk_create_cards(deck_id: int, payload: BulkCreatePayload, session: Session = Depends(get_session)):
-    card_service.bulk_add_flashcards(session, deck_id, payload.cards)
-    return {"message": "success", "created": len(payload.cards)}
-
-
-@router.post("/{deck_id}/generate")
-async def generate_cards(
-    deck_id: int,
-    files: list[UploadFile] = File(...),
-    count: int = Form(default=100),
     session: Session = Depends(get_session),
 ):
     all_pages = []
@@ -399,8 +322,137 @@ async def generate_cards(
         raise HTTPException(status_code=422, detail="Không trích xuất được text.")
 
     try:
-        cards_data = await _generate_cards_chunked(all_pages, count)
-        card_service.bulk_add_flashcards(session, deck_id, cards_data)
+        with evaluation_service.track_ai_operation(
+            session,
+            user_id=user_id,
+            operation_type="generate_cards_preview",
+            endpoint="/api/cards/preview",
+            metadata={"requested_count": count, "file_count": len(files)},
+        ) as op:
+            cards = await _generate_cards_chunked(all_pages, count)
+            batch_id = evaluation_service.make_generation_batch_id("txt")
+            cards = evaluation_service.attach_generation_metadata(cards, batch_id=batch_id, origin="ai_text")
+            op["output_count"] = len(cards)
+            op["metadata"]["generation_batch_id"] = batch_id
+        return {"cards": cards, "total": len(cards)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        err = str(e).lower()
+        if "429" in str(e):
+            if "invalid" in err or "new_api_error" in err:
+                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
+            raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
+
+
+@router.post("/{deck_id}/preview")
+async def preview_cards(
+    deck_id: int,
+    files: list[UploadFile] = File(...),
+    count: int = Form(default=100),
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    all_pages = []
+
+    for file in files:
+        suffix = Path(file.filename or "upload").suffix or ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        temp_path = Path(temp_path_str)
+        async with aio_open(temp_path, "wb") as out:
+            await out.write(await file.read())
+
+        try:
+            pages, _ = await _load_document_context(temp_path)
+            all_pages.extend(pages)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    if not all_pages:
+        raise HTTPException(status_code=422, detail="Không trích xuất được text.")
+
+    try:
+        with evaluation_service.track_ai_operation(
+            session,
+            user_id=user_id,
+            operation_type="generate_cards_preview",
+            endpoint="/api/cards/{deck_id}/preview",
+            metadata={"deck_id": deck_id, "requested_count": count, "file_count": len(files)},
+        ) as op:
+            cards = await _generate_cards_chunked(all_pages, count)
+            batch_id = evaluation_service.make_generation_batch_id("txt")
+            cards = evaluation_service.attach_generation_metadata(cards, batch_id=batch_id, origin="ai_text")
+            op["output_count"] = len(cards)
+            op["metadata"]["generation_batch_id"] = batch_id
+        return {"cards": cards, "total": len(cards)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        err = str(e).lower()
+        if "429" in str(e):
+            if "invalid" in err or "new_api_error" in err:
+                raise HTTPException(status_code=503, detail="API key không hợp lệ hoặc hết credit. Kiểm tra OPENAI_API_KEY trong file .env") from e
+            raise HTTPException(status_code=429, detail="API đang bị giới hạn tốc độ. Vui lòng đợi 2 phút rồi thử lại.") from e
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý: {e}") from e
+
+
+@router.post("/{deck_id}/bulk_create")
+def bulk_create_cards(
+    deck_id: int,
+    payload: BulkCreatePayload,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    card_service.bulk_add_flashcards(session, deck_id, payload.cards, user_id)
+    return {"message": "success", "created": len(payload.cards)}
+
+
+@router.post("/{deck_id}/generate")
+async def generate_cards(
+    deck_id: int,
+    files: list[UploadFile] = File(...),
+    count: int = Form(default=100),
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    all_pages = []
+
+    for file in files:
+        suffix = Path(file.filename or "upload").suffix or ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        temp_path = Path(temp_path_str)
+        async with aio_open(temp_path, "wb") as out:
+            await out.write(await file.read())
+
+        try:
+            pages, _ = await _load_document_context(temp_path)
+            all_pages.extend(pages)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink()
+
+    if not all_pages:
+        raise HTTPException(status_code=422, detail="Không trích xuất được text.")
+
+    try:
+        with evaluation_service.track_ai_operation(
+            session,
+            user_id=user_id,
+            operation_type="generate_cards_save",
+            endpoint="/api/cards/{deck_id}/generate",
+            metadata={"deck_id": deck_id, "requested_count": count, "file_count": len(files)},
+        ) as op:
+            cards_data = await _generate_cards_chunked(all_pages, count)
+            batch_id = evaluation_service.make_generation_batch_id("txt")
+            cards_data = evaluation_service.attach_generation_metadata(cards_data, batch_id=batch_id, origin="ai_text")
+            card_service.bulk_add_flashcards(session, deck_id, cards_data, user_id)
+            op["output_count"] = len(cards_data)
+            op["accepted_count"] = len(cards_data)
+            op["metadata"]["generation_batch_id"] = batch_id
         return {"message": "success", "generated": len(cards_data)}
     except HTTPException:
         raise
@@ -446,7 +498,11 @@ async def _classify_cards_for_images(cards: list[Flashcard]) -> list[dict]:
 
 
 @router.post("/{deck_id}/generate_images")
-async def generate_deck_images(deck_id: int, session: Session = Depends(get_session)):
+async def generate_deck_images(
+    deck_id: int,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
     all_cards = session.exec(select(Flashcard).where(Flashcard.deck_id == deck_id)).all()
     unimaged = [c for c in all_cards if not c.image_url]
 
@@ -494,7 +550,14 @@ async def generate_deck_images(deck_id: int, session: Session = Depends(get_sess
     if not dall_e_candidates:
         return {"generated": 0, "total_candidates": 0, "classified_by_llm": len(newly_classified)}
 
-    enriched = await enrich_cards_with_images(dall_e_candidates)
+    with evaluation_service.track_ai_operation(
+        session,
+        user_id=user_id,
+        operation_type="image_generation",
+        endpoint="/api/cards/{deck_id}/generate_images",
+        metadata={"deck_id": deck_id, "candidate_count": len(dall_e_candidates)},
+    ) as op:
+        enriched = await enrich_cards_with_images(dall_e_candidates)
 
     generated = 0
     for item in enriched:
@@ -505,6 +568,8 @@ async def generate_deck_images(deck_id: int, session: Session = Depends(get_sess
                 card.image_url = url
                 session.add(card)
                 generated += 1
+    op["output_count"] = len(enriched)
+    op["accepted_count"] = generated
 
     session.commit()
     return {
@@ -519,6 +584,7 @@ async def preview_image_cards_no_deck(
     files: list[UploadFile] = File(...),
     count: int = Form(default=15),
     user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
 ):
     if count < 1:
         count = 1
@@ -549,10 +615,18 @@ async def preview_image_cards_no_deck(
         raise HTTPException(status_code=422, detail=detail)
 
     context = "\n\n".join(p.page_content for p in all_pages)[:8000]
-    llm = get_llm()
     try:
-        response = await (IMAGE_CARD_PROMPT | llm).ainvoke({"context": context, "count": count})
-        raw_cards = _parse_llm_json(response.content)
+        with evaluation_service.track_ai_operation(
+            session,
+            user_id=user_id,
+            operation_type="generate_image_cards_preview",
+            endpoint="/api/cards/preview_image_cards",
+            metadata={"requested_count": count, "file_count": len(files)},
+        ) as op:
+            llm = get_llm()
+            response = await (IMAGE_CARD_PROMPT | llm).ainvoke({"context": context, "count": count})
+            raw_cards = _parse_llm_json(response.content)
+            op["output_count"] = len(raw_cards)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
 
@@ -564,7 +638,18 @@ async def preview_image_cards_no_deck(
     if not visual_cards:
         raise HTTPException(status_code=422, detail="LLM không tìm thấy khái niệm nào có thể minh hoạ bằng ảnh trong tài liệu này.")
 
-    enriched = await enrich_cards_with_images(visual_cards)
+    batch_id = evaluation_service.make_generation_batch_id("img")
+    visual_cards = evaluation_service.attach_generation_metadata(visual_cards, batch_id=batch_id, origin="ai_image")
+    with evaluation_service.track_ai_operation(
+        session,
+        user_id=user_id,
+        operation_type="image_generation",
+        endpoint="/api/cards/preview_image_cards",
+        metadata={"generation_batch_id": batch_id, "candidate_count": len(visual_cards)},
+    ) as op:
+        enriched = await enrich_cards_with_images(visual_cards)
+        op["output_count"] = len(enriched)
+        op["accepted_count"] = sum(1 for c in enriched if c.get("image_url"))
     return {"cards": enriched, "total": len(enriched)}
 
 
@@ -575,6 +660,7 @@ async def preview_vocab_cards(
     count: int = Form(default=20),
     files: list[UploadFile] = File(default=[]),
     user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
 ):
     count = max(5, min(count, 100))
 
@@ -633,22 +719,31 @@ RETURN ONLY a valid JSON array, no extra text, no markdown fences:
 [{{"word":"cognizant","pos":"adj.","ipa":"/ˈkɒɡnɪzənt/","definition":"Having knowledge or awareness of something, especially a fact or circumstance.","translation":"nhận thức được","example":"The manager was cognizant of the risks before launching the new product.","difficulty":"hard"}}]"""
     )
 
-    llm = get_llm()
     try:
-        response = await (vocab_prompt | llm).ainvoke({
-            "input_type": input_type,
-            "content": content.strip()[:6000],
-            "count": count,
-        })
-        raw_cards = _parse_llm_json(response.content)
+        with evaluation_service.track_ai_operation(
+            session,
+            user_id=user_id,
+            operation_type="generate_vocab_cards_preview",
+            endpoint="/api/cards/preview_vocab_cards",
+            metadata={"input_type": input_type, "requested_count": count},
+        ) as op:
+            llm = get_llm()
+            response = await (vocab_prompt | llm).ainvoke({
+                "input_type": input_type,
+                "content": content.strip()[:6000],
+                "count": count,
+            })
+            raw_cards = _parse_llm_json(response.content)
+            op["output_count"] = len(raw_cards)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
 
     if not raw_cards:
         raise HTTPException(status_code=422, detail="AI không tạo được thẻ từ vựng. Hãy thử lại.")
 
+    batch_id = evaluation_service.make_generation_batch_id("vocab")
     result = []
-    for c in raw_cards:
+    for idx, c in enumerate(raw_cards):
         if not isinstance(c, dict) or not c.get("word"):
             continue
         word = c.get("word", "")
@@ -669,10 +764,18 @@ RETURN ONLY a valid JSON array, no extra text, no markdown fences:
             back_parts.append(f"→ {translation}")
         if example:
             back_parts.append(f'E.g.: "{example}"')
+        generated_back = "\n".join(back_parts)
+        generated_difficulty = difficulty if difficulty in ("easy", "medium", "hard") else "medium"
         result.append({
             "front": word,
-            "back": "\n".join(back_parts),
-            "difficulty": difficulty if difficulty in ("easy", "medium", "hard") else "medium",
+            "back": generated_back,
+            "difficulty": generated_difficulty,
+            "origin": "ai_vocab",
+            "generation_batch_id": batch_id,
+            "generation_item_id": f"{batch_id}_{idx}",
+            "generated_front": word,
+            "generated_back": generated_back,
+            "generated_difficulty": generated_difficulty,
             "word": word,
             "pos": pos,
             "ipa": ipa,
@@ -689,6 +792,7 @@ async def generate_image_cards(
     deck_id: int,
     files: list[UploadFile] = File(...),
     count: int = Form(default=15),
+    user_id: int = Depends(get_current_user_id),
     session: Session = Depends(get_session),
 ):
     if count < 1:
@@ -721,10 +825,18 @@ async def generate_image_cards(
 
     # Single LLM call — take up to 8000 chars to keep context rich
     context = "\n\n".join(p.page_content for p in all_pages)[:8000]
-    llm = get_llm()
     try:
-        response = await (IMAGE_CARD_PROMPT | llm).ainvoke({"context": context, "count": count})
-        raw_cards = _parse_llm_json(response.content)
+        with evaluation_service.track_ai_operation(
+            session,
+            user_id=user_id,
+            operation_type="generate_image_cards_save",
+            endpoint="/api/cards/{deck_id}/generate_image_cards",
+            metadata={"deck_id": deck_id, "requested_count": count, "file_count": len(files)},
+        ) as op:
+            llm = get_llm()
+            response = await (IMAGE_CARD_PROMPT | llm).ainvoke({"context": context, "count": count})
+            raw_cards = _parse_llm_json(response.content)
+            op["output_count"] = len(raw_cards)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
 
@@ -738,10 +850,21 @@ async def generate_image_cards(
         raise HTTPException(status_code=422, detail="LLM không tìm thấy khái niệm nào có thể minh hoạ bằng ảnh trong tài liệu này.")
 
     # Generate DALL-E images for real_image cards
-    enriched = await enrich_cards_with_images(visual_cards)
+    batch_id = evaluation_service.make_generation_batch_id("img")
+    visual_cards = evaluation_service.attach_generation_metadata(visual_cards, batch_id=batch_id, origin="ai_image")
+    with evaluation_service.track_ai_operation(
+        session,
+        user_id=user_id,
+        operation_type="image_generation",
+        endpoint="/api/cards/{deck_id}/generate_image_cards",
+        metadata={"deck_id": deck_id, "generation_batch_id": batch_id, "candidate_count": len(visual_cards)},
+    ) as op:
+        enriched = await enrich_cards_with_images(visual_cards)
+        op["output_count"] = len(enriched)
+        op["accepted_count"] = sum(1 for c in enriched if c.get("image_url"))
 
     # Save all visual cards (with or without image_url) to deck
-    card_service.bulk_add_flashcards(session, deck_id, enriched)
+    card_service.bulk_add_flashcards(session, deck_id, enriched, user_id)
 
     real_image_count = sum(1 for c in enriched if c.get("image_type") == "real_image")
     diagram_count = sum(1 for c in enriched if c.get("image_type") == "diagram")
@@ -754,14 +877,23 @@ async def generate_image_cards(
 
 
 @router.put("/{card_id}")
-def update_card(card_id: int, payload: CardEdit, session: Session = Depends(get_session)):
-    card_service.update_flashcard(session, card_id, payload.front, payload.back, payload.difficulty)
+def update_card(
+    card_id: int,
+    payload: CardEdit,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    card_service.update_flashcard(session, card_id, payload.front, payload.back, payload.difficulty, user_id)
     return {"message": "success"}
 
 
 @router.delete("/{card_id}")
-def delete_card(card_id: int, session: Session = Depends(get_session)):
-    card_service.delete_flashcard(session, card_id)
+def delete_card(
+    card_id: int,
+    user_id: int = Depends(get_current_user_id),
+    session: Session = Depends(get_session),
+):
+    card_service.delete_flashcard(session, card_id, user_id)
     return {"message": "success"}
 
 
