@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     DEFAULT_MODEL: str = "gpt-4o-mini"
     LOG_LEVEL: str = "INFO"
     APP_TIMEZONE: str = "Asia/Ho_Chi_Minh"
+    ADMIN_EMAILS: str = ""
     
     # Database
     DATABASE_URL: str = ""

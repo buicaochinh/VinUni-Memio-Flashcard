@@ -8,6 +8,7 @@ export type User = {
   photo_url?: string;
   username?: string | null;
   auth_type?: "google" | "username" | string;
+  is_admin?: boolean;
 };
 
 export type Deck = {
@@ -1428,6 +1429,15 @@ export async function fetchAnalytics(): Promise<AnalyticsData> {
 export async function fetchPilotEvaluation(days = 7): Promise<PilotEvaluationResponse> {
   const res = await authFetch(`/api/decks/evaluation/pilot?days=${days}`);
   if (!res.ok) throw new Error("PILOT_EVALUATION_FAILED");
+  return res.json() as Promise<PilotEvaluationResponse>;
+}
+
+export async function fetchAdminPilotEvaluation(days = 7): Promise<PilotEvaluationResponse> {
+  const res = await authFetch(`/api/admin/evaluation/pilot?days=${days}`);
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    throw new Error(detail ?? "ADMIN_PILOT_EVALUATION_FAILED");
+  }
   return res.json() as Promise<PilotEvaluationResponse>;
 }
 

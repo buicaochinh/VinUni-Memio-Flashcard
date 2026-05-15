@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.app.api.endpoints import auth, decks, cards, users
+from src.app.api.endpoints import admin, auth, decks, cards, users
 from src.app.api.endpoints import integrations
 from src.app.api.endpoints import integrations_telegram
 from src.app.api.endpoints import ingestion
@@ -23,3 +23,4 @@ api_router.include_router(games.router, prefix="/games", tags=["Games"])
 api_router.include_router(coach.router, prefix="/coach", tags=["Coach"])
 api_router.include_router(goals.router, prefix="/goals", tags=["Learning Goals"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
+api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])
