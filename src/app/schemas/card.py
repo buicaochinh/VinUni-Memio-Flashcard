@@ -8,6 +8,8 @@ class ProgressUpdate(BaseModel):
     repetition: int
     interval: int
     deck_id: int = 0
+    review_source: str = "study"
+    used_hint: bool = False
 
 class CardEdit(BaseModel):
     front: str
