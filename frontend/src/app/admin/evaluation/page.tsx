@@ -61,7 +61,7 @@ export default function AdminEvaluationPage() {
     if (!clientReady || !user?.is_admin) return;
     fetchAdminPilotEvaluation(days)
       .then(setData)
-      .catch((err) => setError(err instanceof Error ? err.message : "Khong tai duoc dashboard evaluation."))
+      .catch((err) => setError(err instanceof Error ? err.message : "Không tải được dashboard evaluation."))
   }, [clientReady, user?.is_admin, days]);
 
   const loading = !data && !error;
@@ -88,11 +88,11 @@ export default function AdminEvaluationPage() {
       <header className="mb-8 max-w-4xl">
         <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border bg-muted/35 px-3 py-1.5 text-[0.78rem] font-semibold text-muted-foreground">
           <ShieldAlert className="h-3.5 w-3.5 text-primary" aria-hidden />
-          Admin only
+          Chỉ admin
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Pilot Evaluation</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Đánh giá pilot</h1>
         <p className="mt-3 text-[0.95rem] leading-relaxed text-muted-foreground">
-          Dashboard noi bo de theo doi learning outcome, AI quality, va reliability cua Memio trong pilot.
+          Dashboard nội bộ để theo dõi learning outcome, AI quality và reliability của Memio trong pilot.
         </p>
       </header>
 
@@ -113,7 +113,7 @@ export default function AdminEvaluationPage() {
                 : "border-border bg-background text-foreground hover:bg-muted/40"
             )}
           >
-            {value} ngay
+            {value} ngày
           </button>
         ))}
       </div>
@@ -138,55 +138,55 @@ export default function AdminEvaluationPage() {
             <MetricCard
               label="Weekly Active Learners"
               value={String(metrics.weekly_active_learners.value)}
-              unit="learners"
+              unit="người học"
               hint={`${data.window.start_date} → ${data.window.end_date}`}
             />
             <MetricCard
               label="Mastered / Active"
               value={String(metrics.mastered_cards_per_active_learner_per_week.value)}
-              unit="cards"
-              hint={`${metrics.mastered_cards_per_active_learner_per_week.mastered_cards} cards mastered`}
+              unit="thẻ"
+              hint={`${metrics.mastered_cards_per_active_learner_per_week.mastered_cards} thẻ đạt mastery`}
             />
             <MetricCard
               label="Due Completion"
               value={`${metrics.due_card_completion_rate.value}%`}
-              unit="today"
-              hint={`${metrics.due_card_completion_rate.completed_due_today}/${metrics.due_card_completion_rate.denominator} due cards done`}
+              unit="hôm nay"
+              hint={`${metrics.due_card_completion_rate.completed_due_today}/${metrics.due_card_completion_rate.denominator} thẻ đến hạn đã hoàn thành`}
             />
             <MetricCard
               label="7-Day Retention"
-              value={metrics.seven_day_retention.value === null ? "N/A" : `${metrics.seven_day_retention.value}%`}
+              value={metrics.seven_day_retention.value === null ? "Chưa có" : `${metrics.seven_day_retention.value}%`}
               hint={data.window.d7_retention_note}
             />
             <MetricCard
               label="AI Acceptance"
               value={`${metrics.ai_card_acceptance_rate.value}%`}
-              hint={`${metrics.ai_card_acceptance_rate.accepted_cards}/${metrics.ai_card_acceptance_rate.generated_candidates} accepted`}
+              hint={`${metrics.ai_card_acceptance_rate.accepted_cards}/${metrics.ai_card_acceptance_rate.generated_candidates} thẻ được giữ lại`}
             />
             <MetricCard
               label="AI Edit Rate"
               value={`${metrics.ai_card_edit_delete_rate.value.edit_rate_percent}%`}
-              hint={`${metrics.ai_card_edit_delete_rate.edited_cards} edited before/after save`}
+              hint={`${metrics.ai_card_edit_delete_rate.edited_cards} thẻ bị sửa trước/sau khi lưu`}
             />
             <MetricCard
               label="AI Delete Rate"
               value={`${metrics.ai_card_edit_delete_rate.value.delete_rate_percent}%`}
-              hint={`${metrics.ai_card_edit_delete_rate.deleted_cards} deleted`}
+              hint={`${metrics.ai_card_edit_delete_rate.deleted_cards} thẻ bị xóa`}
             />
             <MetricCard
               label="Coach Action CTR"
               value={`${metrics.coach_action_click_through_rate.value}%`}
-              hint={`${metrics.coach_action_click_through_rate.action_clicks}/${metrics.coach_action_click_through_rate.actions_shown} clicks`}
+              hint={`${metrics.coach_action_click_through_rate.action_clicks}/${metrics.coach_action_click_through_rate.actions_shown} lượt click`}
             />
             <MetricCard
               label="Goal Readiness Accuracy"
-              value={metrics.exam_goal_readiness_accuracy.value === null ? "N/A" : `${metrics.exam_goal_readiness_accuracy.value}%`}
-              hint={`${metrics.exam_goal_readiness_accuracy.accurate_snapshots}/${metrics.exam_goal_readiness_accuracy.evaluated_snapshots} snapshots`}
+              value={metrics.exam_goal_readiness_accuracy.value === null ? "Chưa có" : `${metrics.exam_goal_readiness_accuracy.value}%`}
+              hint={`${metrics.exam_goal_readiness_accuracy.accurate_snapshots}/${metrics.exam_goal_readiness_accuracy.evaluated_snapshots} snapshots chính xác`}
             />
             <MetricCard
               label="OpenAI Cost / Active"
               value={`$${metrics.openai_cost_per_active_learner.value.toFixed(4)}`}
-              hint={`Total $${metrics.openai_cost_per_active_learner.total_openai_cost_usd.toFixed(4)}`}
+              hint={`Tổng $${metrics.openai_cost_per_active_learner.total_openai_cost_usd.toFixed(4)}`}
             />
           </section>
 
@@ -215,24 +215,24 @@ export default function AdminEvaluationPage() {
             <article className="rounded-2xl border border-border bg-background px-6 py-6 shadow-sm">
               <div className="mb-5 flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-primary" aria-hidden />
-                <h2 className="text-lg font-semibold tracking-tight">Operator notes</h2>
+                <h2 className="text-lg font-semibold tracking-tight">Ghi chú vận hành</h2>
               </div>
               <ul className="space-y-4 text-[0.9rem] leading-relaxed text-muted-foreground">
                 <li className="flex gap-3">
                   <Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  Active learner duoc tinh theo meaningful learning evidence trong window, khong phai login.
+                  Active learner được tính theo meaningful learning evidence trong window, không phải chỉ theo login.
                 </li>
                 <li className="flex gap-3">
                   <Target className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  Mastery hien tai va mastery transition duoc suy ra tu `review_history` va `progress`.
+                  Mastery hiện tại và mastery transition được suy ra từ `review_history` và `progress`.
                 </li>
                 <li className="flex gap-3">
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  AI acceptance/edit/delete dang dua tren provenance fields cua `flashcards` + `telemetry_events`.
+                  AI acceptance/edit/delete đang dựa trên provenance fields của `flashcards` và `telemetry_events`.
                 </li>
                 <li className="flex gap-3">
                   <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-                  D7 retention hien la first meaningful learning event retention, chua phai signup retention.
+                  D7 retention hiện là first meaningful learning event retention, chưa phải signup retention.
                 </li>
               </ul>
             </article>
