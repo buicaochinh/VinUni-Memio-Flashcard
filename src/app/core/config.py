@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     # Directory for generated images; Docker maps ./data:/app/data
     IMAGES_DATA_DIR: str = "/app/data/generated-images"
 
+    # Comma-separated list of emails that automatically get is_admin=True on login
+    ADMIN_EMAILS: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

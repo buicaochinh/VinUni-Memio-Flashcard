@@ -2,6 +2,14 @@ from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
 from src.app.models.domain import User
 from src.app.utils.security import hash_password, verify_password, generate_guest_id
+from src.app.core.config import settings
+
+
+def _is_admin_email(email: str | None) -> bool:
+    if not email or not settings.ADMIN_EMAILS:
+        return False
+    admin_set = {e.strip().lower() for e in settings.ADMIN_EMAILS.split(",") if e.strip()}
+    return email.strip().lower() in admin_set
 
 
 def get_or_create_user(session: Session, google_id: str, name: str, email: str, photo_url: str = ""):
@@ -16,6 +24,7 @@ def get_or_create_user(session: Session, google_id: str, name: str, email: str, 
             email=email,
             photo_url=photo_url,
             auth_type="google",
+            is_admin=_is_admin_email(email),
         )
         session.add(user)
         session.commit()
@@ -24,6 +33,8 @@ def get_or_create_user(session: Session, google_id: str, name: str, email: str, 
         user.name = name
         user.email = email
         user.photo_url = photo_url
+        if _is_admin_email(email):
+            user.is_admin = True
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -65,6 +76,12 @@ def login_user(session: Session, username: str, password: str):
 
     if not verify_password(password, user.password_hash):
         raise ValueError("Invalid username or password")
+
+    if _is_admin_email(user.email) and not user.is_admin:
+        user.is_admin = True
+        session.add(user)
+        session.commit()
+        session.refresh(user)
 
     return user.model_dump(exclude={"password_hash"})
 
