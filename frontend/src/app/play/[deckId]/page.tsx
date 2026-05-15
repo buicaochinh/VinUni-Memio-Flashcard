@@ -311,7 +311,7 @@ export default function PlayCampaignPage() {
       setPhase("feedback");
 
       const card = cardsById[question.card_id];
-      if (card) updateCardProgress(card, q).catch(() => {});
+      if (card) updateCardProgress(card, q, { review_source: "game", used_hint: usedHint }).catch(() => {});
 
       // Capture advance in a ref so timer + skip both work without stale closures
       advanceRef.current = () => {
