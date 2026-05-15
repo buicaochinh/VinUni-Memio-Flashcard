@@ -1,7 +1,19 @@
 from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
+from src.app.core.config import settings
 from src.app.models.domain import User
 from src.app.utils.security import hash_password, verify_password, generate_guest_id
+
+
+def _is_admin_email(email: str | None) -> bool:
+    if not email:
+        return False
+    allowed = {
+        item.strip().lower()
+        for item in (settings.ADMIN_EMAILS or "").split(",")
+        if item.strip()
+    }
+    return email.strip().lower() in allowed
 
 def get_or_create_user(session: Session, google_id: str, name: str, email: str, photo_url: str = ""):
     """Google OAuth login"""
@@ -9,7 +21,14 @@ def get_or_create_user(session: Session, google_id: str, name: str, email: str, 
     user = session.exec(statement).first()
 
     if not user:
-        user = User(google_id=google_id, name=name, email=email, photo_url=photo_url, auth_type="google")
+        user = User(
+            google_id=google_id,
+            name=name,
+            email=email,
+            photo_url=photo_url,
+            auth_type="google",
+            is_admin=_is_admin_email(email),
+        )
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -17,6 +36,8 @@ def get_or_create_user(session: Session, google_id: str, name: str, email: str, 
         user.name = name
         user.email = email
         user.photo_url = photo_url
+        if _is_admin_email(email):
+            user.is_admin = True
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -36,7 +57,8 @@ def register_user(session: Session, username: str, password: str, email: str = N
         password_hash=hash_password(password),
         email=email,
         name=name or username,
-        auth_type="username"
+        auth_type="username",
+        is_admin=_is_admin_email(email),
     )
     session.add(user)
     try:

@@ -23,3 +23,4 @@ class UserResponse(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
     auth_type: str
+    is_admin: bool = False

@@ -78,6 +78,7 @@ class User(SQLModel, table=True):
     photo_url: Optional[str] = None
     auth_type: str = Field(default="google")  # "google", "username", "guest"
     is_guest: bool = Field(default=False)
+    is_admin: bool = Field(default=False, index=True)
     total_xp: int = Field(default=0)
 
     decks: List["Deck"] = Relationship(back_populates="user")
