@@ -696,15 +696,19 @@ graph TB
 1. **One-time:** `sudo bash scripts/bootstrap.sh` → Docker check, swap 2GB, UFW 80/443, swarm init
 2. **Daily:** `bash scripts/redeploy.sh` → `docker compose build` → `docker stack deploy -c docker-stack.yml memio`
 
+**CI/CD (GitHub Actions):** Mỗi push lên `main` trigger 2 jobs song song:
+- **Backend**: `ruff check src/ tests/` → `pytest tests/ --cov=src`
+- **Frontend**: `tsc --noEmit` → `eslint src/` → `jest --ci --coverage`
+
 ---
 
 ## 9. Tech Stack Summary
 
 | Layer | Technology | Chi tiết |
 |-------|-----------|----------|
-| **Frontend** | Next.js 16 + TypeScript | App Router, Tailwind CSS 3.4, Radix UI, Lucide Icons |
+| **Frontend** | Next.js 16.2.4 + TypeScript | App Router, Tailwind CSS 3.4, Radix UI, Lucide Icons |
 | **Styling** | Tailwind CSS + CSS Variables | `next-themes` (dark/light), design tokens trong `tailwind.config.js` |
-| **Backend** | FastAPI + Uvicorn | Python 3.11, ASGI, lifespan context manager |
+| **Backend** | FastAPI 0.115+ + Uvicorn | Python 3.11, ASGI, lifespan context manager |
 | **ORM** | SQLModel (SQLAlchemy + Pydantic) | Pydantic V2 (`model_dump()`), Alembic migrations |
 | **Database** | PostgreSQL | 20+ tables, remote server, managed via Alembic |
 | **AI — Text** | GPT-4o-mini via `langchain-openai` | Card gen, Coach RAG, Campaign, Explain |
@@ -714,4 +718,6 @@ graph TB
 | **Scheduler** | APScheduler (AsyncIOScheduler) | In-process, due cards (5m), ingestion (10m), weekly report |
 | **Reverse Proxy** | Caddy 2 Alpine | Auto HTTPS via Let's Encrypt |
 | **Containerization** | Docker Compose + Docker Swarm | Multi-stage Alpine images, rolling update |
+| **CI/CD** | GitHub Actions | ruff + pytest (backend), tsc + eslint + jest (frontend) |
+| **Testing** | pytest + Jest | 99 backend tests (unit/integration), 8 frontend tests |
 | **External** | Telegram Bot API, Notion API, DuckDuckGo | Notifications, ingestion, web search fallback |

@@ -15,11 +15,8 @@ Tài liệu trong repo được chia theo mục đích:
 
 ### Kỹ thuật / Dev / Vận hành (source of truth)
 
-- `PROJECT_CONTEXT.md`: Kiến trúc, file map, DB schema, API endpoints, design system, deploy, gotchas.
-
-### Biểu đồ
-
-- `docs/diagrams.md`: Mermaid diagrams (architecture, ERD, flows).
+- `PROJECT_CONTEXT.md`: File map, DB schema, API endpoints, design system, deploy, gotchas.
+- `architecture.md`: Kiến trúc hệ thống đầy đủ — Mermaid diagrams (tổng quan, ER, luồng dữ liệu, AI integration, deployment, frontend/backend breakdown).
 
 ### Quyết định kỹ thuật (ADR)
 

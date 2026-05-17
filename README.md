@@ -374,9 +374,10 @@ A20-App-001/
 
 | File | Nội dung |
 |------|----------|
-| `docs/Architecture_Diagram.md` | Sơ đồ luồng dữ liệu end-to-end |
-| `docs/image-flashcard-feature.md` | Chi tiết kỹ thuật tính năng Đuổi Hình Bắt Chữ |
+| `architecture.md` | Kiến trúc hệ thống, ER diagram, luồng dữ liệu, AI integration, deployment |
+| `PROJECT_CONTEXT.md` | File map, DB schema, API endpoints, design system, gotchas |
 
 ## API Docs
 
-Khi chạy backend local: [http://localhost:8000/docs](http://localhost:8000/docs) (Swagger UI)
+- **Production:** [https://api.mem.io.vn/docs](https://api.mem.io.vn/docs) (Swagger UI)
+- **Local:** [http://localhost:8000/docs](http://localhost:8000/docs)
