@@ -1,0 +1,33 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W = pycodestyle errors/warnings, F = pyflakes (real bugs)
+# I001 (import sorting) and E501 (line length) are not enforced to avoid
+# forcing rewrites of pre-existing code.
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# load_dotenv() / env setup must come before other imports
+"src/main.py" = ["E402"]
+"src/app/services/card_service.py" = ["E402"]
+"tests/conftest.py" = ["E402"]
+# SQLAlchemy WHERE clauses require == False / == True comparisons
+"src/app/services/analytics_service.py" = ["E712"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/app/worker/*", "scripts/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

@@ -1,5 +1,4 @@
 import json
-import os
 import random
 import re
 import unicodedata
@@ -12,7 +11,7 @@ from openai import OpenAI
 from sqlmodel import Session, select
 
 from src.app.core.config import DEFAULT_MODEL, OPENAI_API_KEY
-from src.app.models.domain import CoachMessage, CoachThread, Deck, Flashcard, Progress, StudySession
+from src.app.models.domain import CoachMessage, CoachThread, Deck, Flashcard, Progress
 from src.app.services.analytics_service import get_analytics
 from src.app.core.time import utc_now_naive
 from src.app.services import evaluation_service

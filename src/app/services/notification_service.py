@@ -9,7 +9,6 @@ from src.app.core.time import date_key, local_date
 from src.app.models.domain import (
     ChatIntegration,
     Deck,
-    Flashcard,
     LearningGoal,
     Progress,
     StudySession,

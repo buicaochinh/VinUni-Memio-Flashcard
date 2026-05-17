@@ -26,10 +26,10 @@ from src.app.services import evaluation_service
 from src.app.services import xp_service
 from src.app.core.sm2 import get_updated_sm2_values
 from src.app.schemas.card import (
-    ProgressUpdate, 
-    CardEdit, 
-    BulkCreatePayload, 
-    StudySessionLog, 
+    ProgressUpdate,
+    CardEdit,
+    BulkCreatePayload,
+    StudySessionLog,
     ExplainRequest
 )
 
@@ -1061,5 +1061,5 @@ def get_explain(payload: ExplainRequest):
             content = content.split("```")[1].split("```")[0].strip()
 
         return json.loads(content)
-    except:
+    except Exception:
         return {"answer": response.content, "citations": []}

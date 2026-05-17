@@ -20,7 +20,7 @@ class AuthSession(SQLModel, table=True):
     device_name: Optional[str] = None
     created_at: datetime = Field(default_factory=utc_now_naive)
     last_used_at: Optional[datetime] = None
-    revoked_at: Optional[datetime] = Field(default=None, index=True)
+    revoked_at: Optional[datetime] = Field(default=None)  # indexed via __table_args__
 
 
 class ChatIntegration(SQLModel, table=True):
@@ -126,7 +126,7 @@ class Progress(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("user_id", "card_id", name="unique_user_card_progress"),
     )
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id")
     card_id: int = Field(foreign_key="flashcards.id")
@@ -144,7 +144,7 @@ class StudySession(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("user_id", "deck_id", "session_date", name="unique_study_session_per_day"),
     )
-    
+
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id")
     deck_id: int = Field(foreign_key="decks.id")

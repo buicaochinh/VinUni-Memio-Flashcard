@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session, select
 
 from src.app.db.session import get_session
-from src.app.models.domain import ChatIntegration, LinkCode, Progress, Flashcard
+from src.app.models.domain import ChatIntegration, LinkCode, Progress
 from src.app.services.telegram_service import TelegramConfigError, send_message
 from src.app.core.sm2 import get_updated_sm2_values
 from src.app.core.time import utc_now_naive

@@ -56,7 +56,7 @@ def get_analytics(session: Session, user_id: int):
 
     # 3. Hardest cards
     hardest_statement = select(Flashcard, Progress).join(Progress).where(
-        Progress.user_id == user_id, 
+        Progress.user_id == user_id,
         Progress.repetition > 0
     ).order_by(Progress.ease_factor.asc()).limit(10)
     hardest_results = session.exec(hardest_statement).all()
@@ -68,13 +68,13 @@ def get_analytics(session: Session, user_id: int):
 
     # 4. Global counts
     total_statement = select(func.count(Progress.id)).where(
-        Progress.user_id == user_id, 
+        Progress.user_id == user_id,
         Progress.repetition > 0
     )
     total_reviewed = session.exec(total_statement).one() or 0
 
     hard_statement = select(func.count(Progress.id)).where(
-        Progress.user_id == user_id, 
+        Progress.user_id == user_id,
         Progress.ease_factor < 2.0
     )
     hard_count = session.exec(hard_statement).one() or 0
@@ -93,7 +93,7 @@ def get_analytics(session: Session, user_id: int):
     ).where(
         Deck.user_id == user_id
     ).group_by(Deck.id, Deck.name)
-    
+
     deck_stats_results = session.exec(deck_stats_statement).all()
     deck_stats = []
     for row in deck_stats_results:
@@ -182,13 +182,13 @@ def _calculate_streak(dates, timezone_name: str | None = None):
     streak = 0
     current = local_date(timezone_name)
     yesterday = current - datetime.timedelta(days=1)
-    
+
     # Clean up dates to set of date objects for easier comparison
     date_objs = set()
     for d in dates:
         try:
             date_objs.add(datetime.datetime.strptime(d, "%Y-%m-%d").date())
-        except:
+        except Exception:
             continue
 
     if not date_objs:
@@ -201,10 +201,10 @@ def _calculate_streak(dates, timezone_name: str | None = None):
             check_date = yesterday
         else:
             return 0
-            
+
     streak = 0
     while check_date in date_objs:
         streak += 1
         check_date -= datetime.timedelta(days=1)
-        
+
     return streak

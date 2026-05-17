@@ -6,17 +6,17 @@ class Settings(BaseSettings):
     Application settings using Pydantic Settings.
     Loads variables from environment variables or .env file.
     """
-    
+
     # API Keys
     ANTHROPIC_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
-    
+
     # App Config
     DEFAULT_MODEL: str = "gpt-4o-mini"
     LOG_LEVEL: str = "INFO"
     APP_TIMEZONE: str = "Asia/Ho_Chi_Minh"
-    
+
     # Database
     DATABASE_URL: str = ""
 
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     NOTION_REDIRECT_URI: str = ""
     NOTION_FRONTEND_REDIRECT_URL: str = "http://localhost:3000/integrations"
     NOTION_API_VERSION: str = "2022-06-28"
-    
+
     # AI Logging (System)
     AI_LOG_SERVER: Optional[str] = None
     AI_LOG_API_KEY: Optional[str] = None

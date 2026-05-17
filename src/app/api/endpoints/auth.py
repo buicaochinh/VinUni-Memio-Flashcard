@@ -10,7 +10,6 @@ from src.app.schemas.user import (
     GoogleLoginRequest,
     UsernameLoginRequest,
     UsernameRegisterRequest,
-    UserResponse,
 )
 from src.app.utils.jwt_auth import (
     create_access_token,
