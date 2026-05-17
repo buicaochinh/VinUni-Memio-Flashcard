@@ -1,11 +1,12 @@
 # Memio — AI Smart Flashcards
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)](https://nextjs.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.4-000000?logo=nextdotjs)](https://nextjs.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)](https://postgresql.org)
 [![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-412991?logo=openai)](https://openai.com)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://docker.com)
+[![CI](https://github.com/buicaochinh/VinUni-Memio-Flashcard/actions/workflows/ci.yml/badge.svg)](https://github.com/buicaochinh/VinUni-Memio-Flashcard/actions/workflows/ci.yml)
 
 ---
 
@@ -197,6 +198,40 @@ npm run dev
 
 ---
 
+## Chạy tests & Lint
+
+### Backend
+
+```bash
+source .venv/bin/activate
+pip install -r requirements-dev.txt   # chỉ lần đầu
+
+# Lint
+ruff check src/ tests/
+
+# Tests (99 tests: unit + integration)
+pytest tests/
+
+# Tests + coverage report
+pytest tests/ --cov=src --cov-report=term-missing
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm test            # Jest watch mode
+npm run test:ci     # Jest CI mode + coverage
+```
+
+### CI Pipeline (GitHub Actions)
+
+Mỗi push lên `main` sẽ tự động chạy 2 jobs song song:
+- **Backend**: `ruff check` → `pytest --cov`
+- **Frontend**: `tsc --noEmit` → `eslint` → `jest --ci`
+
+---
+
 ## Biến môi trường
 
 Sao chép `.env.example` thành `.env` và điền giá trị:
@@ -270,6 +305,10 @@ A20-App-001/
 │       └── core/
 │           ├── config.py            # pydantic-settings (env vars)
 │           └── sm2.py               # SM-2 algorithm
+├── tests/
+│   ├── conftest.py                  # Fixtures: SQLite test DB, TestClient, auth helpers
+│   ├── unit/                        # Pure logic tests (SM-2, JWT, security, XP)
+│   └── integration/                 # API endpoint tests (auth, decks)
 ├── alembic/versions/                # DB migrations
 ├── frontend/
 │   ├── src/app/                     # Next.js app router pages
@@ -281,12 +320,16 @@ A20-App-001/
 │   │   ├── analytics/               # Thống kê
 │   │   ├── integrations/            # Liên kết (Telegram, Notion...)
 │   │   └── play/[deckId]/           # Adventure Campaign
+│   ├── src/lib/__tests__/           # Jest unit tests
 │   ├── public/generated-images/     # DALL-E ảnh download local
 │   └── src/lib/app-client.ts        # API client + TypeScript types
+├── .github/workflows/ci.yml         # CI: ruff + pytest (backend), tsc + eslint + jest (frontend)
 ├── docs/
 │   ├── image-flashcard-feature.md
 │   └── Architecture_Diagram.md
-└── requirements.txt
+├── pyproject.toml                   # pytest + ruff + coverage config
+├── requirements.txt
+└── requirements-dev.txt             # pytest, ruff, httpx, pytest-cov
 ```
 
 ---

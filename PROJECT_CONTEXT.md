@@ -125,6 +125,13 @@ A20-App-001/
 │       │                             # deck/[shareToken]
 │       ├── components/{AppShell,ThemeProvider,ThemeToggle}.tsx
 │       └── lib/app-client.ts         # API client + localStorage auth + offline cache
+├── tests/
+│   ├── conftest.py                   # SQLite test DB, TestClient fixture, auth helpers
+│   ├── unit/{test_sm2,test_jwt,test_security,test_xp}.py
+│   └── integration/{test_auth,test_decks}.py
+├── .github/workflows/ci.yml          # CI: ruff+pytest (backend) + tsc+eslint+jest (frontend)
+├── pyproject.toml                    # pytest / ruff / coverage config
+├── requirements-dev.txt              # pytest, ruff, httpx, pytest-cov
 ├── scripts/{deploy.sh, setup_hooks.sh, log_hook.py}
 ├── db_deploy/                        # Standalone PostgreSQL Docker deploy
 ├── docker-compose.yml + Caddyfile    # caddy + backend + frontend
@@ -338,7 +345,8 @@ Base: `/api` (mounted in `src/main.py`)
   - `docker-compose.yml`: dùng để build local images (`a20-app-001-backend:pilot`, `a20-app-001-frontend:pilot`).
   - `docker-stack.yml`: file deploy cho Swarm — dùng local image tags, cùng `deploy.resources.limits.{memory,cpus}` và `update_config` rolling.
 - **Resource limits (đặt trong `docker-stack.yml > deploy.resources.limits`):** `backend 512M/1.0`, `frontend 384M/0.75`, `worker 384M/0.75`, `beat 128M/0.25`, `caddy 128M/0.25`, `redis 128M/0.25`. Tổng ~1.7GB, vừa với RAM 2GB + swap 2GB.
-- **Image pipeline hiện tại:** build trực tiếp trên server (không CI/CD). Quy trình: `git pull --ff-only` rồi `bash scripts/redeploy.sh`.
+- **CI/CD:** GitHub Actions chạy tự động trên mỗi push — backend job (ruff + pytest) và frontend job (tsc + eslint + jest) chạy song song. Badge: [![CI](https://github.com/buicaochinh/VinUni-Memio-Flashcard/actions/workflows/ci.yml/badge.svg)](https://github.com/buicaochinh/VinUni-Memio-Flashcard/actions/workflows/ci.yml)
+- **Image pipeline hiện tại:** build trực tiếp trên server. Quy trình: `git pull --ff-only` rồi `bash scripts/redeploy.sh`.
 
 | Service | Image | Port |
 |---|---|---|
@@ -385,6 +393,17 @@ uvicorn src.main:app --reload          # → http://localhost:8000/docs
 
 # Frontend
 cd frontend && npm run dev              # → http://localhost:3000
+
+# Lint (backend)
+ruff check src/ tests/
+
+# Tests (backend — 99 tests, SQLite in-memory)
+pip install -r requirements-dev.txt    # chỉ lần đầu
+pytest tests/ -v
+pytest tests/ --cov=src --cov-report=term-missing
+
+# Tests (frontend — Jest + @testing-library)
+cd frontend && npm test
 ```
 
 **Key rules:**
