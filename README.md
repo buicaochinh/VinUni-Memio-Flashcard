@@ -12,7 +12,7 @@
 
 **🔗 Links quan trọng:**
 [🌐 Production](https://a20-app-001.mem.io.vn) &nbsp;|&nbsp;
-[📖 API Docs (Swagger)](https://a20-app-001.mem.io.vn/docs) &nbsp;|&nbsp;
+[📖 API Docs (Swagger)](https://api.mem.io.vn/docs) &nbsp;|&nbsp;
 [⚙️ GitHub Actions](https://github.com/buicaochinh/VinUni-Memio-Flashcard/actions) &nbsp;|&nbsp;
 [📋 Project Context](./PROJECT_CONTEXT.md)
 
