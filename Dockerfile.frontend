@@ -8,7 +8,7 @@ WORKDIR /app
 # Tận dụng cache khi cài đặt dependencies
 COPY frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit --no-fund --omit=dev
+    npm ci --prefer-offline --no-audit --no-fund
 
 COPY frontend/ .
 
