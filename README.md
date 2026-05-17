@@ -10,6 +10,14 @@
 
 ---
 
+**🔗 Links quan trọng:**
+[🌐 Production](https://a20-app-001.mem.io.vn) &nbsp;|&nbsp;
+[📖 API Docs (Swagger)](https://a20-app-001.mem.io.vn/docs) &nbsp;|&nbsp;
+[⚙️ GitHub Actions](https://github.com/buicaochinh/VinUni-Memio-Flashcard/actions) &nbsp;|&nbsp;
+[📋 Project Context](./PROJECT_CONTEXT.md)
+
+---
+
 ## Giới thiệu
 
 **Memio** là ứng dụng học tập thông minh kết hợp AI và khoa học nhận thức. Người dùng upload tài liệu học tập (PDF, DOCX, TXT), AI tự động tạo flashcard chất lượng cao, rồi lên lịch ôn tập theo thuật toán **SM-2 (Spaced Repetition)** để tối ưu trí nhớ dài hạn.
@@ -20,6 +28,32 @@
 - Biến việc học thụ động thành trải nghiệm tương tác có AI hỗ trợ
 
 **Production:** [https://a20-app-001.mem.io.vn](https://a20-app-001.mem.io.vn)
+
+---
+
+## Kiến trúc hệ thống
+
+```
+┌─────────┐     ┌──────────────┐     ┌──────────────┐     ┌────────────┐
+│  User   │────▶│   Frontend   │────▶│  Backend/API │────▶│  Database  │
+│         │     │  Next.js 16  │     │  FastAPI     │     │ PostgreSQL │
+│  Browser│◀────│  Port 3000   │◀────│  Port 8000   │◀────│  Port 5432 │
+└─────────┘     └──────────────┘     └──────┬───────┘     └────────────┘
+                                            │
+                              ┌─────────────┼─────────────┐
+                              ▼             ▼             ▼
+                      ┌──────────┐  ┌────────────┐  ┌──────────────┐
+                      │ AI Agent │  │  Scheduler │  │   External   │
+                      │  LLM     │  │ APScheduler│  │   Services   │
+                      │GPT-4o-mini│  │ (in-process)│  │Telegram/Notion│
+                      │DALL-E 3  │  └────────────┘  └──────────────┘
+                      └──────────┘
+
+Luồng dữ liệu:
+  Upload tài liệu → Chunking → GPT-4o-mini → Flashcards → SM-2 → Study queue
+  Câu trả lời     → SM-2 scoring → Progress update → Next review date
+  Coach query     → RAG (decks + progress + analytics) → GPT-4o-mini → Response
+```
 
 ---
 
@@ -83,7 +117,7 @@
 
 | Thành phần | Công nghệ | Vai trò |
 |-----------|-----------|---------|
-| Web framework | FastAPI 0.136 | REST API, async endpoints |
+| Web framework | FastAPI 0.115+ | REST API, async endpoints |
 | ORM | SQLModel + SQLAlchemy | Model định nghĩa kiêm schema validation |
 | Database | PostgreSQL 15 | Lưu trữ chính (20 tables) |
 | Migrations | Alembic | Quản lý schema DB (idempotent) |
@@ -103,7 +137,7 @@
 
 | Thành phần | Công nghệ | Vai trò |
 |-----------|-----------|---------|
-| Framework | Next.js 15 (App Router) | Server + client rendering |
+| Framework | Next.js 16.2.4 (App Router) | Server + client rendering |
 | Language | TypeScript | Type safety |
 | Styling | Tailwind CSS | Utility-first CSS |
 | Components | shadcn/ui + Radix UI | Accessible UI primitives |
@@ -119,6 +153,8 @@
 | Container | Docker + Docker Compose |
 | ASGI server | Uvicorn |
 | Background jobs | APScheduler (in-process, không cần Redis) |
+| CI/CD | GitHub Actions (ruff + pytest + tsc + eslint + jest) |
+| Reverse proxy | Caddy (auto HTTPS) |
 
 ---
 
