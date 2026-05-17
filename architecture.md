@@ -273,6 +273,8 @@ erDiagram
         string photo_url
         string auth_type
         bool is_guest
+        bool is_admin
+        int total_xp
     }
 
     DECKS {
@@ -295,6 +297,15 @@ erDiagram
         string image_type
         string image_url
         string diagram_spec
+        string origin
+        string generation_batch_id
+        string generation_item_id
+        string generated_front
+        string generated_back
+        string generated_difficulty
+        datetime accepted_at
+        datetime first_edited_at
+        datetime deleted_at
         datetime created_at
     }
 
@@ -316,6 +327,8 @@ erDiagram
         int deck_id FK
         string session_date
         int cards_reviewed
+        int new_cards_reviewed
+        int review_cards_reviewed
         float avg_quality
     }
 
@@ -329,6 +342,8 @@ erDiagram
         int score
         int xp_earned
         float accuracy
+        int total_questions
+        int correct_answers
         datetime started_at
         datetime completed_at
     }
@@ -454,6 +469,84 @@ erDiagram
         string cursor_value
     }
 
+    REVIEW_HISTORY {
+        int id PK
+        int user_id FK
+        int card_id
+        int deck_id
+        string review_date
+        datetime reviewed_at
+        int quality
+        int previous_quality
+        float ease_factor
+        float previous_ease_factor
+        int interval
+        int previous_interval
+        int repetition
+        int previous_repetition
+        string scheduled_review
+        int days_since_last_review
+        string review_source
+        bool used_hint
+        bool is_correct
+        bool was_due
+        bool became_mastered
+        bool became_forgotten
+        datetime created_at
+    }
+
+    TELEMETRY_EVENTS {
+        int id PK
+        int user_id FK
+        string event_type
+        string target_type
+        string target_id
+        string metadata_json
+        datetime created_at
+    }
+
+    AI_OPERATION_LOGS {
+        int id PK
+        int user_id FK
+        string operation_type
+        string endpoint
+        string model
+        string provider
+        int prompt_tokens
+        int completion_tokens
+        int total_tokens
+        float estimated_cost_usd
+        int latency_ms
+        string status
+        string error_message
+        int request_count
+        int output_count
+        int accepted_count
+        bool fallback_used
+        string metadata_json
+        datetime created_at
+    }
+
+    GOAL_READINESS_SNAPSHOTS {
+        int id PK
+        int goal_id FK
+        int user_id FK
+        int deck_id FK
+        string target_date
+        int desired_mastery
+        int predicted_readiness
+        int current_mastery
+        int due_cards
+        int new_cards
+        int weak_cards
+        int workload_cards
+        int recommended_daily_cards
+        int days_remaining
+        int actual_mastery
+        int prediction_error
+        datetime created_at
+    }
+
     USERS ||--o{ DECKS : "owns"
     USERS ||--o{ PROGRESS : "tracks"
     USERS ||--o{ STUDY_SESSIONS : "logs"
@@ -465,6 +558,10 @@ erDiagram
     USERS ||--o{ CHAT_INTEGRATIONS : "links"
     USERS ||--o{ OAUTH_CONNECTIONS : "connects"
     USERS ||--o{ INGESTION_SOURCES : "subscribes"
+    USERS ||--o{ REVIEW_HISTORY : "has"
+    USERS ||--o{ TELEMETRY_EVENTS : "generates"
+    USERS ||--o{ AI_OPERATION_LOGS : "triggers"
+    USERS ||--o{ GOAL_READINESS_SNAPSHOTS : "snapshot"
     DECKS ||--o{ FLASHCARDS : "contains"
     DECKS ||--o{ LEARNING_GOALS : "targets"
     FLASHCARDS ||--o{ PROGRESS : "measured_by"
@@ -475,6 +572,7 @@ erDiagram
     INGESTION_SOURCES ||--o{ INGESTION_CURSORS : "bookmarks"
     INGESTION_ITEMS ||--o{ INGESTION_CARD_MAPS : "maps_to"
     FLASHCARDS ||--o{ INGESTION_CARD_MAPS : "created_from"
+    LEARNING_GOALS ||--o{ GOAL_READINESS_SNAPSHOTS : "tracked_by"
 ```
 
 ---
