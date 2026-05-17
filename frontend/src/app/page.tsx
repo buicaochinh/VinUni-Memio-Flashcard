@@ -275,7 +275,7 @@ export default function Home() {
               8–12 phút là đủ.
             </div>
             <p className="text-muted-foreground text-[0.95rem] leading-relaxed mt-3">
-              Memio được thiết kế cho phiên ngắn. Bạn dễ bắt đầu, dễ dừng, và dễ quay lại mà không cần "lấy đà".
+              Memio được thiết kế cho phiên ngắn. Bạn dễ bắt đầu, dễ dừng, và dễ quay lại mà không cần &ldquo;lấy đà&rdquo;.
             </p>
             <div className="mt-6 grid gap-3">
               {[

@@ -438,7 +438,7 @@ export default function DeckEditPage() {
               <Dialog.Content className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-md rounded-2xl border border-border bg-background p-6 shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
                 <Dialog.Title className="text-lg font-bold mb-2">Xóa deck?</Dialog.Title>
                 <Dialog.Description className="text-muted-foreground text-[0.9rem] mb-6 leading-relaxed">
-                  Hành động này không thể hoàn tác. Toàn bộ <strong className="text-foreground">{cards.length} flashcards</strong> trong deck <strong className="text-foreground">"{deck.name}"</strong> sẽ bị xóa vĩnh viễn.
+                  Hành động này không thể hoàn tác. Toàn bộ <strong className="text-foreground">{cards.length} flashcards</strong> trong deck <strong className="text-foreground">&ldquo;{deck.name}&rdquo;</strong> sẽ bị xóa vĩnh viễn.
                 </Dialog.Description>
                 <div className="flex gap-3 justify-end">
                   <Dialog.Close asChild>

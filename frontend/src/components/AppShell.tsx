@@ -54,6 +54,7 @@ export default function AppShell({ children, user }: AppShellProps) {
   const notifRef = useRef<HTMLDivElement>(null);
 
   // Enable transition only after first paint — prevents animation on mount/navigation
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setTransitionReady(true); }, []);
 
   useEffect(() => {
